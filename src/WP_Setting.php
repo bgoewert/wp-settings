@@ -236,7 +236,7 @@ class WP_Setting
         $this->type          = $type;
         $this->width         = $width;
         $this->page          = $page;
-        $this->section       = preg_replace('/\s+/', '_', strtolower($section));
+        $this->section       = preg_replace('/\s+/', '_', strtolower($section ?? ''));
         $this->default_value = $default_value;
         $this->description   = $description;
         $this->required      = $required;
