@@ -495,7 +495,7 @@ class WP_Setting
             return $value;
         }
 
-        $crypt = new WP_Data_Encryption(
+        $crypt = new WP_Setting_Encryption(
             strtoupper(str_replace('-', '_', self::$text_domain . '_key')),
             strtoupper(str_replace('-', '_', self::$text_domain . '_nonce'))
         );
@@ -518,7 +518,7 @@ class WP_Setting
      */
     public static function encrypt($value)
     {
-        $crypt = new WP_Data_Encryption(
+        $crypt = new WP_Setting_Encryption(
             strtoupper(str_replace('-', '_', self::$text_domain . '_key')),
             strtoupper(str_replace('-', '_', self::$text_domain . '_nonce'))
         );
