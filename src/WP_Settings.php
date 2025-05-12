@@ -14,13 +14,6 @@ class WP_Settings
 {
 
     /**
-     * Instance of this class.
-     *
-     * @var WP_Settings
-     */
-    protected static $instance;
-
-    /**
      * Array of defined settings.
      *
      * @var WP_Setting[]
@@ -80,27 +73,6 @@ class WP_Settings
         add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
         add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
-
-        $this->sections = array(
-            array(
-                'name'      => 'Settings',
-                'slug'      => 'settings',
-                'tab'       => 'settings',
-                'tab_title' => 'Settings',
-                'callback'  => array($this, 'empty_section_callback'),
-            ),
-        );
-
-        $this->settings = array();
-    }
-
-    public static function get_instance($text_domain)
-    {
-        // TODO: lock file?
-        if (!isset(self::$instance)) {
-            self::$instance = new self($text_domain);
-        }
-        return self::$instance;
     }
 
     /**
