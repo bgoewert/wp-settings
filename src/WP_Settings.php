@@ -18,54 +18,54 @@ class WP_Settings
      *
      * @var WP_Settings
      */
-    private static $instance;
+    protected static $instance;
 
     /**
      * Array of defined settings.
      *
      * @var WP_Setting[]
      */
-    private $settings;
+    protected $settings;
 
     /**
      * Array of setting sections.
      *
      * @var array
      */
-    private $sections;
+    protected $sections;
 
     /**
      * Parent admin page hook.
      *
      * @var string
      */
-    private $menu_page_hook;
+    protected $menu_page_hook;
 
     /**
      * Submenu page hook.
      *
      * @var string
      */
-    private $submenu_page_hook;
+    protected $submenu_page_hook;
 
     /**
      * Plugin metadata.
      *
      * @var array
      */
-    private $plugin_data;
+    protected $plugin_data;
 
     /**
      * Plugin text domain.
      *
      * @var string
      */
-    private $text_domain;
+    protected $text_domain;
 
     /**
      * Initialize plugin settings.
      */
-    private function __construct($plugin_data)
+    protected function __construct($plugin_data)
     {
         $this->plugin_data = $plugin_data;
         $this->text_domain = $plugin_data['TextDomain'];
