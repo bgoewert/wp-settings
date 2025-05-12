@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 /**
  * Defines all the settings to be used.
  */
-abstract class WP_Settings
+class WP_Settings
 {
 
     /**
