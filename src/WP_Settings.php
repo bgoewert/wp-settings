@@ -69,7 +69,7 @@ class WP_Settings
     {
         $this->text_domain = $text_domain;
 
-        new WP_Data_Encryption(
+        new WP_Setting_Encryption(
             strtoupper(str_replace('-', '_', $this->text_domain . '_key')),
             strtoupper(str_replace('-', '_', $this->text_domain . '_nonce'))
         );

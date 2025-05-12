@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
  * @link https://felix-arntz.me/blog/storing-confidential-data-in-wordpress/
  * @todo: Add fallback for openssl (if it exists)
  */
-class WP_Data_Encryption
+class WP_Setting_Encryption
 {
     private $key;
     private $nonce;
