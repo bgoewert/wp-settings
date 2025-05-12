@@ -65,9 +65,10 @@ class WP_Settings
     /**
      * Initialize plugin settings.
      */
-    private function __construct($text_domain)
+    private function __construct($plugin_data)
     {
-        $this->text_domain = $text_domain;
+        $this->plugin_data = $plugin_data;
+        $this->text_domain = $plugin_data['TextDomain'];
 
         new WP_Setting_Encryption(
             strtoupper(str_replace('-', '_', $this->text_domain . '_key')),
