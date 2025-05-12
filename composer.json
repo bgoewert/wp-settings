@@ -1,0 +1,22 @@
+{
+    "name": "bgoewert/wp-settings",
+    "description": "WordPress Settings Library",
+    "version": "1.0.0",
+    "license": "GPL-2.0-or-later",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "BGoewert\\WP_Settings\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:bgoewert/wp-oauth-providers.git"
+        }
+    ],
+    "require": {
+        "php": "^7.2 || ^8.0",
+         "bgoewert/wp-oauth-providers": "dev-main"
+    }
+}
