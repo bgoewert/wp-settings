@@ -9,14 +9,7 @@
             "BGoewert\\WP_Settings\\": "src/"
         }
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:bgoewert/wp-oauth-providers.git"
-        }
-    ],
     "require": {
-        "php": "^7.2 || ^8.0",
-         "bgoewert/wp-oauth-providers": "dev-main"
+        "php": "^7.2 || ^8.0"
     }
 }
