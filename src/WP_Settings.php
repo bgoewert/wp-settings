@@ -97,6 +97,13 @@ class WP_Settings
 
         foreach ($this->settings as $setting) {
             $setting->init();
+
+            // Initialize child settings for advanced field types
+            if ($setting->type === 'advanced' && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    $child->init();
+                }
+            }
         }
     }
 

@@ -98,13 +98,21 @@ class WP_Setting
 
     /**
      * The arguments for the setting.
-     * 
+     *
      * Example Keys:
      * - options => _array{value:string,label:string}_ Array of options to use for the select or radio inputs.
+     * - children => _WP_Setting[]_ Array of child settings for advanced field type.
      *
      * @var array
      */
     public $args;
+
+    /**
+     * Child settings for advanced field type.
+     *
+     * @var WP_Setting[]
+     */
+    public $children;
 
     /**
      * Plugin text domain.
@@ -211,6 +219,28 @@ class WP_Setting
             'style'        => array(),
             'data-toggle'   => array(),
         ),
+        'details'  => array(
+            'class' => array(),
+            'style' => array(),
+            'open'  => array(),
+        ),
+        'summary'  => array(
+            'class' => array(),
+            'style' => array(),
+        ),
+        'div'      => array(
+            'class' => array(),
+            'style' => array(),
+            'id'    => array(),
+        ),
+        'hr'       => array(
+            'class' => array(),
+            'style' => array(),
+        ),
+        'h4'       => array(
+            'class' => array(),
+            'style' => array(),
+        ),
     );
 
     /**
@@ -243,6 +273,9 @@ class WP_Setting
         $this->callback      = $callback;
         $this->args          = $args;
 
+        // Extract children from args for advanced field type
+        $this->children = isset($args['children']) ? $args['children'] : array();
+
         if (null === $this->callback) {
             switch ($this->type) {
                 case 'checkbox':
@@ -267,6 +300,14 @@ class WP_Setting
                     $this->callback = array($this, 'init_radio');
                     break;
 
+                case 'hidden':
+                    $this->callback = array($this, 'init_hidden');
+                    break;
+
+                case 'advanced':
+                    $this->callback = array($this, 'init_advanced');
+                    break;
+
                 default:
                     $this->callback = array($this, 'init_type');
                     break;
@@ -289,7 +330,16 @@ class WP_Setting
     {
         add_option($this->slug, $this->default_value);
         register_setting(self::$text_domain . '_' . $this->page, $this->slug, array('default' => $this->default_value));
-        add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+
+        // Skip add_settings_field for hidden fields to avoid empty table rows
+        // Advanced fields handle their own rendering including child fields
+        if ($this->type !== 'hidden' && $this->type !== 'advanced') {
+            add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+        } elseif ($this->type === 'advanced') {
+            // For advanced fields, only register the parent field (not children)
+            // Children will be registered separately when their init() is called
+            add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+        }
     }
 
     /**
@@ -469,6 +519,123 @@ class WP_Setting
         if ($this->description) {
             echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
+    }
+
+    /**
+     * Create a hidden input field.
+     */
+    public function init_hidden()
+    {
+        $value = self::get($this->slug);
+
+        // Safety check: if value is an array, convert to empty string
+        if (is_array($value)) {
+            $value = '';
+        }
+
+        if (!$value && $this->default_value) {
+            $value = $this->default_value;
+        }
+
+        // Output hidden field with no visible markup
+        echo wp_kses(sprintf('<input type="hidden" name="%s" value="%s">', $this->slug, esc_attr($value)), self::$allowed_html);
+    }
+
+    /**
+     * Create an advanced collapsible field with child settings.
+     */
+    public function init_advanced()
+    {
+        // Output hidden fields for all children first
+        foreach ($this->children as $child) {
+            $child->init_hidden();
+        }
+
+        // Create collapsible details section
+        echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">';
+        echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . esc_html($this->title) . ' (click to expand)</summary>';
+        echo '<div style="margin-top: 15px; padding-left: 10px;">';
+
+        if ($this->description) {
+            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+
+        // Render each child setting as a visible control
+        foreach ($this->children as $child) {
+            echo '<p>';
+
+            // Render based on child type
+            switch ($child->type) {
+                case 'checkbox':
+                    $value = boolval(self::get($child->slug));
+                    echo wp_kses(sprintf(
+                        '<label><input type="checkbox" name="%s" id="%s" value="yes" %s /> <strong>%s</strong></label>',
+                        $child->slug,
+                        $child->slug,
+                        checked($value, true, false),
+                        $child->title
+                    ), self::$allowed_html);
+                    if ($child->description) {
+                        echo wp_kses(sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', $child->description), self::$allowed_html);
+                    }
+                    break;
+
+                case 'text':
+                case 'email':
+                case 'url':
+                case 'number':
+                    $value = self::get($child->slug, $child->default_value);
+                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    $atts = '';
+                    if ($child->width) {
+                        $atts .= ' style="width:' . $child->width . ';"';
+                    }
+                    if ($child->required) {
+                        $atts .= ' required';
+                    }
+                    echo wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, esc_attr($value), $atts), self::$allowed_html);
+                    if ($child->description) {
+                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                    }
+                    break;
+
+                case 'textarea':
+                    $value = self::get($child->slug, $child->default_value);
+                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    $atts = '';
+                    if ($child->width) {
+                        $atts .= ' style="width:' . $child->width . ';"';
+                    }
+                    if ($child->required) {
+                        $atts .= ' required';
+                    }
+                    if (isset($child->args['rows'])) {
+                        $atts .= ' rows="' . $child->args['rows'] . '"';
+                    }
+                    echo wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, esc_textarea($value)), self::$allowed_html);
+                    if ($child->description) {
+                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                    }
+                    break;
+
+                case 'select':
+                    $value = self::get($child->slug, $child->default_value);
+                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    echo sprintf('<select name="%s" id="%s">', $child->slug, $child->slug);
+                    foreach ($child->args['options'] as $option => $label) {
+                        echo sprintf('<option value="%s"%s>%s</option>', esc_attr($option), selected($value, $option, false), esc_html($label));
+                    }
+                    echo '</select>';
+                    if ($child->description) {
+                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                    }
+                    break;
+            }
+
+            echo '</p>';
+        }
+
+        echo '</div></details>';
     }
 
     public static function random_bytes($length)
