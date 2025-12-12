@@ -1,0 +1,19 @@
+# Composer
+/vendor/
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+
+# Test fixtures (auto-generated)
+/tests/fixtures/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
