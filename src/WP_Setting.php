@@ -322,13 +322,9 @@ class WP_Setting
     {
         $this->add_setting();
 
-        // Initialize child settings for advanced field type
-        // This registers each child with WordPress so they get saved
-        if ($this->type === 'advanced' && !empty($this->children)) {
-            foreach ($this->children as $child) {
-                $child->init();
-            }
-        }
+        // Note: We don't call init() on children because they shouldn't be registered
+        // as separate settings fields. They're only rendered inside the parent's
+        // init_advanced() method and saved via the parent's save() method.
     }
 
     /**
@@ -568,20 +564,24 @@ class WP_Setting
         // Render each child setting as a visible control
         foreach ($this->children as $child) {
             echo '<p>';
+            echo '<!-- DEBUG: Rendering child: ' . esc_html($child->slug) . ' type: ' . esc_html($child->type) . ' -->';
 
             // Render based on child type
             switch ($child->type) {
                 case 'checkbox':
-                    $value = boolval(self::get($child->slug));
-                    echo wp_kses(sprintf(
-                        '<label><input type="checkbox" name="%s" id="%s" value="yes" %s /> <strong>%s</strong></label>',
-                        $child->slug,
-                        $child->slug,
+                    // Use child's get method (allows Seiler_Setting to handle prefix correctly)
+                    $value = boolval($child::get($child->slug));
+                    // Hidden field ensures unchecked boxes send a value (0)
+                    echo sprintf('<input type="hidden" name="%s" value="0">', esc_attr($child->slug));
+                    echo sprintf(
+                        '<label><input type="checkbox" name="%s" id="%s" value="on" %s /> <strong>%s</strong></label>',
+                        esc_attr($child->slug),
+                        esc_attr($child->slug),
                         checked($value, true, false),
-                        $child->title
-                    ), self::$allowed_html);
+                        esc_html($child->title)
+                    );
                     if ($child->description) {
-                        echo wp_kses(sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', $child->description), self::$allowed_html);
+                        echo sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', esc_html($child->description));
                     }
                     break;
 
