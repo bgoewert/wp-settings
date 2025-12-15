@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## Unreleased
 
+### 1.1.1
+
+- Fixed advanced field child settings not saving (children were not registered with WordPress).
+
 ### 1.1.0
 
 - Added `hidden` field type for storing values without rendering table rows.

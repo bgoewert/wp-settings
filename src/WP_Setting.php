@@ -321,6 +321,14 @@ class WP_Setting
     public function init()
     {
         $this->add_setting();
+
+        // Initialize child settings for advanced field type
+        // This registers each child with WordPress so they get saved
+        if ($this->type === 'advanced' && !empty($this->children)) {
+            foreach ($this->children as $child) {
+                $child->init();
+            }
+        }
     }
 
     /**
