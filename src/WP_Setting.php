@@ -554,12 +554,9 @@ class WP_Setting
      */
     public function init_advanced()
     {
-        // Output hidden fields for all children first
-        foreach ($this->children as $child) {
-            $child->init_hidden();
-        }
-
         // Create collapsible details section
+        // Note: We don't render hidden fields for children because the visible inputs
+        // inside the details section are the actual form inputs that WordPress will save
         echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">';
         echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . esc_html($this->title) . ' (click to expand)</summary>';
         echo '<div style="margin-top: 15px; padding-left: 10px;">';
