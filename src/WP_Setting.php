@@ -186,6 +186,7 @@ class WP_Setting
             'readonly'     => array(),
             'spellcheck'   => array(),
             'wrap'         => array(),
+            'style'        => array(),
         ),
         'select'   => array(
             'id'           => array(),
@@ -564,7 +565,6 @@ class WP_Setting
         // Render each child setting as a visible control
         foreach ($this->children as $child) {
             echo '<p>';
-            echo '<!-- DEBUG: Rendering child: ' . esc_html($child->slug) . ' type: ' . esc_html($child->type) . ' -->';
 
             // Render based on child type
             switch ($child->type) {
