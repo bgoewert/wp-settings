@@ -206,6 +206,14 @@ class WP_Settings
         if ($hook !== $this->submenu_page_hook) {
             return;
         }
+
+        // Enqueue library CSS
+        wp_enqueue_style(
+            'wp-settings-admin',
+            plugin_dir_url(__FILE__) . 'assets/admin.css',
+            array(),
+            '1.0.0'
+        );
     }
 
     /**
