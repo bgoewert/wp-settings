@@ -68,11 +68,11 @@ class WP_Settings
             strtoupper(str_replace('-', '_', $this->text_domain . '_nonce'))
         );
 
-        add_action('admin_init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'admin_menu'));
-        add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
-        add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
+        \add_action('admin_init', array($this, 'init'));
+        \add_action('admin_menu', array($this, 'admin_menu'));
+        \add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
+        \add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
+        \add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
     }
 
     /**
@@ -80,9 +80,9 @@ class WP_Settings
      */
     public function admin_menu()
     {
-        $this->submenu_page_hook = add_submenu_page('options-general.php', $this->plugin_data['Name'], $this->plugin_data['Name'], 'manage_options', $this->text_domain, array($this, 'menu_page_callback'));
+        $this->submenu_page_hook = \add_submenu_page('options-general.php', $this->plugin_data['Name'], $this->plugin_data['Name'], 'manage_options', $this->text_domain, array($this, 'menu_page_callback'));
 
-        add_action('load-' . $this->submenu_page_hook, array($this, 'load_menu_screen'));
+        \add_action('load-' . $this->submenu_page_hook, array($this, 'load_menu_screen'));
     }
 
     /**
@@ -92,7 +92,7 @@ class WP_Settings
     {
         foreach ($this->sections as $section) {
             // translators: Placeholder is for the settings section name. This should have already been defined. This can be ignored.
-            add_settings_section($this->text_domain . '_section_' . $section['slug'], $section['name'], $section['callback'], $this->text_domain . '_' . $section['tab']);
+            \add_settings_section($this->text_domain . '_section_' . $section['slug'], $section['name'], $section['callback'], $this->text_domain . '_' . $section['tab']);
         }
 
         foreach ($this->settings as $setting) {
@@ -113,12 +113,12 @@ class WP_Settings
     public function menu_page_callback()
     {
         // Check user capabilities.
-        if (!current_user_can('manage_options')) {
+        if (!\current_user_can('manage_options')) {
             return;
         }
 
         // Get the active tab.
-        $tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : $this->sections[0]['tab'];
+        $tab = isset($_GET['tab']) ? \sanitize_text_field(\wp_unslash($_GET['tab'])) : $this->sections[0]['tab'];
 
         // Get all tabs
         $tabs = array();
@@ -132,24 +132,24 @@ class WP_Settings
 
         // Check if the user have submitted the settings.
         // WordPress will add the "settings-updated" $_GET parameter to the url.
-        if (isset($_GET['settings-updated']) && check_admin_referer('update', 'sbp_nonce')) {
+        if (isset($_GET['settings-updated']) && \check_admin_referer('update', 'sbp_nonce')) {
             // Add settings saved message with the class of "updated".
-            add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' Saved', 'updated');
+            \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' Saved', 'updated');
         }
 
-        if (isset($_POST['submit']) && check_admin_referer('update', 'sbp_nonce')) {
+        if (isset($_POST['submit']) && \check_admin_referer('update', 'sbp_nonce')) {
 
             try {
                 // Save all the settings.
                 foreach ($this->settings as $setting) $setting->save();
 
-                add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' settings saved', 'updated');
+                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' settings saved', 'updated');
             } catch (\Throwable $th) {
-                add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' failed to save.');
+                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' failed to save.');
             }
         }
 ?>
-        <h1 style="display:inline-block;"><?php echo esc_html($this->plugin_data['Name']); ?></h1>
+        <h1 style="display:inline-block;"><?php echo \esc_html($this->plugin_data['Name']); ?></h1>
 
         <nav class="nav-tab-wrapper">
             <?php foreach ($tabs as $t) : ?>
@@ -159,12 +159,12 @@ class WP_Settings
 
         <div class="tab-content">
 
-            <form method="post" class="<?php echo esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
+            <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
                 <?php
-                wp_nonce_field('update', 'sbp_nonce');
-                settings_fields($this->text_domain . '_' . $tab);
-                do_settings_sections($this->text_domain . '_' . $tab);
-                submit_button('Save');
+                \wp_nonce_field('update', 'sbp_nonce');
+                \settings_fields($this->text_domain . '_' . $tab);
+                \do_settings_sections($this->text_domain . '_' . $tab);
+                \submit_button('Save');
                 ?>
             </form>
     <?php
@@ -208,9 +208,9 @@ class WP_Settings
         }
 
         // Enqueue library CSS
-        wp_enqueue_style(
+        \wp_enqueue_style(
             'wp-settings-admin',
-            plugin_dir_url(__FILE__) . 'assets/admin.css',
+            \plugin_dir_url(__FILE__) . 'assets/admin.css',
             array(),
             '1.0.0'
         );

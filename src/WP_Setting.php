@@ -333,17 +333,17 @@ class WP_Setting
      */
     private function add_setting()
     {
-        add_option($this->slug, $this->default_value);
-        register_setting(self::$text_domain . '_' . $this->page, $this->slug, array('default' => $this->default_value));
+        \add_option($this->slug, $this->default_value);
+        \register_setting(self::$text_domain . '_' . $this->page, $this->slug, array('default' => $this->default_value));
 
         // Skip add_settings_field for hidden fields to avoid empty table rows
         // Advanced fields handle their own rendering including child fields
         if ($this->type !== 'hidden' && $this->type !== 'advanced') {
-            add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+            \add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         } elseif ($this->type === 'advanced') {
             // For advanced fields, only register the parent field (not children)
             // Children will be registered separately when their init() is called
-            add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+            \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
     }
 
@@ -358,7 +358,7 @@ class WP_Setting
         if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
             $setting = self::$text_domain . '_' . $setting;
         }
-        $value = get_option($setting, $default_value);
+        $value = \get_option($setting, $default_value);
         if ($decrypt) {
             return self::decrypt($value);
         }
@@ -377,7 +377,7 @@ class WP_Setting
         if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
             $setting = self::$text_domain . '_' . $setting;
         }
-        return update_option($setting, $value);
+        return \update_option($setting, $value);
     }
 
     public function save()
@@ -421,12 +421,12 @@ class WP_Setting
             $atts .= ' required';
         }
 
-        echo wp_kses(sprintf('<input type="%s" name="%s" value="%s"%s>', $this->type, $this->slug, $value, $atts), self::$allowed_html);
+        echo \wp_kses(sprintf('<input type="%s" name="%s" value="%s"%s>', $this->type, $this->slug, $value, $atts), self::$allowed_html);
         if ('password' === $this->type) {
-            echo wp_kses('<button type="button" class="button wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password"><span class="text">Show</span></button>', self::$allowed_html);
+            echo \wp_kses('<button type="button" class="button wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password"><span class="text">Show</span></button>', self::$allowed_html);
         }
         if ($this->description) {
-            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
     /**
@@ -448,9 +448,9 @@ class WP_Setting
             $atts .= ' required';
         }
 
-        echo wp_kses(sprintf('<textarea name="%s"%s>%s</textarea>', $this->slug, $atts, $value), self::$allowed_html);
+        echo \wp_kses(sprintf('<textarea name="%s"%s>%s</textarea>', $this->slug, $atts, $value), self::$allowed_html);
         if ($this->description) {
-            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
 
@@ -460,13 +460,13 @@ class WP_Setting
     public function init_checkbox()
     {
         $value = boolval(self::get($this->slug));
-        $atts = ' ' . checked($value, true, false);
+        $atts = ' ' . \checked($value, true, false);
         if ($this->required) {
             $atts .= ' required';
         }
-        echo wp_kses(sprintf('<input id="%s" type="checkbox" name="%s"%s>', $this->slug,  $this->slug, $atts), self::$allowed_html);
+        echo \wp_kses(sprintf('<input id="%s" type="checkbox" name="%s"%s>', $this->slug,  $this->slug, $atts), self::$allowed_html);
         if ($this->description) {
-            echo wp_kses(sprintf('<label for="%s" class="description" style="vertical-align:middle;margin-left:1em;">%s</label>', $this->slug, $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<label for="%s" class="description" style="vertical-align:middle;margin-left:1em;">%s</label>', $this->slug, $this->description), self::$allowed_html);
         }
     }
 
@@ -481,7 +481,7 @@ class WP_Setting
         }
         echo sprintf('<select name="%s">', $this->slug);
         foreach ($this->args['options'] as $option => $label) {
-            $atts = ' ' . selected($value, $option, false);
+            $atts = ' ' . \selected($value, $option, false);
             if ($this->required) {
                 $atts .= ' required';
             }
@@ -489,7 +489,7 @@ class WP_Setting
         }
         echo '</select>';
         if ($this->description) {
-            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
 
@@ -510,7 +510,7 @@ class WP_Setting
         }
 
         foreach ($this->options as $option => $label) {
-            $atts = ' ' . checked($value, $option, false);
+            $atts = ' ' . \checked($value, $option, false);
             if ($this->required) {
                 $atts .= ' required';
             }
@@ -522,7 +522,7 @@ class WP_Setting
         }
 
         if ($this->description) {
-            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
 
@@ -543,7 +543,7 @@ class WP_Setting
         }
 
         // Output hidden field with no visible markup
-        echo wp_kses(sprintf('<input type="hidden" name="%s" value="%s">', $this->slug, esc_attr($value)), self::$allowed_html);
+        echo \wp_kses(sprintf('<input type="hidden" name="%s" value="%s">', $this->slug, \esc_attr($value)), self::$allowed_html);
     }
 
     /**
@@ -555,11 +555,11 @@ class WP_Setting
         // Note: We don't render hidden fields for children because the visible inputs
         // inside the details section are the actual form inputs that WordPress will save
         echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">';
-        echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . esc_html($this->title) . ' (click to expand)</summary>';
+        echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . \esc_html($this->title) . ' (click to expand)</summary>';
         echo '<div style="margin-top: 15px; padding-left: 10px;">';
 
         if ($this->description) {
-            echo wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
 
         // Render each child setting as a visible control
@@ -572,16 +572,16 @@ class WP_Setting
                     // Use child's get method (allows Seiler_Setting to handle prefix correctly)
                     $value = boolval($child::get($child->slug));
                     // Hidden field ensures unchecked boxes send a value (0)
-                    echo sprintf('<input type="hidden" name="%s" value="0">', esc_attr($child->slug));
+                    echo sprintf('<input type="hidden" name="%s" value="0">', \esc_attr($child->slug));
                     echo sprintf(
                         '<label><input type="checkbox" name="%s" id="%s" value="on" %s /> <strong>%s</strong></label>',
-                        esc_attr($child->slug),
-                        esc_attr($child->slug),
-                        checked($value, true, false),
-                        esc_html($child->title)
+                        \esc_attr($child->slug),
+                        \esc_attr($child->slug),
+                        \checked($value, true, false),
+                        \esc_html($child->title)
                     );
                     if ($child->description) {
-                        echo sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', esc_html($child->description));
+                        echo sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', \esc_html($child->description));
                     }
                     break;
 
@@ -590,7 +590,7 @@ class WP_Setting
                 case 'url':
                 case 'number':
                     $value = self::get($child->slug, $child->default_value);
-                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
                     $atts = '';
                     if ($child->width) {
                         $atts .= ' style="width:' . $child->width . ';"';
@@ -598,15 +598,15 @@ class WP_Setting
                     if ($child->required) {
                         $atts .= ' required';
                     }
-                    echo wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, esc_attr($value), $atts), self::$allowed_html);
+                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts), self::$allowed_html);
                     if ($child->description) {
-                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
                     }
                     break;
 
                 case 'textarea':
                     $value = self::get($child->slug, $child->default_value);
-                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
                     $atts = '';
                     if ($child->width) {
                         $atts .= ' style="width:' . $child->width . ';"';
@@ -617,22 +617,22 @@ class WP_Setting
                     if (isset($child->args['rows'])) {
                         $atts .= ' rows="' . $child->args['rows'] . '"';
                     }
-                    echo wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, esc_textarea($value)), self::$allowed_html);
+                    echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, \esc_textarea($value)), self::$allowed_html);
                     if ($child->description) {
-                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
                     }
                     break;
 
                 case 'select':
                     $value = self::get($child->slug, $child->default_value);
-                    echo '<p><strong>' . esc_html($child->title) . '</strong></p>';
+                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
                     echo sprintf('<select name="%s" id="%s">', $child->slug, $child->slug);
                     foreach ($child->args['options'] as $option => $label) {
-                        echo sprintf('<option value="%s"%s>%s</option>', esc_attr($option), selected($value, $option, false), esc_html($label));
+                        echo sprintf('<option value="%s"%s>%s</option>', \esc_attr($option), \selected($value, $option, false), \esc_html($label));
                     }
                     echo '</select>';
                     if ($child->description) {
-                        echo wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
                     }
                     break;
             }
