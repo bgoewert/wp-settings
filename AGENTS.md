@@ -162,7 +162,7 @@ We maintain a changelog following [Common Changelog](https://common-changelog.or
 - Use imperative mood with present-tense verbs (e.g., "Add feature" not "Added feature")
 - Keep each change to a single line for easy scanning
 - Use semantic versioning (MAJOR.MINOR.PATCH) as documented at [semver.org](https://semver.org)
-- Release format: `## X.Y.Z - YYYY-MM-DD`
+- Release format: `## [X.Y.Z] - YYYY-MM-DD`
 - Each release must include category headings like `### Added`/`### Fixed` to satisfy Common Changelog and the GitHub release action parser
 - Breaking changes use `**Breaking:**` prefix in bold
 

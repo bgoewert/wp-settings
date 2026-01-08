@@ -4,19 +4,19 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## 2.1.0 - 2026-01-08
+## [2.1.0] - 2026-01-08
 
 ### Added
 
 - Support sanitize callbacks in WP_Setting via `sanitize_callback` key in args array
 
-## 2.0.0 - 2026-01-08
+## [2.0.0] - 2026-01-08
 
 ### Removed
 
 - **Breaking:** Remove `$text_domain` parameter from `WP_Setting` constructor. Text domain is now set automatically via static property by `WP_Settings` parent class.
 
-## 1.1.2 - 2025-12-15
+## [1.1.2] - 2025-12-15
 
 ### Fixed
 
@@ -27,20 +27,20 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 - Array values causing errors in text inputs (added safety check)
 - Required attribute showing on password fields with existing values
 
-## 1.1.1 - 2025-12-07
+## [1.1.1] - 2025-12-07
 
 ### Fixed
 
 - Advanced field child settings not saving (children were not registered with WordPress)
 
-## 1.1.0 - 2025-12-01
+## [1.1.0] - 2025-12-01
 
 ### Added
 
 - Add `hidden` field type for storing values without rendering table rows
 - Add `advanced` field type with collapsible `<details>` section containing child settings
 
-## 1.0.0 - 2025-11-15
+## [1.0.0] - 2025-11-15
 
 ### Added
 
