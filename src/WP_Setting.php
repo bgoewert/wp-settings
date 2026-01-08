@@ -390,7 +390,19 @@ class WP_Setting
                 break;
 
             case 'password':
-                self::set($this->slug, $value, \true);
+                // Only save password if a value was provided (don't overwrite with empty)
+                if (!empty($value)) {
+                    self::set($this->slug, $value, \true);
+                }
+                break;
+
+            case 'advanced':
+                // Save all child settings
+                if (!empty($this->children)) {
+                    foreach ($this->children as $child) {
+                        $child->save();
+                    }
+                }
                 break;
 
             default:
@@ -405,20 +417,35 @@ class WP_Setting
     public function init_type()
     {
         $value = self::get($this->slug);
+
+        // Safety check: if value is an array, convert to empty string
+        if (is_array($value)) {
+            $value = '';
+        }
+
+        $has_existing_value = !empty($value);
+
         if (!$value) {
             $value = $this->default_value;
         }
 
-        if ($value && 'password' === $this->type) {
-            $value = self::decrypt($value);
+        // For password fields, don't pre-fill the value for security reasons
+        if ('password' === $this->type) {
+            $placeholder = $has_existing_value ? 'placeholder="Value saved. Not displayed for security."' : '';
+            $value = ''; // Always empty for password fields
+        } else {
+            $placeholder = '';
         }
 
         $atts = '';
         if ($this->width) {
             $atts .= ' style="width:' . $this->width . ';"';
         }
-        if ($this->required) {
+        if ($this->required && !$has_existing_value) {
             $atts .= ' required';
+        }
+        if ($placeholder) {
+            $atts .= ' ' . $placeholder;
         }
 
         echo \wp_kses(sprintf('<input type="%s" name="%s" value="%s"%s>', $this->type, $this->slug, $value, $atts), self::$allowed_html);
@@ -464,7 +491,9 @@ class WP_Setting
         if ($this->required) {
             $atts .= ' required';
         }
-        echo \wp_kses(sprintf('<input id="%s" type="checkbox" name="%s"%s>', $this->slug,  $this->slug, $atts), self::$allowed_html);
+        // Hidden field ensures unchecked boxes send a value (0)
+        echo \wp_kses(sprintf('<input type="hidden" name="%s" value="0">', $this->slug), self::$allowed_html);
+        echo \wp_kses(sprintf('<input id="%s" type="checkbox" name="%s" value="on"%s>', $this->slug,  $this->slug, $atts), self::$allowed_html);
         if ($this->description) {
             echo \wp_kses(sprintf('<label for="%s" class="description" style="vertical-align:middle;margin-left:1em;">%s</label>', $this->slug, $this->description), self::$allowed_html);
         }
