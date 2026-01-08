@@ -46,12 +46,16 @@ git worktree remove ../project-feature-name
 
 ### Commit Guidelines
 - Use clear, descriptive commit messages following conventional commits format:
-  - `feat: add user authentication`
-  - `fix: resolve database connection timeout`
-  - `docs: update API documentation`
-  - `refactor: simplify validation logic`
+  - `feat: add user authentication` (becomes "Added:" in changelog)
+  - `fix: resolve database connection timeout` (becomes "Fixed:" in changelog)
+  - `refactor: simplify validation logic` (becomes "Changed:" in changelog)
+  - `docs: update API documentation` (not typically included in changelog)
+- For breaking changes, append `!` after any commit type:
+  - `feat!: remove deprecated API` (becomes "**Breaking:** Remove..." in changelog)
+  - `refactor!: change function signature` (becomes "**Breaking:** Change..." in changelog)
 - Keep commits atomic and focused on a single concern
 - Reference issue numbers when applicable: `fix: resolve #123`
+- Use imperative mood (e.g., "add" not "adds" or "added")
 
 ### CRITICAL: Git Safety for AI Agents
 
@@ -141,22 +145,25 @@ Include a LICENSE file in the project root:
 - Reference the license in README.md
 
 ### CHANGELOG.md
-We maintain a changelog following [Keep a Changelog](https://keepachangelog.org/) format.
+We maintain a changelog following [Common Changelog](https://common-changelog.org/#2-format) format.
 
-**Structure:**
-- **Added**: New features
-- **Changed**: Changes to existing functionality
-- **Deprecated**: Soon-to-be removed features
-- **Removed**: Removed features
-- **Fixed**: Bug fixes
-- **Security**: Security updates
+**Categories (in order):**
+1. **Changed**: Changes to existing functionality
+2. **Added**: New features
+3. **Removed**: Removed features
+4. **Fixed**: Bug fixes
+
+**Prefixes:**
+- **Breaking:** for breaking changes (used in major version updates)
 
 **Process:**
-- Update `CHANGELOG.md` with each meaningful change
-- Group changes under `[Unreleased]` until version release
+- Changelog is generated from git commit history when releasing versions
+- Commit messages should use conventional commit prefixes (see Commit Guidelines above)
+- Use imperative mood with present-tense verbs (e.g., "Add feature" not "Added feature")
+- Keep each change to a single line for easy scanning
 - Use semantic versioning (MAJOR.MINOR.PATCH) as documented at [semver.org](https://semver.org)
-- When releasing, change `[Unreleased]` to the version number with date (e.g., `[1.2.0] - 2025-10-02`)
-- Do not use heading links for version numbers
+- Release format: `## X.Y.Z - YYYY-MM-DD`
+- Breaking changes use `**Breaking:**` prefix in bold
 
 ### Code Documentation
 - Document all public APIs, functions, and complex logic

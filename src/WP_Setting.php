@@ -115,11 +115,11 @@ class WP_Setting
     public $children;
 
     /**
-     * Plugin text domain.
+     * Plugin text domain. Set by WP_Settings during initialization.
      *
      * @var string
      */
-    private static $text_domain;
+    public static $text_domain;
 
     /**
      * Array of allowed HTML tags.
@@ -247,6 +247,8 @@ class WP_Setting
     /**
      * Creates an option/setting.
      *
+     * Note: text_domain is no longer a parameter. Use WP_Setting::set_text_domain() or WP_Settings class to configure.
+     *
      * @param string        $name          The name of the setting. Shorthand slug, minus the plugin's prefix.
      * @param string        $title         The title (display name) of the setting.
      * @param string        $type          The type of the input to be used for the setting.
@@ -256,11 +258,10 @@ class WP_Setting
      * @param string|null   $description   Description to use for the setting.
      * @param mixed|null    $default_value Default value to use for the option/setting.
      * @param callable|null $callback      Callback function that displays the input for the setting.
-     * @param array|null    $options       Array of options to use for the select or radio inputs.
+     * @param array|null    $args          Array of options to use for the select or radio inputs.
      */
-    public function __construct($text_domain, $name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array())
+    public function __construct($name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array())
     {
-        self::$text_domain   = $text_domain;
         $this->name          = $name;
         $this->slug          = self::$text_domain . '_' . $this->name;
         $this->title         = $title;
@@ -348,7 +349,7 @@ class WP_Setting
     }
 
     /**
-     * Get a defined option. This can either be prefixed with 'seiler-salesforce_' or not. It will only look for options related to this plugin.
+     * Get a defined option.
      *
      * @param string $setting The name of the setting. Expected not to be SQL-escaped.
      * @param mixed $default_value The default value for the setting if no value exists.
@@ -366,7 +367,7 @@ class WP_Setting
     }
 
     /**
-     * Set an option to a defined value. This can either be prefixed with 'seiler-salesforce_' or not. It will only look for options related to this plugin.
+     * Set an option to a defined value.
      *
      * @param string $setting The name of the setting. Expected not to be SQL-escaped.
      * @param mixed  $value Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
@@ -598,7 +599,7 @@ class WP_Setting
             // Render based on child type
             switch ($child->type) {
                 case 'checkbox':
-                    // Use child's get method (allows Seiler_Setting to handle prefix correctly)
+                    // Use child's get method
                     $value = boolval($child::get($child->slug));
                     // Hidden field ensures unchecked boxes send a value (0)
                     echo sprintf('<input type="hidden" name="%s" value="0">', \esc_attr($child->slug));

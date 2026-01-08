@@ -2,31 +2,31 @@
 
 All notable changes to this plugin will be documented in this file.
 
-The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
+The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 2.0.0 - 2026-01-08
 
-### 1.1.2
+- **Breaking:** Remove `$text_domain` parameter from `WP_Setting` constructor. Text domain is now set automatically via static property by `WP_Settings` parent class.
 
-- Fixed standalone checkbox fields not sending unchecked values (added hidden field that advanced field checkboxes already had).
-- Fixed password fields being overwritten with empty values on save (only saves when new value provided).
-- Fixed password fields displaying saved values in plain text (now shows placeholder for security).
-- Fixed advanced field parent's save() method to automatically save all child settings.
-- Fixed array values causing errors in text inputs (added safety check).
-- Fixed required attribute showing on password fields with existing values.
+## 1.1.2 - 2025-12-15
 
-### 1.1.1
+- Fixed: Standalone checkbox fields not sending unchecked values (added hidden field that advanced field checkboxes already had)
+- Fixed: Password fields being overwritten with empty values on save (only saves when new value provided)
+- Fixed: Password fields displaying saved values in plain text (now shows placeholder for security)
+- Fixed: Advanced field parent's save() method to automatically save all child settings
+- Fixed: Array values causing errors in text inputs (added safety check)
+- Fixed: Required attribute showing on password fields with existing values
 
-- Fixed advanced field child settings not saving (children were not registered with WordPress).
+## 1.1.1 - 2025-12-07
 
-### 1.1.0
+- Fixed: Advanced field child settings not saving (children were not registered with WordPress)
 
-- Added `hidden` field type for storing values without rendering table rows.
-- Added `advanced` field type with collapsible `<details>` section containing child settings.
+## 1.1.0 - 2025-12-01
 
-### 1.0.0
+- Added: `hidden` field type for storing values without rendering table rows
+- Added: `advanced` field type with collapsible `<details>` section containing child settings
 
-- Added basic settings for text, textarea, checkbox, radio, and select.
-- Added basic encryption/decrpytion based on existing default wp-config salts.
+## 1.0.0 - 2025-11-15
 
-## Released
+- Added: Basic settings for text, textarea, checkbox, radio, and select
+- Added: Basic encryption/decryption based on existing default wp-config salts

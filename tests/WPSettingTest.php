@@ -7,13 +7,19 @@ use BGoewert\WP_Settings\WP_Setting;
  */
 class WPSettingTest extends WP_Settings_TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Set static text_domain for all tests
+        WP_Setting::$text_domain = 'my-plugin';
+    }
+
     /**
      * Test that constructor sets properties correctly
      */
     public function test_constructor_sets_properties(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'test_option',
             'Test Option',
             'text',
@@ -43,7 +49,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_checkbox_default_value_normalized(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'checkbox_option',
             'Checkbox',
             'checkbox',
@@ -64,7 +69,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_section_slug_normalized(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'test_option',
             'Test',
             'text',
@@ -81,7 +85,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_registers_setting(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'test_option',
             'Test Option',
             'text',
@@ -105,7 +108,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_hidden_field_skips_settings_field(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'hidden_option',
             'Hidden',
             'hidden',
@@ -130,7 +132,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_advanced_field_registers_with_empty_title(): void
     {
         $child = new WP_Setting(
-            'my-plugin',
             'child_option',
             'Child',
             'text',
@@ -139,7 +140,6 @@ class WPSettingTest extends WP_Settings_TestCase
         );
 
         $setting = new WP_Setting(
-            'my-plugin',
             'advanced_option',
             'Advanced Settings',
             'advanced',
@@ -170,7 +170,6 @@ class WPSettingTest extends WP_Settings_TestCase
         $child2 = new WP_Setting('my-plugin', 'child2', 'Child 2', 'checkbox', 'general', 'main');
 
         $setting = new WP_Setting(
-            'my-plugin',
             'parent',
             'Parent',
             'advanced',
@@ -234,7 +233,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_type_renders_text_input(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'text_option',
             'Text Option',
             'text',
@@ -263,7 +261,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_checkbox_renders_checkbox(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'checkbox_option',
             'Checkbox Option',
             'checkbox',
@@ -291,7 +288,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_textarea_renders_textarea(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'textarea_option',
             'Textarea Option',
             'textarea',
@@ -319,7 +315,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_select_renders_select(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'select_option',
             'Select Option',
             'select',
@@ -352,7 +347,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_hidden_renders_hidden_input(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'hidden_option',
             '',
             'hidden',
@@ -381,7 +375,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_hidden_handles_array_value(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'hidden_option',
             '',
             'hidden',
@@ -410,7 +403,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_init_advanced_renders_details_section(): void
     {
         $child = new WP_Setting(
-            'my-plugin',
             'child_checkbox',
             'Child Checkbox',
             'checkbox',
@@ -421,7 +413,6 @@ class WPSettingTest extends WP_Settings_TestCase
         );
 
         $setting = new WP_Setting(
-            'my-plugin',
             'advanced_settings',
             'Advanced Settings',
             'advanced',
@@ -452,7 +443,6 @@ class WPSettingTest extends WP_Settings_TestCase
     public function test_required_attribute_added(): void
     {
         $setting = new WP_Setting(
-            'my-plugin',
             'required_option',
             'Required Option',
             'text',

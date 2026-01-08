@@ -63,6 +63,9 @@ class WP_Settings
         $this->plugin_data = $plugin_data;
         $this->text_domain = $plugin_data['TextDomain'];
 
+        // Set static text_domain for all WP_Setting instances
+        WP_Setting::$text_domain = $this->text_domain;
+
         new WP_Setting_Encryption(
             strtoupper(str_replace('-', '_', $this->text_domain . '_key')),
             strtoupper(str_replace('-', '_', $this->text_domain . '_nonce'))
