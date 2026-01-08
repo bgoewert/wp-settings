@@ -97,11 +97,19 @@ class WP_Setting
     protected $callback;
 
     /**
+     * The setting's sanitize callback for WordPress register_setting.
+     *
+     * @var callable|null
+     */
+    protected $sanitize_callback;
+
+    /**
      * The arguments for the setting.
      *
      * Example Keys:
      * - options => _array{value:string,label:string}_ Array of options to use for the select or radio inputs.
      * - children => _WP_Setting[]_ Array of child settings for advanced field type.
+     * - sanitize_callback => _callable_ Sanitization callback for register_setting.
      *
      * @var array
      */
@@ -278,6 +286,9 @@ class WP_Setting
         // Extract children from args for advanced field type
         $this->children = isset($args['children']) ? $args['children'] : array();
 
+        // Extract sanitize_callback from args if provided
+        $this->sanitize_callback = isset($args['sanitize_callback']) ? $args['sanitize_callback'] : null;
+
         if (null === $this->callback) {
             switch ($this->type) {
                 case 'checkbox':
@@ -335,7 +346,13 @@ class WP_Setting
     private function add_setting()
     {
         \add_option($this->slug, $this->default_value);
-        \register_setting(self::$text_domain . '_' . $this->page, $this->slug, array('default' => $this->default_value));
+
+        $register_args = array('default' => $this->default_value);
+        if ($this->sanitize_callback !== null) {
+            $register_args['sanitize_callback'] = $this->sanitize_callback;
+        }
+
+        \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
 
         // Skip add_settings_field for hidden fields to avoid empty table rows
         // Advanced fields handle their own rendering including child fields

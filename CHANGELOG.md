@@ -4,6 +4,10 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## 2.1.0 - 2026-01-08
+
+- Added: Support for sanitize callbacks in WP_Setting via `sanitize_callback` key in args array
+
 ## 2.0.0 - 2026-01-08
 
 - **Breaking:** Remove `$text_domain` parameter from `WP_Setting` constructor. Text domain is now set automatically via static property by `WP_Settings` parent class.
