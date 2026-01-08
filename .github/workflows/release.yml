@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # CHANGELOG.md must include Common Changelog category headings (### Added/Changed/Removed/Fixed).
       - name: Create GitHub release
         uses: docker://antonyurchenko/git-release:latest
         env:
