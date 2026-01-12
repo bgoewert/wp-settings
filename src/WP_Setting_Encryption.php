@@ -68,6 +68,35 @@ class WP_Setting_Encryption
         return openssl_random_pseudo_bytes($length);
     }
 
+    /**
+     * Safely decode a value that might be base64-encoded
+     *
+     * If the value is base64-encoded (like wp-settings generates), decode it.
+     * If it's raw bytes or a non-base64 string, return as-is for backward compatibility.
+     *
+     * @param string $value The value to decode
+     * @return string The decoded value or original if not base64
+     */
+    private static function safe_base64_decode($value)
+    {
+        // Try to decode
+        $decoded = base64_decode($value, true);
+
+        // If decode failed or the value isn't valid base64, return original
+        if ($decoded === false) {
+            return $value;
+        }
+
+        // Verify it's actually base64 by re-encoding and comparing
+        // This prevents false positives from strings that happen to decode
+        if (base64_encode($decoded) === $value) {
+            return $decoded;
+        }
+
+        // Not valid base64, return original value
+        return $value;
+    }
+
     private function check_key_len($key)
     {
         if (mb_strlen($key, '8bit') > $this->key_length) {
@@ -96,9 +125,9 @@ class WP_Setting_Encryption
             )
         ) {
             if (!defined($this->key_constant)) {
-                return $this->check_key_len(preg_match("/define\('{$this->key_constant}',\s?'([\w\W\d]{{$this->key_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : '');
+                return $this->check_key_len(self::safe_base64_decode(preg_match("/define\('{$this->key_constant}',\s?'([\w\W\d]{{$this->key_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
-            return $this->check_key_len(constant($this->key_constant));
+            return $this->check_key_len(self::safe_base64_decode(constant($this->key_constant)));
         } else if (is_writable($config_file)) {
             $key = self::random_bytes($this->key_length);
             $key_constant = "define('" . $this->key_constant . "', '" . base64_encode($key) . "');\n";
@@ -126,9 +155,9 @@ class WP_Setting_Encryption
             )
         ) {
             if (!defined($this->nonce_constant)) {
-                return $this->check_nonce_len(preg_match("/define\('{$this->nonce_constant}',\s?'([\w\W\d]{{$this->nonce_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : '');
+                return $this->check_nonce_len(self::safe_base64_decode(preg_match("/define\('{$this->nonce_constant}',\s?'([\w\W\d]{{$this->nonce_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
-            return $this->check_nonce_len(constant($this->nonce_constant));
+            return $this->check_nonce_len(self::safe_base64_decode(constant($this->nonce_constant)));
         } else if (is_writable($config_file)) {
             $nonce = self::random_bytes($this->nonce_length);
             $config_file = $config_file;

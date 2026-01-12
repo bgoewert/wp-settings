@@ -123,7 +123,7 @@ class WP_Setting
     public $children;
 
     /**
-     * Plugin text domain. Set by WP_Settings during initialization.
+     * Plugin text domain. Set by WP_Settings during initialization or manually via $text_domain assignment.
      *
      * @var string
      */

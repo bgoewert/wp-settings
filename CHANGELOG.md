@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-01-12
+
+### Added
+
+- Flexible constructor: `WP_Settings::__construct()` now accepts either a plugin data array OR a simple text domain string for easier initialization
+- Automatic duplicate menu prevention: `WP_Settings::admin_menu()` now checks global `$submenu` before registering to prevent duplicate menu entries when multiple classes extend `WP_Settings`
+
+### Fixed
+
+- Encryption keys and nonces are now properly base64-decoded when retrieved from wp-config constants using a safe decoder that maintains backward compatibility with non-encoded values
+
 ## [2.1.0] - 2026-01-08
 
 ### Added

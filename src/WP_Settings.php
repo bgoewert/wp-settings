@@ -57,11 +57,25 @@ class WP_Settings
 
     /**
      * Initialize plugin settings.
+     *
+     * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
+     *                                   or a simple text domain string.
      */
     protected function __construct($plugin_data)
     {
-        $this->plugin_data = $plugin_data;
-        $this->text_domain = $plugin_data['TextDomain'];
+        // Support both plugin data array and simple text domain string
+        if (is_string($plugin_data)) {
+            // Convert text domain to a friendly name
+            $name = ucwords(str_replace(['-', '_'], ' ', $plugin_data));
+            $this->plugin_data = [
+                'Name' => $name,
+                'TextDomain' => $plugin_data,
+            ];
+            $this->text_domain = $plugin_data;
+        } else {
+            $this->plugin_data = $plugin_data;
+            $this->text_domain = $plugin_data['TextDomain'];
+        }
 
         // Set static text_domain for all WP_Setting instances
         WP_Setting::$text_domain = $this->text_domain;
@@ -80,10 +94,37 @@ class WP_Settings
 
     /**
      * Init the admin page.
+     *
+     * Automatically prevents duplicate menu registration by checking if a submenu
+     * with the same slug already exists under the same parent menu.
      */
     public function admin_menu()
     {
-        $this->submenu_page_hook = \add_submenu_page('options-general.php', $this->plugin_data['Name'], $this->plugin_data['Name'], 'manage_options', $this->text_domain, array($this, 'menu_page_callback'));
+        global $submenu;
+
+        $slug = $this->text_domain;
+        $parent = 'options-general.php';
+
+        // Check if a submenu with this slug already exists under this parent
+        if (isset($submenu[$parent])) {
+            foreach ($submenu[$parent] as $item) {
+                // $item[2] is the menu slug (see WordPress core add_submenu_page)
+                if (isset($item[2]) && $item[2] === $slug) {
+                    // Menu already registered, skip to prevent duplicates
+                    return;
+                }
+            }
+        }
+
+        // Safe to register - no duplicate found
+        $this->submenu_page_hook = \add_submenu_page(
+            $parent,
+            $this->plugin_data['Name'],
+            $this->plugin_data['Name'],
+            'manage_options',
+            $slug,
+            array($this, 'menu_page_callback')
+        );
 
         \add_action('load-' . $this->submenu_page_hook, array($this, 'load_menu_screen'));
     }
