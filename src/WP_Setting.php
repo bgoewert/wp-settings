@@ -271,7 +271,8 @@ class WP_Setting
     public function __construct($name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array())
     {
         $this->name          = $name;
-        $this->slug          = self::$text_domain . '_' . $this->name;
+        $prefix              = !array_key_exists('prefix', $args) ? self::$text_domain : ($args['prefix'] ?? '');
+        $this->slug          = ($prefix === '' ? '' : $prefix . '_') . $this->name;
         $this->title         = $title;
         $this->type          = $type;
         $this->width         = $width;
