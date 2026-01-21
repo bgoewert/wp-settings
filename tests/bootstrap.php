@@ -175,8 +175,40 @@ if (!function_exists('sanitize_text_field')) {
         }
         $value = (string) $value;
         $value = strip_tags($value);
-        $value = preg_replace('/[\r\n\t\0\x0B]+/', '', $value);
+        $value = preg_replace('/[\r\n\t\0\x0B]+/', ' ', $value);
         return trim($value);
+    }
+}
+
+if (!function_exists('sanitize_email')) {
+    function sanitize_email($email)
+    {
+        $email = trim($email);
+        // Remove all characters except letters, digits and !#$%&'*+-=?^_`{|}~@.[]
+        $email = preg_replace('/[^a-zA-Z0-9!#$%&\'*+\-=?^_`{|}~@.\[\]]/', '', $email);
+        return $email;
+    }
+}
+
+if (!function_exists('esc_url_raw')) {
+    function esc_url_raw($url, $protocols = null)
+    {
+        if (empty($url)) {
+            return '';
+        }
+
+        $url = trim($url);
+        $url = str_replace(' ', '%20', $url);
+
+        // Remove any dangerous protocols
+        $dangerous = ['javascript:', 'data:', 'vbscript:'];
+        foreach ($dangerous as $protocol) {
+            if (stripos($url, $protocol) === 0) {
+                return '';
+            }
+        }
+
+        return $url;
     }
 }
 

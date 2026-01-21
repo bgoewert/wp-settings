@@ -459,4 +459,370 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringContainsString('required', $output);
     }
+
+    /**
+     * Test is_valid_url validates URLs correctly
+     */
+    public function test_is_valid_url(): void
+    {
+        // Valid URLs
+        $this->assertTrue(WP_Setting::is_valid_url('https://example.com'));
+        $this->assertTrue(WP_Setting::is_valid_url('http://example.com/path'));
+        $this->assertTrue(WP_Setting::is_valid_url('https://example.com:8080/path?query=value'));
+        $this->assertTrue(WP_Setting::is_valid_url('ftp://files.example.com'));
+
+        // Invalid URLs
+        $this->assertFalse(WP_Setting::is_valid_url(''));
+        $this->assertFalse(WP_Setting::is_valid_url('not a url'));
+        $this->assertFalse(WP_Setting::is_valid_url('example.com')); // missing scheme
+        $this->assertFalse(WP_Setting::is_valid_url('javascript:alert(1)'));
+    }
+
+    /**
+     * Test is_valid_email validates emails correctly
+     */
+    public function test_is_valid_email(): void
+    {
+        // Valid emails
+        $this->assertTrue(WP_Setting::is_valid_email('user@example.com'));
+        $this->assertTrue(WP_Setting::is_valid_email('test.user+tag@example.co.uk'));
+        $this->assertTrue(WP_Setting::is_valid_email('user123@sub.example.com'));
+
+        // Invalid emails
+        $this->assertFalse(WP_Setting::is_valid_email(''));
+        $this->assertFalse(WP_Setting::is_valid_email('not an email'));
+        $this->assertFalse(WP_Setting::is_valid_email('@example.com'));
+        $this->assertFalse(WP_Setting::is_valid_email('user@'));
+        $this->assertFalse(WP_Setting::is_valid_email('user example.com'));
+    }
+
+    /**
+     * Test is_not_empty validates non-empty values
+     */
+    public function test_is_not_empty(): void
+    {
+        // Non-empty values
+        $this->assertTrue(WP_Setting::is_not_empty('text'));
+        $this->assertTrue(WP_Setting::is_not_empty('0'));
+        $this->assertTrue(WP_Setting::is_not_empty(['item']));
+        $this->assertTrue(WP_Setting::is_not_empty(123));
+
+        // Empty values
+        $this->assertFalse(WP_Setting::is_not_empty(''));
+        $this->assertFalse(WP_Setting::is_not_empty('   '));  // whitespace only
+        $this->assertFalse(WP_Setting::is_not_empty(null));
+        $this->assertFalse(WP_Setting::is_not_empty([]));
+        $this->assertFalse(WP_Setting::is_not_empty(0)); // Note: 0 is considered empty by PHP's empty()
+    }
+
+    /**
+     * Test sanitize_url sanitizes and validates URLs
+     */
+    public function test_sanitize_url(): void
+    {
+        // Valid URL
+        $result = WP_Setting::sanitize_url('https://example.com/path');
+        $this->assertSame('https://example.com/path', $result);
+
+        // Empty value
+        $result = WP_Setting::sanitize_url('');
+        $this->assertSame('', $result);
+
+        // Invalid URL
+        $result = WP_Setting::sanitize_url('not a url');
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test sanitize_email sanitizes and validates emails
+     */
+    public function test_sanitize_email(): void
+    {
+        // Valid email
+        $result = WP_Setting::sanitize_email('user@example.com');
+        $this->assertSame('user@example.com', $result);
+
+        // Email with extra whitespace (should be trimmed by sanitize_email)
+        $result = WP_Setting::sanitize_email(' user@example.com ');
+        $this->assertSame('user@example.com', $result);
+
+        // Empty value
+        $result = WP_Setting::sanitize_email('');
+        $this->assertSame('', $result);
+
+        // Invalid email
+        $result = WP_Setting::sanitize_email('not an email');
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test sanitize_text sanitizes text input
+     */
+    public function test_sanitize_text(): void
+    {
+        // Regular text
+        $result = WP_Setting::sanitize_text('Hello World');
+        $this->assertSame('Hello World', $result);
+
+        // Text with extra whitespace
+        $result = WP_Setting::sanitize_text('  trimmed  ');
+        $this->assertSame('trimmed', $result);
+
+        // Text with newlines (should be removed by sanitize_text_field)
+        $result = WP_Setting::sanitize_text("Line 1\nLine 2");
+        $this->assertSame('Line 1 Line 2', $result);
+    }
+
+    /**
+     * Test email field type gets default sanitize_callback
+     */
+    public function test_email_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'email_field',
+            'Email',
+            'email',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving an email
+        $_POST['my-plugin_email_field'] = ' user@example.com ';
+        $setting->save();
+
+        // Check the value was sanitized
+        $value = WP_Setting::get('email_field');
+        $this->assertSame('user@example.com', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_email_field']);
+    }
+
+    /**
+     * Test email field rejects invalid emails
+     */
+    public function test_email_field_rejects_invalid_email(): void
+    {
+        $setting = new WP_Setting(
+            'email_field',
+            'Email',
+            'email',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving an invalid email
+        $_POST['my-plugin_email_field'] = 'not an email';
+        $setting->save();
+
+        // Check the value was rejected (should return false)
+        $value = WP_Setting::get('email_field');
+        $this->assertFalse($value);
+
+        // Clean up
+        unset($_POST['my-plugin_email_field']);
+    }
+
+    /**
+     * Test url field type gets default sanitize_callback
+     */
+    public function test_url_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'url_field',
+            'URL',
+            'url',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving a URL
+        $_POST['my-plugin_url_field'] = 'https://example.com/path';
+        $setting->save();
+
+        // Check the value was sanitized
+        $value = WP_Setting::get('url_field');
+        $this->assertSame('https://example.com/path', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_url_field']);
+    }
+
+    /**
+     * Test url field rejects invalid URLs
+     */
+    public function test_url_field_rejects_invalid_url(): void
+    {
+        $setting = new WP_Setting(
+            'url_field',
+            'URL',
+            'url',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving an invalid URL
+        $_POST['my-plugin_url_field'] = 'not a url';
+        $setting->save();
+
+        // Check the value was rejected
+        $value = WP_Setting::get('url_field');
+        $this->assertFalse($value);
+
+        // Clean up
+        unset($_POST['my-plugin_url_field']);
+    }
+
+    /**
+     * Test number field type gets default sanitize_callback
+     */
+    public function test_number_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'number_field',
+            'Number',
+            'number',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving a number
+        $_POST['my-plugin_number_field'] = '42';
+        $setting->save();
+
+        // Check the value was saved
+        $value = WP_Setting::get('number_field');
+        $this->assertSame('42', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_number_field']);
+    }
+
+    /**
+     * Test number field rejects non-numeric values
+     */
+    public function test_number_field_rejects_non_numeric(): void
+    {
+        $setting = new WP_Setting(
+            'number_field',
+            'Number',
+            'number',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving a non-numeric value
+        $_POST['my-plugin_number_field'] = 'not a number';
+        $setting->save();
+
+        // Check the value was rejected (empty string)
+        $value = WP_Setting::get('number_field');
+        $this->assertSame('', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_number_field']);
+    }
+
+    /**
+     * Test text field type gets default sanitize_callback
+     */
+    public function test_text_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'text_field',
+            'Text',
+            'text',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving text with HTML
+        $_POST['my-plugin_text_field'] = '<b>Bold</b> text';
+        $setting->save();
+
+        // Check the value was sanitized (tags removed but content kept)
+        $value = WP_Setting::get('text_field');
+        $this->assertSame('Bold text', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_text_field']);
+    }
+
+    /**
+     * Test textarea field type gets default sanitize_callback
+     */
+    public function test_textarea_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'textarea_field',
+            'Textarea',
+            'textarea',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Simulate saving text with HTML
+        $_POST['my-plugin_textarea_field'] = '<b>Bold text</b>';
+        $setting->save();
+
+        // Check the value was sanitized (tags removed)
+        $value = WP_Setting::get('textarea_field');
+        $this->assertSame('Bold text', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_textarea_field']);
+    }
+
+    /**
+     * Test custom sanitize_callback overrides default
+     */
+    public function test_custom_sanitize_callback_overrides_default(): void
+    {
+        $setting = new WP_Setting(
+            'custom_email',
+            'Custom Email',
+            'email',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'sanitize_callback' => function($value) {
+                    return strtoupper($value);
+                }
+            ]
+        );
+
+        $setting->init();
+
+        // Simulate saving an email
+        $_POST['my-plugin_custom_email'] = 'user@example.com';
+        $setting->save();
+
+        // Check the custom callback was used (uppercase)
+        $value = WP_Setting::get('custom_email');
+        $this->assertSame('USER@EXAMPLE.COM', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_custom_email']);
+    }
 }

@@ -290,6 +290,33 @@ class WP_Setting
         // Extract sanitize_callback from args if provided
         $this->sanitize_callback = isset($args['sanitize_callback']) ? $args['sanitize_callback'] : null;
 
+        // Set default sanitize_callback based on field type if not provided
+        if (null === $this->sanitize_callback) {
+            switch ($this->type) {
+                case 'email':
+                    $this->sanitize_callback = array(__CLASS__, 'sanitize_email');
+                    break;
+
+                case 'url':
+                    $this->sanitize_callback = array(__CLASS__, 'sanitize_url');
+                    break;
+
+                case 'number':
+                    $this->sanitize_callback = function($value) {
+                        if (empty($value) && $value !== '0' && $value !== 0) {
+                            return '';
+                        }
+                        return is_numeric($value) ? $value : '';
+                    };
+                    break;
+
+                case 'text':
+                case 'textarea':
+                    $this->sanitize_callback = array(__CLASS__, 'sanitize_text');
+                    break;
+            }
+        }
+
         if (null === $this->callback) {
             switch ($this->type) {
                 case 'checkbox':
@@ -425,6 +452,10 @@ class WP_Setting
                 break;
 
             default:
+                // Apply sanitize_callback if defined
+                if ($this->sanitize_callback && is_callable($this->sanitize_callback)) {
+                    $value = call_user_func($this->sanitize_callback, $value);
+                }
                 self::set($this->slug, $value);
                 break;
         }
@@ -749,5 +780,106 @@ class WP_Setting
             trigger_error('Encryption failed: ' . $e->getMessage(), E_USER_WARNING);
             return $value;
         }
+    }
+
+    /**
+     * Validates if a value is a valid URL.
+     *
+     * @param string $value The value to validate.
+     *
+     * @return bool True if valid URL, false otherwise.
+     */
+    public static function is_valid_url($value)
+    {
+        if (empty($value)) {
+            return false;
+        }
+        return filter_var($value, FILTER_VALIDATE_URL) !== false;
+    }
+
+    /**
+     * Validates if a value is a valid email address.
+     *
+     * @param string $value The value to validate.
+     *
+     * @return bool True if valid email, false otherwise.
+     */
+    public static function is_valid_email($value)
+    {
+        if (empty($value)) {
+            return false;
+        }
+        return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /**
+     * Validates if a value is not empty.
+     *
+     * @param mixed $value The value to validate.
+     *
+     * @return bool True if not empty, false otherwise.
+     */
+    public static function is_not_empty($value)
+    {
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+        return !empty($value);
+    }
+
+    /**
+     * Sanitizes and validates a URL.
+     *
+     * @param string $value The URL to sanitize.
+     *
+     * @return string|false Sanitized URL or false if invalid.
+     */
+    public static function sanitize_url($value)
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        $sanitized = \esc_url_raw($value);
+
+        if (self::is_valid_url($sanitized)) {
+            return $sanitized;
+        }
+
+        return false;
+    }
+
+    /**
+     * Sanitizes and validates an email address.
+     *
+     * @param string $value The email to sanitize.
+     *
+     * @return string|false Sanitized email or false if invalid.
+     */
+    public static function sanitize_email($value)
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        $sanitized = \sanitize_email($value);
+
+        if (self::is_valid_email($sanitized)) {
+            return $sanitized;
+        }
+
+        return false;
+    }
+
+    /**
+     * Sanitizes text input.
+     *
+     * @param string $value The text to sanitize.
+     *
+     * @return string Sanitized text.
+     */
+    public static function sanitize_text($value)
+    {
+        return \sanitize_text_field($value);
     }
 }

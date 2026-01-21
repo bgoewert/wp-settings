@@ -4,6 +4,19 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-01-21
+
+### Added
+
+- Validation helper methods: `WP_Setting::is_valid_url()`, `WP_Setting::is_valid_email()`, `WP_Setting::is_not_empty()` for validating user input
+- Sanitization helper methods: `WP_Setting::sanitize_url()`, `WP_Setting::sanitize_email()`, `WP_Setting::sanitize_text()` for sanitizing and validating values
+- Default automatic sanitization for field types:
+  - `email` fields now automatically sanitize and validate email addresses
+  - `url` fields now automatically sanitize and validate URLs
+  - `number` fields now automatically validate numeric values
+  - `text` and `textarea` fields now automatically sanitize text input (strip tags, trim whitespace)
+- Custom `sanitize_callback` in args array can override default sanitization for any field type
+
 ## [2.2.0] - 2026-01-12
 
 ### Added
