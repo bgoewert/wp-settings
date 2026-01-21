@@ -43,7 +43,7 @@ class My_Settings extends WP_Settings
                 'name'      => 'General Settings',
                 'slug'      => 'general_settings',
                 'tab'       => 'general',
-                'tab_title' => 'General',
+                'tab_name'  => 'General',
                 'callback'  => '__return_false',
             ),
         );
@@ -74,6 +74,8 @@ class My_Settings extends WP_Settings
 
 new My_Settings();
 ```
+
+Tab labels default to `ucwords(tab)` but you can override the display label per tab with `tab_name`.
 
 ## Field Types
 

@@ -166,19 +166,25 @@ class WP_Settings
 
         // Get all tabs
         $tabs = array();
+        $tab_labels = array();
         foreach ($this->sections as $section) {
             if (in_array($section['tab'], $tabs, true)) {
                 continue;
             } else {
                 $tabs[] = $section['tab'];
+                $tab_labels[$section['tab']] = $section['tab_name']
+                    ?? $section['tab_title']
+                    ?? ucwords($section['tab']);
             }
         }
+
+        $tab_label = $tab_labels[$tab] ?? ucwords($tab);
 
         // Check if the user have submitted the settings.
         // WordPress will add the "settings-updated" $_GET parameter to the url.
         if (isset($_GET['settings-updated']) && \check_admin_referer('update', 'sbp_nonce')) {
             // Add settings saved message with the class of "updated".
-            \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' Saved', 'updated');
+            \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' Saved', 'updated');
         }
 
         if (isset($_POST['submit']) && \check_admin_referer('update', 'sbp_nonce')) {
@@ -187,9 +193,9 @@ class WP_Settings
                 // Save all the settings.
                 foreach ($this->settings as $setting) $setting->save();
 
-                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' settings saved', 'updated');
+                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' settings saved', 'updated');
             } catch (\Throwable $th) {
-                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', ucwords($tab) . ' failed to save.');
+                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' failed to save.');
             }
         }
 ?>
@@ -197,7 +203,7 @@ class WP_Settings
 
         <nav class="nav-tab-wrapper">
             <?php foreach ($tabs as $t) : ?>
-                <a href="?page=<?php echo rawurlencode($this->text_domain); ?>&tab=<?php echo $t ?>" class="nav-tab <?php echo ($t === $tab ? ' nav-tab-active' : ''); ?>"><?php echo ucwords($t) ?></a>
+                <a href="?page=<?php echo rawurlencode($this->text_domain); ?>&tab=<?php echo $t ?>" class="nav-tab <?php echo ($t === $tab ? ' nav-tab-active' : ''); ?>"><?php echo \esc_html($tab_labels[$t] ?? ucwords($t)) ?></a>
             <?php endforeach; ?>
         </nav>
 
