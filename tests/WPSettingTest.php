@@ -825,4 +825,158 @@ class WPSettingTest extends WP_Settings_TestCase
         // Clean up
         unset($_POST['my-plugin_custom_email']);
     }
+
+    /**
+     * Test custom sanitize_callback works on field type without default
+     */
+    public function test_custom_sanitize_callback_on_field_without_default(): void
+    {
+        $setting = new WP_Setting(
+            'custom_select',
+            'Custom Select',
+            'select',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'options' => ['a' => 'Option A', 'b' => 'Option B'],
+                'sanitize_callback' => function($value) {
+                    return 'sanitized_' . $value;
+                }
+            ]
+        );
+
+        $setting->init();
+
+        // Simulate saving a select value
+        $_POST['my-plugin_custom_select'] = 'a';
+        $setting->save();
+
+        // Check the custom callback was applied
+        $value = WP_Setting::get('custom_select');
+        $this->assertSame('sanitized_a', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_custom_select']);
+    }
+
+    /**
+     * Test custom sanitize_callback with static method
+     */
+    public function test_custom_sanitize_callback_with_static_method(): void
+    {
+        $setting = new WP_Setting(
+            'validated_email',
+            'Validated Email',
+            'text', // Use text type with email validation callback
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'sanitize_callback' => [WP_Setting::class, 'sanitize_email']
+            ]
+        );
+
+        $setting->init();
+
+        // Simulate saving a valid email
+        $_POST['my-plugin_validated_email'] = ' test@example.com ';
+        $setting->save();
+
+        // Check the static method was called and email was sanitized
+        $value = WP_Setting::get('validated_email');
+        $this->assertSame('test@example.com', $value);
+
+        // Clean up
+        unset($_POST['my-plugin_validated_email']);
+    }
+
+    /**
+     * Test custom sanitize_callback that returns false
+     */
+    public function test_custom_sanitize_callback_returns_false(): void
+    {
+        $setting = new WP_Setting(
+            'validated_number',
+            'Validated Number',
+            'number',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'sanitize_callback' => function($value) {
+                    // Reject values over 100
+                    return (is_numeric($value) && $value <= 100) ? $value : false;
+                }
+            ]
+        );
+
+        $setting->init();
+
+        // Test valid value
+        $_POST['my-plugin_validated_number'] = '50';
+        $setting->save();
+        $value = WP_Setting::get('validated_number');
+        $this->assertSame('50', $value);
+
+        // Test invalid value (over 100)
+        $_POST['my-plugin_validated_number'] = '150';
+        $setting->save();
+        $value = WP_Setting::get('validated_number');
+        $this->assertFalse($value);
+
+        // Clean up
+        unset($_POST['my-plugin_validated_number']);
+    }
+
+    /**
+     * Test custom sanitize_callback receives correct value
+     */
+    public function test_custom_sanitize_callback_receives_correct_value(): void
+    {
+        $received_value = null;
+
+        $setting = new WP_Setting(
+            'callback_test',
+            'Callback Test',
+            'text',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'sanitize_callback' => function($value) use (&$received_value) {
+                    $received_value = $value;
+                    return $value;
+                }
+            ]
+        );
+
+        $setting->init();
+
+        // Simulate saving
+        $_POST['my-plugin_callback_test'] = 'test_value_123';
+        $setting->save();
+
+        // Check the callback received the correct value
+        $this->assertSame('test_value_123', $received_value);
+
+        // Clean up
+        unset($_POST['my-plugin_callback_test']);
+    }
 }
