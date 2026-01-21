@@ -7,3 +7,120 @@
     padding-top: 30px;
     border-top: 1px solid #c3c4c7;
 }
+
+/* Settings table modal */
+.wps-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wps-modal-hidden {
+    display: none !important;
+}
+
+.wps-modal-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 4px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.wps-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.wps-modal-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+}
+
+.wps-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.wps-modal-close:hover {
+    background-color: #f0f0f1;
+    color: #d63638;
+}
+
+.wps-modal-close:focus {
+    outline: 2px solid #2271b1;
+    outline-offset: 2px;
+}
+
+/* Settings table utilities */
+.wps-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wps-status.enabled {
+    background: #d1e7dd;
+    color: #0a3622;
+}
+
+.wps-status.disabled {
+    background: #f8d7da;
+    color: #58151c;
+}
+
+.wps-status-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.wps-bulk-actions {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.wps-actions .button {
+    margin-right: 6px;
+}
+
+.wps-fallback-form {
+    margin-top: 25px;
+}
+
+.wps-has-js .wps-fallback-form {
+    display: none;
+}

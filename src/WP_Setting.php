@@ -467,14 +467,123 @@ class WP_Setting
     public function init_type()
     {
         $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+    /**
+     * Create a textarea.
+     */
+    public function init_textarea()
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
 
+    /**
+     * Create a checkbox input.
+     */
+    public function init_checkbox()
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Create a select input.
+     */
+    public function init_select()
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Create a radio input. If there are more than one option, it will create a field set.
+     */
+    public function init_radio()
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Create a hidden input field.
+     */
+    public function init_hidden()
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Render the setting without binding to an option value.
+     *
+     * @param mixed       $value Optional value override.
+     * @param string|null $name  Optional field name override.
+     * @param string|null $id    Optional field id override.
+     */
+    public function render_unbound($value = null, $name = null, $id = null)
+    {
+        $field_name = $name ?? $this->name;
+        $field_id   = $id ?? $field_name;
+        $this->render_with_value($field_name, $field_id, $value);
+    }
+
+    /**
+     * Sanitize a value using the setting's sanitize callback (if any).
+     *
+     * @param mixed $value Raw value.
+     * @return mixed
+     */
+    public function sanitize_value($value)
+    {
+        if ($this->sanitize_callback && is_callable($this->sanitize_callback)) {
+            return call_user_func($this->sanitize_callback, $value);
+        }
+        return $value;
+    }
+
+    /**
+     * Render a field using the provided value.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     */
+    protected function render_with_value($name, $id, $value)
+    {
+        switch ($this->type) {
+            case 'textarea':
+                $this->render_textarea_value($name, $id, $value);
+                break;
+            case 'checkbox':
+                $this->render_checkbox_value($name, $id, $value);
+                break;
+            case 'select':
+                $this->render_select_value($name, $id, $value);
+                break;
+            case 'radio':
+                $this->render_radio_value($name, $id, $value);
+                break;
+            case 'hidden':
+                $this->render_hidden_value($name, $id, $value);
+                break;
+            case 'advanced':
+                $this->init_advanced();
+                break;
+            default:
+                $this->render_text_value($name, $id, $value);
+                break;
+        }
+    }
+
+    protected function render_text_value($name, $id, $value)
+    {
         // Safety check: if value is an array, convert to empty string
         if (is_array($value)) {
             $value = '';
         }
 
         $has_existing_value = !empty($value);
-
         if (!$value) {
             $value = $this->default_value;
         }
@@ -482,7 +591,7 @@ class WP_Setting
         // For password fields, don't pre-fill the value for security reasons
         if ('password' === $this->type) {
             $placeholder = $has_existing_value ? 'placeholder="Value saved. Not displayed for security."' : '';
-            $value = ''; // Always empty for password fields
+            $value = '';
         } else {
             $placeholder = '';
         }
@@ -498,7 +607,7 @@ class WP_Setting
             $atts .= ' ' . $placeholder;
         }
 
-        echo \wp_kses(sprintf('<input type="%s" name="%s" value="%s"%s>', $this->type, $this->slug, $value, $atts), self::$allowed_html);
+        echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $this->type, $name, $id, $value, $atts), self::$allowed_html);
         if ('password' === $this->type) {
             echo \wp_kses('<button type="button" class="button wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password"><span class="text">Show</span></button>', self::$allowed_html);
         }
@@ -506,13 +615,9 @@ class WP_Setting
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
-    /**
-     * Create a textarea.
-     */
-    public function init_textarea()
-    {
-        $value = self::get($this->slug);
 
+    protected function render_textarea_value($name, $id, $value)
+    {
         if (!$value) {
             $value = $this->default_value;
         }
@@ -525,40 +630,33 @@ class WP_Setting
             $atts .= ' required';
         }
 
-        echo \wp_kses(sprintf('<textarea name="%s"%s>%s</textarea>', $this->slug, $atts, $value), self::$allowed_html);
+        echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $name, $id, $atts, $value), self::$allowed_html);
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
     }
 
-    /**
-     * Create a checkbox input.
-     */
-    public function init_checkbox()
+    protected function render_checkbox_value($name, $id, $value)
     {
-        $value = boolval(self::get($this->slug));
-        $atts = ' ' . \checked($value, true, false);
+        $checked = !empty($value) && $value !== '0' && $value !== 0 && $value !== false;
+        $atts = ' ' . \checked($checked, true, false);
         if ($this->required) {
             $atts .= ' required';
         }
         // Hidden field ensures unchecked boxes send a value (0)
-        echo \wp_kses(sprintf('<input type="hidden" name="%s" value="0">', $this->slug), self::$allowed_html);
-        echo \wp_kses(sprintf('<input id="%s" type="checkbox" name="%s" value="on"%s>', $this->slug,  $this->slug, $atts), self::$allowed_html);
+        echo \wp_kses(sprintf('<input type="hidden" name="%s" value="0">', $name), self::$allowed_html);
+        echo \wp_kses(sprintf('<input id="%s" type="checkbox" name="%s" value="on"%s>', $id, $name, $atts), self::$allowed_html);
         if ($this->description) {
-            echo \wp_kses(sprintf('<label for="%s" class="description" style="vertical-align:middle;margin-left:1em;">%s</label>', $this->slug, $this->description), self::$allowed_html);
+            echo \wp_kses(sprintf('<label for="%s" class="description" style="vertical-align:middle;margin-left:1em;">%s</label>', $id, $this->description), self::$allowed_html);
         }
     }
 
-    /**
-     * Create a select input.
-     */
-    public function init_select()
+    protected function render_select_value($name, $id, $value)
     {
-        $value = self::get($this->slug);
         if (!$value) {
             $value = $this->default_value;
         }
-        echo sprintf('<select name="%s">', $this->slug);
+        echo sprintf('<select name="%s" id="%s">', $name, $id);
         foreach ($this->args['options'] as $option => $label) {
             $atts = ' ' . \selected($value, $option, false);
             if ($this->required) {
@@ -572,12 +670,8 @@ class WP_Setting
         }
     }
 
-    /**
-     * Create a radio input. If there are more than one option, it will create a field set.
-     */
-    public function init_radio()
+    protected function render_radio_value($name, $id, $value)
     {
-        $value = self::get($this->slug);
         if (!$value) {
             $value = $this->default_value;
         }
@@ -593,7 +687,7 @@ class WP_Setting
             if ($this->required) {
                 $atts .= ' required';
             }
-            echo sprintf('<label><input type="radio" name="%s" value="%s"%s>%s</label><br>', $this->slug, $option, $atts, $label);
+            echo sprintf('<label><input type="radio" name="%s" value="%s"%s>%s</label><br>', $name, $option, $atts, $label);
         }
 
         if ($option_count > 1) {
@@ -605,13 +699,8 @@ class WP_Setting
         }
     }
 
-    /**
-     * Create a hidden input field.
-     */
-    public function init_hidden()
+    protected function render_hidden_value($name, $id, $value)
     {
-        $value = self::get($this->slug);
-
         // Safety check: if value is an array, convert to empty string
         if (is_array($value)) {
             $value = '';
@@ -622,7 +711,7 @@ class WP_Setting
         }
 
         // Output hidden field with no visible markup
-        echo \wp_kses(sprintf('<input type="hidden" name="%s" value="%s">', $this->slug, \esc_attr($value)), self::$allowed_html);
+        echo \wp_kses(sprintf('<input type="hidden" name="%s" id="%s" value="%s">', $name, $id, \esc_attr($value)), self::$allowed_html);
     }
 
     /**

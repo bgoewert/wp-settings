@@ -127,6 +127,44 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * Test render_unbound uses provided name and value.
+     */
+    public function test_render_unbound_uses_overrides(): void
+    {
+        $setting = new WP_Setting(
+            'test_option',
+            'Test Option',
+            'text',
+            'general',
+            'main'
+        );
+
+        ob_start();
+        $setting->render_unbound('custom', 'custom_name', 'custom_id');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('name="custom_name"', $output);
+        $this->assertStringContainsString('id="custom_id"', $output);
+        $this->assertStringContainsString('value="custom"', $output);
+    }
+
+    /**
+     * Test sanitize_value applies sanitize callback.
+     */
+    public function test_sanitize_value_uses_callback(): void
+    {
+        $setting = new WP_Setting(
+            'test_option',
+            'Test Option',
+            'text',
+            'general',
+            'main'
+        );
+
+        $this->assertSame('hello', $setting->sanitize_value('hello<script>'));
+    }
+
+    /**
      * Test advanced field type registers with empty title
      */
     public function test_advanced_field_registers_with_empty_title(): void

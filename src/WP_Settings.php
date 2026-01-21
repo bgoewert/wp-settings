@@ -28,6 +28,13 @@ class WP_Settings
     protected $sections;
 
     /**
+     * Array of settings tables.
+     *
+     * @var WP_Settings_Table[]
+     */
+    protected $tables = array();
+
+    /**
      * Parent admin page hook.
      *
      * @var string
@@ -149,6 +156,15 @@ class WP_Settings
                 }
             }
         }
+
+        if (!empty($this->tables)) {
+            foreach ($this->tables as $table) {
+                if ($table instanceof WP_Settings_Table) {
+                    $table->set_text_domain($this->text_domain);
+                    $table->init();
+                }
+            }
+        }
     }
 
     /**
@@ -198,6 +214,11 @@ class WP_Settings
                 \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' failed to save.');
             }
         }
+
+        $table = $this->get_table_for_tab($tab);
+        if ($table) {
+            $table->handle_post($tab);
+        }
 ?>
         <h1 style="display:inline-block;"><?php echo \esc_html($this->plugin_data['Name']); ?></h1>
 
@@ -209,6 +230,9 @@ class WP_Settings
 
         <div class="tab-content">
 
+            <?php if ($table) : ?>
+                <?php $table->render($this->text_domain, $tab); ?>
+            <?php else : ?>
             <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
                 <?php
                 \wp_nonce_field('update', 'sbp_nonce');
@@ -217,6 +241,7 @@ class WP_Settings
                 \submit_button('Save');
                 ?>
             </form>
+            <?php endif; ?>
     <?php
     }
 
@@ -264,10 +289,41 @@ class WP_Settings
             array(),
             '1.0.0'
         );
+
+        if (!empty($this->tables)) {
+            \wp_enqueue_script(
+                'wp-settings-admin',
+                \plugin_dir_url(__FILE__) . 'assets/admin.js',
+                array('jquery'),
+                '1.0.0',
+                true
+            );
+        }
     }
 
     /**
      * Empty section callback because it required for some reason.
      */
     public function empty_section_callback() {}
+
+    /**
+     * Get a table for the active tab.
+     *
+     * @param string $tab Tab slug.
+     * @return WP_Settings_Table|null
+     */
+    protected function get_table_for_tab($tab)
+    {
+        if (empty($this->tables)) {
+            return null;
+        }
+
+        foreach ($this->tables as $table) {
+            if ($table instanceof WP_Settings_Table && $table->handles_tab($tab)) {
+                return $table;
+            }
+        }
+
+        return null;
+    }
 }

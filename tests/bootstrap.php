@@ -145,6 +145,34 @@ if (!function_exists('esc_textarea')) {
     }
 }
 
+if (!function_exists('esc_url')) {
+    function esc_url($url)
+    {
+        return htmlspecialchars((string) $url, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('__')) {
+    function __($text, $domain = null)
+    {
+        return $text;
+    }
+}
+
+if (!function_exists('esc_html__')) {
+    function esc_html__($text, $domain = null)
+    {
+        return esc_html($text);
+    }
+}
+
+if (!function_exists('esc_attr__')) {
+    function esc_attr__($text, $domain = null)
+    {
+        return esc_attr($text);
+    }
+}
+
 if (!function_exists('checked')) {
     function checked($checked, $current = true, $echo = true)
     {
@@ -177,6 +205,14 @@ if (!function_exists('sanitize_text_field')) {
         $value = strip_tags($value);
         $value = preg_replace('/[\r\n\t\0\x0B]+/', ' ', $value);
         return trim($value);
+    }
+}
+
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key)
+    {
+        $key = strtolower((string) $key);
+        return preg_replace('/[^a-z0-9_\-]/', '', $key);
     }
 }
 
@@ -236,6 +272,20 @@ if (!function_exists('check_admin_referer')) {
     }
 }
 
+if (!function_exists('wp_verify_nonce')) {
+    function wp_verify_nonce($nonce, $action)
+    {
+        return true;
+    }
+}
+
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce($action)
+    {
+        return 'nonce-' . $action;
+    }
+}
+
 if (!function_exists('wp_nonce_field')) {
     function wp_nonce_field($action, $name)
     {
@@ -268,6 +318,43 @@ if (!function_exists('add_settings_error')) {
     function add_settings_error($setting, $code, $message, $type = 'error')
     {
         // No-op for tests
+    }
+}
+
+if (!function_exists('wp_send_json_success')) {
+    function wp_send_json_success($data = null)
+    {
+        return array('success' => true, 'data' => $data);
+    }
+}
+
+if (!function_exists('wp_send_json_error')) {
+    function wp_send_json_error($data = null)
+    {
+        return array('success' => false, 'data' => $data);
+    }
+}
+
+if (!function_exists('add_query_arg')) {
+    function add_query_arg($args, $url = '')
+    {
+        $base = $url ?: 'http://example.com';
+        $query = http_build_query($args);
+        return $base . (strpos($base, '?') === false ? '?' : '&') . $query;
+    }
+}
+
+if (!function_exists('wp_get_referer')) {
+    function wp_get_referer()
+    {
+        return 'http://example.com/wp-admin/options.php';
+    }
+}
+
+if (!function_exists('wp_safe_redirect')) {
+    function wp_safe_redirect($location)
+    {
+        return $location;
     }
 }
 

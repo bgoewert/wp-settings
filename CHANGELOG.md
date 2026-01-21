@@ -4,6 +4,15 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-01-21
+
+### Added
+
+- `WP_Settings_Table` for reusable settings tables with modal CRUD, bulk actions, and inline status toggles
+- Shared admin JS/CSS assets for table UI interactions
+- Unbound field rendering and sanitization helpers on `WP_Setting` to reuse field definitions in tables
+- Tests covering settings table CRUD and bulk actions
+
 ## [2.3.0] - 2026-01-21
 
 ### Added

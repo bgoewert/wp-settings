@@ -104,3 +104,47 @@ Renders as collapsible section with hidden inputs for value storage and visible 
 ```php
 $hidden = new WP_Setting('internal_setting', '', 'hidden', 'settings', 'section', '', '', false, 'value');
 ```
+
+## Settings Tables
+
+Use `WP_Settings_Table` to create a reusable table + modal editor stored as a single option array.
+
+```php
+use BGoewert\WP_Settings\WP_Settings_Table;
+
+$this->tables = array(
+    new WP_Settings_Table(
+        array(
+            'id'          => 'fees',
+            'tab'         => 'fees',
+            'option'      => 'fees',
+            'title'       => 'Fee Management',
+            'description' => 'Create and manage fees.',
+            'status_key'  => 'enabled',
+            'statuses'    => array(
+                'enabled'  => array('label' => 'Enabled'),
+                'disabled' => array('label' => 'Disabled'),
+            ),
+            'columns'     => array(
+                array('key' => 'status', 'label' => 'Status', 'type' => 'status'),
+                array('key' => 'name', 'label' => 'Name', 'field' => 'name'),
+                array('key' => 'type', 'label' => 'Type', 'field' => 'type'),
+                array('key' => 'amount', 'label' => 'Amount', 'field' => 'amount'),
+            ),
+            'fields'      => array(
+                new WP_Setting('name', 'Fee Name', 'text', 'fees', 'fees_section'),
+                new WP_Setting('type', 'Fee Type', 'select', 'fees', 'fees_section', null, null, false, null, null, array(
+                    'options' => array(
+                        'percentage' => 'Percentage',
+                        'fixed' => 'Fixed Amount',
+                    ),
+                )),
+                new WP_Setting('amount', 'Amount', 'number', 'fees', 'fees_section'),
+                new WP_Setting('enabled', 'Enabled', 'checkbox', 'fees', 'fees_section'),
+            ),
+        )
+    ),
+);
+```
+
+Tables render in the specified tab, support AJAX CRUD, bulk actions, inline status toggles, and a non-JS fallback form.
