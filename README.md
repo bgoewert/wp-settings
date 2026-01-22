@@ -79,7 +79,7 @@ Tab labels default to `ucwords(tab)` but you can override the display label per 
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`
+Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`
 
 **Advanced**: Collapsible `<details>` section containing child settings.
 
@@ -103,6 +103,30 @@ Renders as collapsible section with hidden inputs for value storage and visible 
 
 ```php
 $hidden = new WP_Setting('internal_setting', '', 'hidden', 'settings', 'section', '', '', false, 'value');
+```
+
+### Sortable Field Example
+
+```php
+new WP_Setting(
+    'featured_order',
+    'Featured Order',
+    'sortable',
+    'general',
+    'general_settings',
+    null,
+    'Drag or enter a number to reorder items.',
+    false,
+    array('item_b', 'item_a'),
+    null,
+    array(
+        'options' => array(
+            'item_a' => 'Item A',
+            'item_b' => 'Item B',
+            'item_c' => 'Item C',
+        ),
+    )
+);
 ```
 
 ## Settings Tables
