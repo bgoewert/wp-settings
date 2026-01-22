@@ -282,19 +282,33 @@ class WP_Settings
             return;
         }
 
-        // Enqueue library CSS
-        \wp_enqueue_style(
-            'wp-settings-admin',
-            \plugin_dir_url(__FILE__) . 'assets/admin.css',
-            array(),
-            '1.0.0'
-        );
-
         if (!empty($this->tables)) {
+            \wp_enqueue_style(
+                'wp-settings-admin',
+                \plugin_dir_url(__FILE__) . 'assets/admin.css',
+                array(),
+                '1.0.0'
+            );
             \wp_enqueue_script(
                 'wp-settings-admin',
                 \plugin_dir_url(__FILE__) . 'assets/admin.js',
                 array('jquery'),
+                '1.0.0',
+                true
+            );
+        }
+
+        if ($this->has_sortable_settings()) {
+            \wp_enqueue_style(
+                'wp-settings-admin-sortable',
+                \plugin_dir_url(__FILE__) . 'assets/admin-sortable.css',
+                array(),
+                '1.0.0'
+            );
+            \wp_enqueue_script(
+                'wp-settings-admin-sortable',
+                \plugin_dir_url(__FILE__) . 'assets/admin-sortable.js',
+                array('jquery', 'jquery-ui-sortable'),
                 '1.0.0',
                 true
             );
@@ -325,5 +339,28 @@ class WP_Settings
         }
 
         return null;
+    }
+
+    protected function has_sortable_settings()
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->type === 'sortable') {
+                return true;
+            }
+
+            if ($setting->type === 'advanced' && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->type === 'sortable') {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -250,6 +250,18 @@ class WP_Setting
             'class' => array(),
             'style' => array(),
         ),
+        'ul'       => array(
+            'class'      => array(),
+            'style'      => array(),
+            'id'         => array(),
+            'data-field' => array(),
+        ),
+        'li'       => array(
+            'class'    => array(),
+            'style'    => array(),
+            'id'       => array(),
+            'data-key' => array(),
+        ),
     );
 
     /**
@@ -307,6 +319,41 @@ class WP_Setting
                             return '';
                         }
                         return is_numeric($value) ? $value : '';
+                    };
+                    break;
+
+                case 'sortable':
+                    $this->sanitize_callback = function($value) {
+                        if (!is_array($value)) {
+                            return array();
+                        }
+
+                        $options = $this->resolve_options();
+                        $allowed_keys = array_map('strval', array_keys($options));
+
+                        $sanitized = array();
+                        foreach ($value as $item) {
+                            if (!is_scalar($item)) {
+                                continue;
+                            }
+                            $item = \sanitize_text_field((string) $item);
+                            if ($item === '') {
+                                continue;
+                            }
+                            if (!empty($allowed_keys) && !in_array($item, $allowed_keys, true)) {
+                                continue;
+                            }
+                            if (!in_array($item, $sanitized, true)) {
+                                $sanitized[] = $item;
+                            }
+                        }
+
+                        if (!empty($allowed_keys)) {
+                            $missing = array_values(array_diff($allowed_keys, $sanitized));
+                            $sanitized = array_merge($sanitized, $missing);
+                        }
+
+                        return array_values($sanitized);
                     };
                     break;
 
@@ -564,6 +611,9 @@ class WP_Setting
             case 'radio':
                 $this->render_radio_value($name, $id, $value);
                 break;
+            case 'sortable':
+                $this->render_sortable_value($name, $id, $value);
+                break;
             case 'hidden':
                 $this->render_hidden_value($name, $id, $value);
                 break;
@@ -656,8 +706,9 @@ class WP_Setting
         if (!$value) {
             $value = $this->default_value;
         }
+        $options = $this->resolve_options();
         echo sprintf('<select name="%s" id="%s">', $name, $id);
-        foreach ($this->args['options'] as $option => $label) {
+        foreach ($options as $option => $label) {
             $atts = ' ' . \selected($value, $option, false);
             if ($this->required) {
                 $atts .= ' required';
@@ -676,13 +727,14 @@ class WP_Setting
             $value = $this->default_value;
         }
 
-        $option_count = count($this->options);
+        $options = $this->resolve_options();
+        $option_count = count($options);
 
         if ($option_count > 1) {
             echo '<fieldset>';
         }
 
-        foreach ($this->options as $option => $label) {
+        foreach ($options as $option => $label) {
             $atts = ' ' . \checked($value, $option, false);
             if ($this->required) {
                 $atts .= ' required';
@@ -712,6 +764,103 @@ class WP_Setting
 
         // Output hidden field with no visible markup
         echo \wp_kses(sprintf('<input type="hidden" name="%s" id="%s" value="%s">', $name, $id, \esc_attr($value)), self::$allowed_html);
+    }
+
+    protected function render_sortable_value($name, $id, $value)
+    {
+        $options = $this->resolve_options();
+        if (empty($options)) {
+            return;
+        }
+
+        if (!is_array($value)) {
+            $value = array();
+        }
+        if (empty($value) && is_array($this->default_value)) {
+            $value = $this->default_value;
+        }
+
+        $ordered_keys = $this->normalize_sortable_value($value, $options);
+        $count = count($ordered_keys);
+
+        echo \wp_kses(
+            sprintf('<ul class="wps-sortable-list" data-field="%s">', \esc_attr($id)),
+            self::$allowed_html
+        );
+
+        foreach ($ordered_keys as $index => $key) {
+            $label = $options[$key] ?? $key;
+            $order_id = $id . '_order_' . $index;
+            $label_text = \sprintf('%s %s', $this->title, $label);
+
+            echo \wp_kses(
+                sprintf('<li class="wps-sortable-item" data-key="%s">', \esc_attr($key)),
+                self::$allowed_html
+            );
+            echo \wp_kses('<span class="wps-sortable-handle dashicons dashicons-menu" aria-hidden="true"></span>', self::$allowed_html);
+            echo \wp_kses(sprintf('<span class="wps-sortable-label">%s</span>', \esc_html($label)), self::$allowed_html);
+            echo \wp_kses(
+                sprintf('<label class="screen-reader-text" for="%s">%s</label>', \esc_attr($order_id), \esc_html($label_text)),
+                self::$allowed_html
+            );
+            echo \wp_kses(
+                sprintf(
+                    '<input type="number" class="wps-sortable-order" id="%s" min="1" max="%s" value="%s" inputmode="numeric">',
+                    \esc_attr($order_id),
+                    \esc_attr($count),
+                    \esc_attr($index + 1)
+                ),
+                self::$allowed_html
+            );
+            echo \wp_kses(
+                sprintf('<input type="hidden" name="%s[]" value="%s">', \esc_attr($name), \esc_attr($key)),
+                self::$allowed_html
+            );
+            echo '</li>';
+        }
+
+        echo '</ul>';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+    }
+
+    protected function resolve_options()
+    {
+        $options = $this->args['options'] ?? $this->options ?? array();
+
+        if (is_callable($options)) {
+            $options = call_user_func($options);
+        }
+
+        return is_array($options) ? $options : array();
+    }
+
+    protected function normalize_sortable_value($value, $options)
+    {
+        $ordered = array();
+        $option_keys = array_map('strval', array_keys($options));
+
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if (!is_scalar($item)) {
+                    continue;
+                }
+                $item = (string) $item;
+                if (in_array($item, $option_keys, true) && !in_array($item, $ordered, true)) {
+                    $ordered[] = $item;
+                }
+            }
+        }
+
+        foreach ($option_keys as $key) {
+            if (!in_array($key, $ordered, true)) {
+                $ordered[] = $key;
+            }
+        }
+
+        return $ordered;
     }
 
     /**
