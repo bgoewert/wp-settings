@@ -380,6 +380,72 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * Test init_type renders sortable list in saved order
+     */
+    public function test_sortable_renders_list_in_saved_order(): void
+    {
+        $setting = new WP_Setting(
+            'sortable_option',
+            'Sortable Option',
+            'sortable',
+            'general',
+            'main',
+            null,
+            'Sort items',
+            false,
+            null,
+            null,
+            ['options' => ['item_a' => 'Item A', 'item_b' => 'Item B', 'item_c' => 'Item C']]
+        );
+
+        $this->setOption('my-plugin_sortable_option', ['item_b', 'item_a']);
+
+        ob_start();
+        $setting->init_type();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('class="wps-sortable-list"', $output);
+        $this->assertStringContainsString('name="my-plugin_sortable_option[]"', $output);
+
+        $pos_b = strpos($output, 'data-key="item_b"');
+        $pos_a = strpos($output, 'data-key="item_a"');
+        $this->assertNotFalse($pos_b);
+        $this->assertNotFalse($pos_a);
+        $this->assertLessThan($pos_a, $pos_b);
+    }
+
+    /**
+     * Test sortable supports callable options
+     */
+    public function test_sortable_supports_callable_options(): void
+    {
+        $setting = new WP_Setting(
+            'sortable_callable',
+            'Sortable Callable',
+            'sortable',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'options' => function() {
+                    return ['item_a' => 'Item A', 'item_b' => 'Item B'];
+                }
+            ]
+        );
+
+        ob_start();
+        $setting->init_type();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Item A', $output);
+        $this->assertStringContainsString('Item B', $output);
+    }
+
+    /**
      * Test init_hidden renders hidden input
      */
     public function test_init_hidden_renders_hidden_input(): void
@@ -771,6 +837,36 @@ class WPSettingTest extends WP_Settings_TestCase
 
         // Clean up
         unset($_POST['my-plugin_number_field']);
+    }
+
+    /**
+     * Test sortable field type gets default sanitize_callback
+     */
+    public function test_sortable_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'sortable_field',
+            'Sortable',
+            'sortable',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['item_a' => 'Item A', 'item_b' => 'Item B', 'item_c' => 'Item C']]
+        );
+
+        $setting->init();
+
+        $_POST['my-plugin_sortable_field'] = ['item_b', 'item_b', 'invalid', 'item_a'];
+        $setting->save();
+
+        $value = WP_Setting::get('sortable_field');
+        $this->assertSame(['item_b', 'item_a', 'item_c'], $value);
+
+        unset($_POST['my-plugin_sortable_field']);
     }
 
     /**
