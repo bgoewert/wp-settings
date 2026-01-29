@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-01-29
+
+### Added
+
+- Support for using array keys as section slugs (backward compatible with explicit `slug` property)
+
 ## [2.6.0] - 2026-01-29
 
 ### Added

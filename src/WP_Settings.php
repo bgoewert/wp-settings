@@ -141,9 +141,11 @@ class WP_Settings
      */
     public function init()
     {
-        foreach ($this->sections as $section) {
+        foreach ($this->sections as $key => $section) {
+            // Use array key as slug if slug property not defined (backward compatible).
+            $slug = $section['slug'] ?? $key;
             // translators: Placeholder is for the settings section name. This should have already been defined. This can be ignored.
-            \add_settings_section($this->text_domain . '_section_' . $section['slug'], $section['name'], $section['callback'], $this->text_domain . '_' . $section['tab']);
+            \add_settings_section($this->text_domain . '_section_' . $slug, $section['name'], $section['callback'], $this->text_domain . '_' . $section['tab']);
         }
 
         foreach ($this->settings as $setting) {

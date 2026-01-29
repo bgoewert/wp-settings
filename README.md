@@ -48,6 +48,16 @@ class My_Settings extends WP_Settings
             ),
         );
 
+        // Alternatively, use array keys as slugs (v2.7.0+):
+        // $this->sections = array(
+        //     'general_settings' => array(
+        //         'name'      => 'General Settings',
+        //         'tab'       => 'general',
+        //         'tab_name'  => 'General',
+        //         'callback'  => '__return_false',
+        //     ),
+        // );
+
         $this->settings = array(
             'my_option' => new WP_Setting(
                 'my_option',       // option slug
