@@ -110,6 +110,10 @@ class WP_Setting
      * - options => _array{value:string,label:string}_ Array of options to use for the select or radio inputs.
      * - children => _WP_Setting[]_ Array of child settings for advanced field type.
      * - sanitize_callback => _callable_ Sanitization callback for register_setting.
+     * - conditions => _array_ Conditional visibility rules. Each condition has:
+     *   - 'field' => string - Field name to check
+     *   - 'operator' => string - 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
+     *   - 'value' => mixed - Value(s) to compare (not needed for empty/not_empty)
      *
      * @var array
      */
@@ -121,6 +125,20 @@ class WP_Setting
      * @var WP_Setting[]
      */
     public $children;
+
+    /**
+     * Conditional visibility rules for the field.
+     *
+     * Each condition is an array with:
+     * - 'field' => string - The name of the field to check
+     * - 'operator' => string - One of: 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
+     * - 'value' => mixed - The value(s) to compare against (not needed for empty/not_empty)
+     *
+     * Multiple conditions are combined with AND logic.
+     *
+     * @var array
+     */
+    public $conditions;
 
     /**
      * Plugin text domain. Set by WP_Settings during initialization or manually via $text_domain assignment.
@@ -262,6 +280,21 @@ class WP_Setting
             'id'       => array(),
             'data-key' => array(),
         ),
+        'tr'       => array(
+            'class'           => array(),
+            'style'           => array(),
+            'id'              => array(),
+            'data-conditions' => array(),
+            'data-field'      => array(),
+        ),
+        'th'       => array(
+            'class' => array(),
+            'scope' => array(),
+        ),
+        'td'       => array(
+            'class'   => array(),
+            'colspan' => array(),
+        ),
     );
 
     /**
@@ -298,6 +331,9 @@ class WP_Setting
 
         // Extract children from args for advanced field type
         $this->children = isset($args['children']) ? $args['children'] : array();
+
+        // Extract conditions from args for conditional visibility
+        $this->conditions = isset($args['conditions']) ? $args['conditions'] : array();
 
         // Extract sanitize_callback from args if provided
         $this->sanitize_callback = isset($args['sanitize_callback']) ? $args['sanitize_callback'] : null;
@@ -572,7 +608,17 @@ class WP_Setting
     {
         $field_name = $name ?? $this->name;
         $field_id   = $id ?? $field_name;
+
+        // Wrap field in container with conditions data if applicable.
+        if ($this->has_conditions()) {
+            echo '<div class="wps-field-wrapper" data-field="' . \esc_attr($field_name) . '" data-conditions="' . \esc_attr($this->get_conditions_json()) . '">';
+        }
+
         $this->render_with_value($field_name, $field_id, $value);
+
+        if ($this->has_conditions()) {
+            echo '</div>';
+        }
     }
 
     /**
@@ -587,6 +633,29 @@ class WP_Setting
             return call_user_func($this->sanitize_callback, $value);
         }
         return $value;
+    }
+
+    /**
+     * Check if this field has conditional visibility rules.
+     *
+     * @return bool
+     */
+    public function has_conditions()
+    {
+        return !empty($this->conditions);
+    }
+
+    /**
+     * Get the conditions as a JSON-encoded string for use in data attributes.
+     *
+     * @return string JSON-encoded conditions or empty string if none.
+     */
+    public function get_conditions_json()
+    {
+        if (empty($this->conditions)) {
+            return '';
+        }
+        return \wp_json_encode($this->conditions);
     }
 
     /**

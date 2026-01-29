@@ -540,7 +540,11 @@ class WP_Settings_Table
         echo '<table class="form-table">';
 
         foreach ($this->fields as $field) {
-            echo '<tr>';
+            $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
+            if ($field->has_conditions()) {
+                $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+            }
+            echo '<tr ' . $row_attrs . '>';
             echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
             echo '<td>';
             $field->render_unbound(null, $field->name, $field->name);
@@ -577,7 +581,11 @@ class WP_Settings_Table
 
         foreach ($this->fields as $field) {
             $value = $edit_row[$field->name] ?? null;
-            echo '<tr>';
+            $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
+            if ($field->has_conditions()) {
+                $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+            }
+            echo '<tr ' . $row_attrs . '>';
             echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
             echo '<td>';
             $field->render_unbound($value, $field->name, $field->name);
@@ -615,10 +623,19 @@ class WP_Settings_Table
      */
     protected function render_data_script(array $rows)
     {
+        // Build field conditions map for JavaScript.
+        $field_conditions = array();
+        foreach ($this->fields as $field) {
+            if ($field->has_conditions()) {
+                $field_conditions[$field->name] = $field->conditions;
+            }
+        }
+
         $payload = array(
             'rows' => $rows,
             'status_key' => $this->status_key,
             'statuses' => $this->statuses,
+            'field_conditions' => $field_conditions,
         );
 
         echo '<script type="text/javascript">';

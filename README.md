@@ -172,3 +172,44 @@ $this->tables = array(
 ```
 
 Tables render in the specified tab, support AJAX CRUD, bulk actions, inline status toggles, and a non-JS fallback form.
+
+## Conditional Visibility
+
+Fields can be conditionally shown/hidden based on other field values using the `conditions` key in the args array. This works for both regular settings forms and `WP_Settings_Table` modals.
+
+```php
+new WP_Setting(
+    'salesforce_oid',
+    'Organization ID',
+    'text',
+    'feeds',
+    'feeds_section',
+    null,
+    'Your Salesforce Organization ID',
+    false,
+    null,
+    null,
+    array(
+        'conditions' => array(
+            array(
+                'field'    => 'connection_type',
+                'operator' => 'in',
+                'value'    => array('salesforce_lead', 'salesforce_case'),
+            ),
+        ),
+    )
+)
+```
+
+**Supported operators:**
+
+| Operator | Description |
+|----------|-------------|
+| `equals` | Field value equals the target value |
+| `not_equals` | Field value does not equal the target value |
+| `in` | Field value is one of the values in the target array |
+| `not_in` | Field value is not in the target array |
+| `empty` | Field value is empty |
+| `not_empty` | Field value is not empty |
+
+Multiple conditions are combined with AND logic (all must be true for the field to be visible).

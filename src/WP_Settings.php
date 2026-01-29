@@ -282,7 +282,10 @@ class WP_Settings
             return;
         }
 
-        if (!empty($this->tables)) {
+        $has_tables = !empty($this->tables);
+        $has_conditionals = $this->has_conditional_settings();
+
+        if ($has_tables || $has_conditionals) {
             \wp_enqueue_style(
                 'wp-settings-admin',
                 \plugin_dir_url(__FILE__) . 'assets/admin.css',
@@ -296,6 +299,17 @@ class WP_Settings
                 '1.0.0',
                 true
             );
+
+            // If we have conditional settings (not in tables), add inline script for initialization.
+            if ($has_conditionals) {
+                $controlling_fields = $this->get_controlling_fields();
+                \wp_add_inline_script(
+                    'wp-settings-admin',
+                    'window.wpsSettingsConditionals = ' . \wp_json_encode(array(
+                        'controllingFields' => $controlling_fields,
+                    )) . ';'
+                );
+            }
         }
 
         if ($this->has_sortable_settings()) {
@@ -313,6 +327,81 @@ class WP_Settings
                 true
             );
         }
+    }
+
+    /**
+     * Get all field names that other fields depend on (controlling fields) from settings.
+     *
+     * @return array Array of unique controlling field slugs.
+     */
+    protected function get_controlling_fields()
+    {
+        $controlling_fields = array();
+
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->has_conditions()) {
+                foreach ($setting->conditions as $condition) {
+                    if (!empty($condition['field'])) {
+                        // Try to find the full slug for this field.
+                        $field_slug = $this->find_field_slug($condition['field']);
+                        if ($field_slug && !in_array($field_slug, $controlling_fields, true)) {
+                            $controlling_fields[] = $field_slug;
+                        }
+                    }
+                }
+            }
+
+            if ($setting->type === 'advanced' && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->has_conditions()) {
+                        foreach ($child->conditions as $condition) {
+                            if (!empty($condition['field'])) {
+                                $field_slug = $this->find_field_slug($condition['field']);
+                                if ($field_slug && !in_array($field_slug, $controlling_fields, true)) {
+                                    $controlling_fields[] = $field_slug;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $controlling_fields;
+    }
+
+    /**
+     * Find the full slug for a field by its name.
+     *
+     * @param string $field_name The field name to find.
+     * @return string|null The full slug or null if not found.
+     */
+    protected function find_field_slug($field_name)
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->name === $field_name) {
+                return $setting->slug;
+            }
+
+            if ($setting->type === 'advanced' && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->name === $field_name) {
+                        return $child->slug;
+                    }
+                }
+            }
+        }
+
+        // If not found, return the field_name with text_domain prefix as fallback.
+        return $this->text_domain . '_' . $field_name;
     }
 
     /**
@@ -355,6 +444,34 @@ class WP_Settings
             if ($setting->type === 'advanced' && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
                     if ($child instanceof WP_Setting && $child->type === 'sortable') {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if any settings have conditional visibility rules.
+     *
+     * @return bool
+     */
+    protected function has_conditional_settings()
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->has_conditions()) {
+                return true;
+            }
+
+            if ($setting->type === 'advanced' && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->has_conditions()) {
                         return true;
                     }
                 }

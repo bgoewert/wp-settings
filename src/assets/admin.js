@@ -27,6 +27,146 @@
         });
     }
 
+    /**
+     * Evaluate a single condition against the current form state.
+     *
+     * @param {Object} condition - Condition object with field, operator, value.
+     * @param {jQuery} $form - The form element to check values in.
+     * @return {boolean} Whether the condition is met.
+     */
+    function evaluateCondition(condition, $form) {
+        var fieldName = condition.field;
+        var operator = condition.operator;
+        var targetValue = condition.value;
+
+        var $field = $form.find('[name="' + fieldName + '"]');
+        if (!$field.length) {
+            return false;
+        }
+
+        var fieldValue;
+        if ($field.attr('type') === 'checkbox') {
+            fieldValue = $field.is(':checked') ? $field.val() : '';
+        } else if ($field.attr('type') === 'radio') {
+            fieldValue = $form.find('[name="' + fieldName + '"]:checked').val() || '';
+        } else {
+            fieldValue = $field.val() || '';
+        }
+
+        switch (operator) {
+            case 'equals':
+                return fieldValue === targetValue;
+            case 'not_equals':
+                return fieldValue !== targetValue;
+            case 'in':
+                if (Array.isArray(targetValue)) {
+                    return targetValue.indexOf(fieldValue) !== -1;
+                }
+                return fieldValue === targetValue;
+            case 'not_in':
+                if (Array.isArray(targetValue)) {
+                    return targetValue.indexOf(fieldValue) === -1;
+                }
+                return fieldValue !== targetValue;
+            case 'empty':
+                return !fieldValue || fieldValue === '';
+            case 'not_empty':
+                return fieldValue && fieldValue !== '';
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Evaluate all conditions for a field row.
+     * All conditions must be true (AND logic).
+     *
+     * @param {Array} conditions - Array of condition objects.
+     * @param {jQuery} $form - The form element.
+     * @return {boolean} Whether all conditions are met.
+     */
+    function evaluateConditions(conditions, $form) {
+        if (!conditions || !conditions.length) {
+            return true;
+        }
+        for (var i = 0; i < conditions.length; i++) {
+            if (!evaluateCondition(conditions[i], $form)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Apply conditional visibility to all form rows with data-conditions.
+     * Handles both:
+     * - tr[data-conditions] for WP_Settings_Table modals
+     * - .wps-field-wrapper[data-conditions] for regular settings forms
+     *
+     * @param {jQuery} $form - The form element.
+     */
+    function applyConditionalVisibility($form) {
+        // Handle tr[data-conditions] (table modals).
+        $form.find('tr[data-conditions]').each(function() {
+            var $row = $(this);
+            var conditions;
+            try {
+                conditions = JSON.parse($row.attr('data-conditions'));
+            } catch (e) {
+                return;
+            }
+            if (evaluateConditions(conditions, $form)) {
+                $row.show();
+            } else {
+                $row.hide();
+            }
+        });
+
+        // Handle .wps-field-wrapper[data-conditions] (regular settings forms).
+        $form.find('.wps-field-wrapper[data-conditions]').each(function() {
+            var $wrapper = $(this);
+            var $row = $wrapper.closest('tr');
+            var conditions;
+            try {
+                conditions = JSON.parse($wrapper.attr('data-conditions'));
+            } catch (e) {
+                return;
+            }
+            if (evaluateConditions(conditions, $form)) {
+                if ($row.length) {
+                    $row.show();
+                } else {
+                    $wrapper.show();
+                }
+            } else {
+                if ($row.length) {
+                    $row.hide();
+                } else {
+                    $wrapper.hide();
+                }
+            }
+        });
+    }
+
+    /**
+     * Get all field names that other fields depend on (controlling fields).
+     *
+     * @param {Object} fieldConditions - Map of field name to conditions array.
+     * @return {Array} Array of unique controlling field names.
+     */
+    function getControllingFields(fieldConditions) {
+        var controllingFields = [];
+        Object.keys(fieldConditions).forEach(function(fieldName) {
+            var conditions = fieldConditions[fieldName];
+            conditions.forEach(function(condition) {
+                if (condition.field && controllingFields.indexOf(condition.field) === -1) {
+                    controllingFields.push(condition.field);
+                }
+            });
+        });
+        return controllingFields;
+    }
+
     $('.wps-table').each(function() {
         var $container = $(this);
         var tableId = $container.data('table-id');
@@ -60,11 +200,37 @@
                     }
                 });
             }
+
+            // Apply conditional visibility after form is populated.
+            applyConditionalVisibility($modalForm);
         }
 
         function closeModal() {
             $modal.addClass('wps-modal-hidden');
             $modal.attr('aria-hidden', 'true');
+        }
+
+        // Set up conditional visibility listeners for controlling fields.
+        var fieldConditions = tableData.field_conditions || {};
+        var controllingFields = getControllingFields(fieldConditions);
+        if (controllingFields.length) {
+            controllingFields.forEach(function(fieldName) {
+                $modalForm.on('change', '[name="' + fieldName + '"]', function() {
+                    applyConditionalVisibility($modalForm);
+                });
+            });
+
+            // Also apply to fallback form if it exists.
+            var $fallbackForm = $container.find('.wps-fallback-form form');
+            if ($fallbackForm.length) {
+                controllingFields.forEach(function(fieldName) {
+                    $fallbackForm.on('change', '[name="' + fieldName + '"]', function() {
+                        applyConditionalVisibility($fallbackForm);
+                    });
+                });
+                // Apply initial visibility on page load for fallback form.
+                applyConditionalVisibility($fallbackForm);
+            }
         }
 
         $container.on('click', '.wps-add-row', function() {
@@ -192,4 +358,30 @@
             applySort($table, colIndex, next);
         });
     });
+
+    // Initialize conditional visibility for regular settings forms (non-table).
+    var conditionalConfig = window.wpsSettingsConditionals || {};
+    var controllingFields = conditionalConfig.controllingFields || [];
+
+    if (controllingFields.length) {
+        // Find all settings forms that might have conditional fields.
+        $('form').each(function() {
+            var $form = $(this);
+            var hasConditionals = $form.find('.wps-field-wrapper[data-conditions]').length > 0;
+
+            if (!hasConditionals) {
+                return;
+            }
+
+            // Apply initial visibility.
+            applyConditionalVisibility($form);
+
+            // Set up change listeners for controlling fields.
+            controllingFields.forEach(function(fieldSlug) {
+                $form.on('change', '[name="' + fieldSlug + '"]', function() {
+                    applyConditionalVisibility($form);
+                });
+            });
+        });
+    }
 })(jQuery);

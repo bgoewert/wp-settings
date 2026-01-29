@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] - 2026-01-29
+
+### Added
+
+- Conditional field visibility via `conditions` key in args array with operators: `equals`, `not_equals`, `in`, `not_in`, `empty`, `not_empty`
+
 ## [2.5.0] - 2026-01-21
 
 ### Added
