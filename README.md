@@ -9,7 +9,7 @@ Add the GitHub repository to your project's `composer.json`:
 ```json
 {
   "repositories": [
-    { "type": "vcs", "url": "https://github.com/bgoewert/wp-settings.git" }
+    { "name": "bgoewert/wp-settings", "type": "vcs", "url": "https://github.com/bgoewert/wp-settings.git" }
   ]
 }
 ```
