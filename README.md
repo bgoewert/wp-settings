@@ -89,9 +89,11 @@ Tab labels default to `ucwords(tab)` but you can override the display label per 
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`
+Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`
 
 **Advanced**: Collapsible `<details>` section containing child settings.
+
+**Table**: Embeds a `WP_Settings_Table` instance within a section alongside other settings.
 
 ### Advanced Field Example
 
@@ -138,6 +140,49 @@ new WP_Setting(
     )
 );
 ```
+
+### Table Field Example
+
+```php
+use BGoewert\WP_Settings\WP_Setting;
+use BGoewert\WP_Settings\WP_Settings_Table;
+
+// Create a table instance
+$my_table = new WP_Settings_Table(array(
+    'id'          => 'items',
+    'tab'         => 'general',
+    'option'      => 'items',
+    'title'       => 'Item Management',
+    'description' => 'Manage your items.',
+    'columns'     => array(
+        array('key' => 'name', 'label' => 'Name', 'field' => 'name'),
+        array('key' => 'value', 'label' => 'Value', 'field' => 'value'),
+    ),
+    'fields'      => array(
+        new WP_Setting('name', 'Item Name', 'text', 'general', 'items_section'),
+        new WP_Setting('value', 'Item Value', 'number', 'general', 'items_section'),
+    ),
+));
+
+// Embed the table in a section alongside other settings
+new WP_Setting(
+    'items_table',
+    'Items',
+    'table',
+    'general',
+    'general_settings',
+    null,
+    'Configure your items below.',
+    false,
+    null,
+    null,
+    array(
+        'table' => $my_table,
+    )
+);
+```
+
+This allows you to place tables within sections, rendered alongside regular settings fields.
 
 ## Settings Tables
 

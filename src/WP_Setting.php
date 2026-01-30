@@ -683,6 +683,9 @@ class WP_Setting
             case 'sortable':
                 $this->render_sortable_value($name, $id, $value);
                 break;
+            case 'table':
+                $this->render_table_value($name, $id, $value);
+                break;
             case 'hidden':
                 $this->render_hidden_value($name, $id, $value);
                 break;
@@ -893,6 +896,42 @@ class WP_Setting
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
+    }
+
+    /**
+     * Render a table field (embeds a WP_Settings_Table).
+     *
+     * @param string $name  Field name (unused for tables).
+     * @param string $id    Field id (unused for tables).
+     * @param mixed  $value Field value (unused for tables).
+     */
+    protected function render_table_value($name, $id, $value)
+    {
+        // Get the table instance from args.
+        $table = $this->args['table'] ?? null;
+
+        if (!$table || !($table instanceof \BGoewert\WP_Settings\WP_Settings_Table)) {
+            echo \wp_kses('<p class="description" style="color: red;">Error: Invalid table configuration.</p>', self::$allowed_html);
+            return;
+        }
+
+        // Extract text_domain and tab from the current context if available.
+        // These are typically set by the parent WP_Settings class during rendering.
+        $text_domain = static::$text_domain ?? '';
+        $tab = $this->page ?? '';
+
+        // Strip prefix from tab if it exists (e.g., 'prefix_tab' -> 'tab').
+        if ($text_domain && strpos($tab, $text_domain . '_') === 0) {
+            $tab = substr($tab, strlen($text_domain) + 1);
+        }
+
+        // Render description before table if provided.
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+
+        // Render the table.
+        $table->render($text_domain, $tab);
     }
 
     protected function resolve_options()

@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-01-30
+
+### Added
+
+- `table` field type for embedding WP_Settings_Table instances within sections alongside other settings
+
 ## [2.7.0] - 2026-01-29
 
 ### Added
