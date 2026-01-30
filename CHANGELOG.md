@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.9.0] - 2026-01-30
+
+### Added
+
+- Base badge style for sortable fields (`.wps-sortable-badge`)
+
 ## [2.8.0] - 2026-01-30
 
 ### Added
