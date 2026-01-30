@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.10.0] - 2026-01-30
+
+### Added
+
+- `collapsed` parameter for advanced fields (defaults to `true`, set to `false` to expand by default)
+
 ## [2.9.0] - 2026-01-30
 
 ### Added

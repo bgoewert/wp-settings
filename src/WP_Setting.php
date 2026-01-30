@@ -1002,7 +1002,12 @@ class WP_Setting
         // Create collapsible details section
         // Note: We don't render hidden fields for children because the visible inputs
         // inside the details section are the actual form inputs that WordPress will save
-        echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">';
+
+        // Check if collapsed parameter is set (defaults to true).
+        $collapsed = $this->args['collapsed'] ?? true;
+        $open_attr = $collapsed ? '' : ' open';
+
+        echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;"' . $open_attr . '>';
         echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . \esc_html($this->title) . ' (click to expand)</summary>';
         echo '<div style="margin-top: 15px; padding-left: 10px;">';
 

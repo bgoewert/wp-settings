@@ -107,9 +107,16 @@ $advanced = new WP_Setting(
     'advanced_settings', 'Advanced Settings', 'advanced', 'settings', 'section',
     '500px', 'Configure advanced options.', false, '', null, array('children' => array($child1, $child2))
 );
+
+// Or expanded by default:
+$expanded = new WP_Setting(
+    'field_mapping', 'Field Mapping', 'advanced', 'settings', 'section',
+    null, 'Map source fields to destination fields.', false, '', null,
+    array('children' => array($child1, $child2), 'collapsed' => false)
+);
 ```
 
-Renders as collapsible section with hidden inputs for value storage and visible controls inside the collapsed area.
+Renders as collapsible `<details>` section. Set `'collapsed' => false` to expand by default (defaults to `true` if not specified).
 
 **Hidden fields**: Store values without rendering table rows.
 
