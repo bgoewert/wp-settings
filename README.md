@@ -141,6 +141,47 @@ new WP_Setting(
 );
 ```
 
+**With badges and custom classes:**
+
+```php
+new WP_Setting(
+    'field_order',
+    'Field Order',
+    'sortable',
+    'general',
+    'general_settings',
+    null,
+    'Drag or enter a number to reorder fields.',
+    false,
+    array('first_name', 'last_name', 'custom_field'),
+    null,
+    array(
+        'options' => array(
+            'first_name'   => 'First Name',
+            'last_name'    => 'Last Name',
+            'custom_field' => 'Custom Field',
+        ),
+        'item_meta' => array(
+            'first_name' => array(
+                'badge'       => 'Default',
+                'badge_class' => 'default',
+                'class'       => 'default-field',
+            ),
+            'last_name' => array(
+                'badge'       => 'Default',
+                'badge_class' => 'default',
+                'class'       => 'default-field',
+            ),
+            'custom_field' => array(
+                'badge'       => 'Custom',
+                'badge_class' => 'custom',
+                'class'       => 'custom-field',
+            ),
+        ),
+    )
+);
+```
+
 ### Table Field Example
 
 ```php

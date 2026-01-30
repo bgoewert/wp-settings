@@ -860,17 +860,40 @@ class WP_Setting
             self::$allowed_html
         );
 
+        // Get item metadata (badges, classes, etc.).
+        $item_meta = $this->args['item_meta'] ?? array();
+
         foreach ($ordered_keys as $index => $key) {
             $label = $options[$key] ?? $key;
             $order_id = $id . '_order_' . $index;
             $label_text = \sprintf('%s %s', $this->title, $label);
 
+            // Build item classes.
+            $item_classes = array('wps-sortable-item');
+            if (isset($item_meta[$key]['class'])) {
+                $item_classes[] = \esc_attr($item_meta[$key]['class']);
+            }
+            $item_class_attr = implode(' ', $item_classes);
+
             echo \wp_kses(
-                sprintf('<li class="wps-sortable-item" data-key="%s">', \esc_attr($key)),
+                sprintf('<li class="%s" data-key="%s">', $item_class_attr, \esc_attr($key)),
                 self::$allowed_html
             );
             echo \wp_kses('<span class="wps-sortable-handle dashicons dashicons-menu" aria-hidden="true"></span>', self::$allowed_html);
             echo \wp_kses(sprintf('<span class="wps-sortable-label">%s</span>', \esc_html($label)), self::$allowed_html);
+
+            // Render badge if provided.
+            if (isset($item_meta[$key]['badge'])) {
+                $badge_class = 'wps-sortable-badge';
+                if (isset($item_meta[$key]['badge_class'])) {
+                    $badge_class .= ' ' . \esc_attr($item_meta[$key]['badge_class']);
+                }
+                echo \wp_kses(
+                    sprintf('<span class="%s">%s</span>', $badge_class, \esc_html($item_meta[$key]['badge'])),
+                    self::$allowed_html
+                );
+            }
+
             echo \wp_kses(
                 sprintf('<label class="screen-reader-text" for="%s">%s</label>', \esc_attr($order_id), \esc_html($label_text)),
                 self::$allowed_html

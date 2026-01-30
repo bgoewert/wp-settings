@@ -9,6 +9,7 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 ### Added
 
 - `table` field type for embedding WP_Settings_Table instances within sections alongside other settings
+- `item_meta` option for sortable fields to add custom classes and badges to individual items
 
 ## [2.7.0] - 2026-01-29
 
