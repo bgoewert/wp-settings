@@ -386,15 +386,31 @@ class WP_Settings_Table
         $row = array();
 
         foreach ($this->fields as $field) {
-            $field_name = $field->name;
-            $raw_value = isset($data[$field_name]) ? \wp_unslash($data[$field_name]) : null;
+            // Handle fieldset and advanced fields with children.
+            if (($field->type === 'fieldset' || $field->type === 'advanced') && !empty($field->children)) {
+                foreach ($field->children as $child) {
+                    $field_name = $child->name;
+                    $raw_value = isset($data[$field_name]) ? \wp_unslash($data[$field_name]) : null;
 
-            if ($field->type === 'checkbox') {
-                $row[$field_name] = !empty($raw_value) && $raw_value !== '0' && $raw_value !== 0;
-                continue;
+                    if ($child->type === 'checkbox') {
+                        $row[$field_name] = !empty($raw_value) && $raw_value !== '0' && $raw_value !== 0;
+                        continue;
+                    }
+
+                    $row[$field_name] = $child->sanitize_value($raw_value);
+                }
+            } else {
+                // Regular field sanitization.
+                $field_name = $field->name;
+                $raw_value = isset($data[$field_name]) ? \wp_unslash($data[$field_name]) : null;
+
+                if ($field->type === 'checkbox') {
+                    $row[$field_name] = !empty($raw_value) && $raw_value !== '0' && $raw_value !== 0;
+                    continue;
+                }
+
+                $row[$field_name] = $field->sanitize_value($raw_value);
             }
-
-            $row[$field_name] = $field->sanitize_value($raw_value);
         }
 
         if (!isset($row[$this->status_key])) {
@@ -540,16 +556,71 @@ class WP_Settings_Table
         echo '<table class="form-table">';
 
         foreach ($this->fields as $field) {
-            $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
-            if ($field->has_conditions()) {
-                $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+            // Handle fieldset fields with children.
+            if ($field->type === 'fieldset' && !empty($field->children)) {
+                echo '<tr><td colspan="2">';
+                echo '<fieldset style="border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">';
+                echo '<legend style="padding: 0 10px; font-weight: 600;">' . \esc_html($field->title) . '</legend>';
+
+                if ($field->description) {
+                    echo '<p class="description">' . \esc_html($field->description) . '</p>';
+                }
+
+                // Render children inside fieldset.
+                foreach ($field->children as $child) {
+                    $row_attrs = 'data-field="' . \esc_attr($child->name) . '"';
+                    if ($child->has_conditions()) {
+                        $row_attrs .= ' data-conditions="' . \esc_attr($child->get_conditions_json()) . '"';
+                    }
+                    echo '<div style="margin: 10px 0;" ' . $row_attrs . '>';
+                    echo '<label for="' . \esc_attr($child->name) . '" style="display: block; font-weight: 600; margin-bottom: 5px;">' . \esc_html($child->title) . '</label>';
+                    $child->render_unbound(null, $child->name, $child->name);
+                    echo '</div>';
+                }
+
+                echo '</fieldset>';
+                echo '</td></tr>';
+            } elseif ($field->type === 'advanced' && !empty($field->children)) {
+                // Handle advanced fields with children.
+                $collapsed = $field->args['collapsed'] ?? true;
+                $open_attr = $collapsed ? '' : ' open';
+
+                echo '<tr><td colspan="2">';
+                echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;"' . $open_attr . '>';
+                echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . \esc_html($field->title) . '</summary>';
+                echo '<div style="margin-top: 15px; padding-left: 10px;">';
+
+                if ($field->description) {
+                    echo '<p class="description">' . \esc_html($field->description) . '</p>';
+                }
+
+                // Render children inside advanced field.
+                foreach ($field->children as $child) {
+                    $row_attrs = 'data-field="' . \esc_attr($child->name) . '"';
+                    if ($child->has_conditions()) {
+                        $row_attrs .= ' data-conditions="' . \esc_attr($child->get_conditions_json()) . '"';
+                    }
+                    echo '<div style="margin: 10px 0;" ' . $row_attrs . '>';
+                    echo '<label for="' . \esc_attr($child->name) . '" style="display: block; font-weight: 600; margin-bottom: 5px;">' . \esc_html($child->title) . '</label>';
+                    $child->render_unbound(null, $child->name, $child->name);
+                    echo '</div>';
+                }
+
+                echo '</div></details>';
+                echo '</td></tr>';
+            } else {
+                // Regular field rendering.
+                $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
+                if ($field->has_conditions()) {
+                    $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+                }
+                echo '<tr ' . $row_attrs . '>';
+                echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
+                echo '<td>';
+                $field->render_unbound(null, $field->name, $field->name);
+                echo '</td>';
+                echo '</tr>';
             }
-            echo '<tr ' . $row_attrs . '>';
-            echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
-            echo '<td>';
-            $field->render_unbound(null, $field->name, $field->name);
-            echo '</td>';
-            echo '</tr>';
         }
 
         echo '</table>';
@@ -580,17 +651,74 @@ class WP_Settings_Table
         echo '<table class="form-table">';
 
         foreach ($this->fields as $field) {
-            $value = $edit_row[$field->name] ?? null;
-            $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
-            if ($field->has_conditions()) {
-                $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+            // Handle fieldset fields with children.
+            if ($field->type === 'fieldset' && !empty($field->children)) {
+                echo '<tr><td colspan="2">';
+                echo '<fieldset style="border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">';
+                echo '<legend style="padding: 0 10px; font-weight: 600;">' . \esc_html($field->title) . '</legend>';
+
+                if ($field->description) {
+                    echo '<p class="description">' . \esc_html($field->description) . '</p>';
+                }
+
+                // Render children inside fieldset.
+                foreach ($field->children as $child) {
+                    $value = $edit_row[$child->name] ?? null;
+                    $row_attrs = 'data-field="' . \esc_attr($child->name) . '"';
+                    if ($child->has_conditions()) {
+                        $row_attrs .= ' data-conditions="' . \esc_attr($child->get_conditions_json()) . '"';
+                    }
+                    echo '<div style="margin: 10px 0;" ' . $row_attrs . '>';
+                    echo '<label for="' . \esc_attr($child->name) . '" style="display: block; font-weight: 600; margin-bottom: 5px;">' . \esc_html($child->title) . '</label>';
+                    $child->render_unbound($value, $child->name, $child->name);
+                    echo '</div>';
+                }
+
+                echo '</fieldset>';
+                echo '</td></tr>';
+            } elseif ($field->type === 'advanced' && !empty($field->children)) {
+                // Handle advanced fields with children.
+                $collapsed = $field->args['collapsed'] ?? true;
+                $open_attr = $collapsed ? '' : ' open';
+
+                echo '<tr><td colspan="2">';
+                echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;"' . $open_attr . '>';
+                echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . \esc_html($field->title) . '</summary>';
+                echo '<div style="margin-top: 15px; padding-left: 10px;">';
+
+                if ($field->description) {
+                    echo '<p class="description">' . \esc_html($field->description) . '</p>';
+                }
+
+                // Render children inside advanced field.
+                foreach ($field->children as $child) {
+                    $value = $edit_row[$child->name] ?? null;
+                    $row_attrs = 'data-field="' . \esc_attr($child->name) . '"';
+                    if ($child->has_conditions()) {
+                        $row_attrs .= ' data-conditions="' . \esc_attr($child->get_conditions_json()) . '"';
+                    }
+                    echo '<div style="margin: 10px 0;" ' . $row_attrs . '>';
+                    echo '<label for="' . \esc_attr($child->name) . '" style="display: block; font-weight: 600; margin-bottom: 5px;">' . \esc_html($child->title) . '</label>';
+                    $child->render_unbound($value, $child->name, $child->name);
+                    echo '</div>';
+                }
+
+                echo '</div></details>';
+                echo '</td></tr>';
+            } else {
+                // Regular field rendering.
+                $value = $edit_row[$field->name] ?? null;
+                $row_attrs = 'data-field="' . \esc_attr($field->name) . '"';
+                if ($field->has_conditions()) {
+                    $row_attrs .= ' data-conditions="' . \esc_attr($field->get_conditions_json()) . '"';
+                }
+                echo '<tr ' . $row_attrs . '>';
+                echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
+                echo '<td>';
+                $field->render_unbound($value, $field->name, $field->name);
+                echo '</td>';
+                echo '</tr>';
             }
-            echo '<tr ' . $row_attrs . '>';
-            echo '<th scope="row"><label for="' . \esc_attr($field->name) . '">' . \esc_html($field->title) . '</label></th>';
-            echo '<td>';
-            $field->render_unbound($value, $field->name, $field->name);
-            echo '</td>';
-            echo '</tr>';
         }
 
         echo '</table>';

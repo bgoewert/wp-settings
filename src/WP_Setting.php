@@ -432,6 +432,10 @@ class WP_Setting
                     $this->callback = array($this, 'init_advanced');
                     break;
 
+                case 'fieldset':
+                    $this->callback = array($this, 'init_fieldset');
+                    break;
+
                 default:
                     $this->callback = array($this, 'init_type');
                     break;
@@ -446,9 +450,13 @@ class WP_Setting
     {
         $this->add_setting();
 
-        // Note: We don't call init() on children because they shouldn't be registered
-        // as separate settings fields. They're only rendered inside the parent's
-        // init_advanced() method and saved via the parent's save() method.
+        // For fieldset and advanced fields, also register children so they save properly
+        // This allows these field types to work in both settings pages and table modals
+        if (($this->type === 'fieldset' || $this->type === 'advanced') && !empty($this->children)) {
+            foreach ($this->children as $child) {
+                $child->init();
+            }
+        }
     }
 
     /**
@@ -466,11 +474,11 @@ class WP_Setting
         \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
 
         // Skip add_settings_field for hidden fields to avoid empty table rows
-        // Advanced fields handle their own rendering including child fields
-        if ($this->type !== 'hidden' && $this->type !== 'advanced') {
+        // Advanced and fieldset fields handle their own rendering including child fields
+        if ($this->type !== 'hidden' && $this->type !== 'advanced' && $this->type !== 'fieldset') {
             \add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
-        } elseif ($this->type === 'advanced') {
-            // For advanced fields, only register the parent field (not children)
+        } elseif ($this->type === 'advanced' || $this->type === 'fieldset') {
+            // For advanced/fieldset fields, only register the parent field (not children)
             // Children will be registered separately when their init() is called
             \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
@@ -1094,6 +1102,84 @@ class WP_Setting
         }
 
         echo '</div></details>';
+    }
+
+    /**
+     * Create a fieldset grouping with child settings.
+     */
+    public function init_fieldset()
+    {
+        // Create fieldset grouping
+        echo '<fieldset style="border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">';
+        echo '<legend style="padding: 0 10px; font-weight: 600;">' . \esc_html($this->title) . '</legend>';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+
+        // Render each child setting as a table row
+        echo '<table class="form-table" role="presentation">';
+        foreach ($this->children as $child) {
+            echo '<tr>';
+            echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
+            echo '<td>';
+
+            // Render the child field input
+            $value = self::get($child->slug, $child->default_value);
+
+            switch ($child->type) {
+                case 'checkbox':
+                    echo sprintf('<input type="hidden" name="%s" value="0">', \esc_attr($child->slug));
+                    echo sprintf(
+                        '<label><input type="checkbox" name="%s" id="%s" value="on" %s /> %s</label>',
+                        \esc_attr($child->slug),
+                        \esc_attr($child->slug),
+                        \checked($value, true, false),
+                        \esc_html($child->title)
+                    );
+                    break;
+
+                case 'text':
+                case 'email':
+                case 'url':
+                case 'number':
+                    $atts = ' style="width:' . ($child->width ?: '400px') . ';"';
+                    if ($child->required) {
+                        $atts .= ' required';
+                    }
+                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts), self::$allowed_html);
+                    break;
+
+                case 'textarea':
+                    $atts = ' style="width:' . ($child->width ?: '400px') . ';"';
+                    if ($child->required) {
+                        $atts .= ' required';
+                    }
+                    if (isset($child->args['rows'])) {
+                        $atts .= ' rows="' . $child->args['rows'] . '"';
+                    }
+                    echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, \esc_textarea($value)), self::$allowed_html);
+                    break;
+
+                case 'select':
+                    echo sprintf('<select name="%s" id="%s">', $child->slug, $child->slug);
+                    foreach ($child->args['options'] as $option => $label) {
+                        echo sprintf('<option value="%s"%s>%s</option>', \esc_attr($option), \selected($value, $option, false), \esc_html($label));
+                    }
+                    echo '</select>';
+                    break;
+            }
+
+            if ($child->description) {
+                echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
+            }
+
+            echo '</td>';
+            echo '</tr>';
+        }
+        echo '</table>';
+
+        echo '</fieldset>';
     }
 
     public static function random_bytes($length)

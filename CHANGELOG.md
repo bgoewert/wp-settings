@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.11.0] - 2026-02-02
+
+### Added
+
+- Add `fieldset` field type for visual grouping of child settings
+- Add support for `fieldset` and `advanced` fields in table modals
+
 ## [2.10.0] - 2026-01-30
 
 ### Added
