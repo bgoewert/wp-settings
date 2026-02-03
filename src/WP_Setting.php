@@ -1355,7 +1355,7 @@ class WP_Setting
         echo '</button>';
 
         // Merge tag dropdown (hidden by default).
-        echo '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; top: 100%; margin-top: 2px;">';
+        echo '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; bottom: 100%; margin-bottom: 2px;">';
         foreach ($options as $option_key => $option_label) {
             echo '<div class="wps-merge-tag-item" data-tag="{' . \esc_attr($option_key) . '}" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;">';
             echo '<strong>' . \esc_html($option_label) . '</strong><br>';
@@ -1472,7 +1472,7 @@ class WP_Setting
                         '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
                         '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>' +
                         '</button>' +
-                        '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; top: 100%; margin-top: 2px;">' +
+                        '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; bottom: 100%; margin-bottom: 2px;">' +
                         '<?php echo addslashes($merge_tags_html); ?>' +
                         '</div>' +
                         '</div>' +

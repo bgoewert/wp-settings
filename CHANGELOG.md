@@ -13,6 +13,10 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 - Add "Custom" option to source dropdown for merge patterns with field placeholders
 - Add `$width` parameter support to `field_map` field type for controlling Source Field column width
 
+### Fixed
+
+- Fix merge tag dropdown to open upward to prevent overflow issues
+
 ## [2.11.0] - 2026-02-02
 
 ### Added
