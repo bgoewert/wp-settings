@@ -8,14 +8,10 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 
 ### Added
 
-- Add `field_map` field type for dynamic field mapping with add/remove rows
-- Add merge tag selector button with dropdown showing available fields for custom input
-- Add "Custom" option to source dropdown for merge patterns with field placeholders
-- Add `$width` parameter support to `field_map` field type for controlling Source Field column width
+- Add `field_map` field type for dynamic field mapping with add/remove rows and merge tag selector
 
 ### Fixed
 
-- Fix merge tag dropdown to open upward to prevent overflow issues
 - Fix checkbox fields not being checked when editing table rows in modals
 
 ## [2.11.0] - 2026-02-02

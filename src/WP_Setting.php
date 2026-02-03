@@ -1550,6 +1550,64 @@ class WP_Setting
 
                 // Initialize data on load.
                 updateData();
+
+                // Listen for load event (triggered when editing existing row in modal).
+                dataInput.on('wps-field-map-load', function() {
+                    // Clear existing rows.
+                    tbody.empty();
+
+                    // Get data from hidden input.
+                    var data = $(this).val();
+                    if (!data) return;
+
+                    try {
+                        var mappings = JSON.parse(data);
+                        if (!Array.isArray(mappings)) return;
+
+                        // Create rows for each mapping.
+                        mappings.forEach(function(mapping) {
+                            if (!mapping.key || !mapping.value) return;
+
+                            // Determine if it's a custom value.
+                            var isCustom = mapping.value.indexOf('{') !== -1;
+                            var selectedOption = isCustom ? '__custom__' : mapping.value;
+
+                            var newRow = $('<tr class="wps-field-map-row">' +
+                                '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" value="' + mapping.key + '" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                                '<td style="<?php echo \esc_js($source_td_style); ?>">' +
+                                '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
+                                '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
+                                '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
+                                '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
+                                '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>' +
+                                '</button>' +
+                                '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; bottom: 100%; margin-bottom: 2px;">' +
+                                '<?php echo addslashes($merge_tags_html); ?>' +
+                                '</div>' +
+                                '</div>' +
+                                '<input type="hidden" class="wps-field-map-value" value="' + mapping.value + '">' +
+                                '</td>' +
+                                '<td style="padding: 8px; text-align: center;"><button type="button" class="button wps-field-map-remove" style="color: #b32d2e;">&times;</button></td>' +
+                                '</tr>');
+
+                            // Set the select value and show custom input if needed.
+                            newRow.find('.wps-field-map-source-select').val(selectedOption);
+                            if (isCustom) {
+                                newRow.find('.wps-field-map-custom-wrapper').show();
+                                newRow.find('.wps-field-map-custom-input').val(mapping.value);
+                            }
+
+                            tbody.append(newRow);
+                        });
+
+                        // If no mappings, add one empty row.
+                        if (mappings.length === 0) {
+                            container.find('.wps-field-map-add').click();
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse field map data:', e);
+                    }
+                });
             });
         })(jQuery);
         </script>

@@ -203,6 +203,14 @@
                         return;
                     }
 
+                    // Check for field_map type
+                    var $fieldMapData = $modalForm.find('[name="' + key + '"].wps-field-map-data');
+                    if ($fieldMapData.length) {
+                        // This is a field_map field - trigger custom event to populate rows
+                        $fieldMapData.val(JSON.stringify(row[key])).trigger('wps-field-map-load');
+                        return;
+                    }
+
                     // Handle all other field types
                     var $field = $modalForm.find('[name="' + key + '"]');
                     if ($field.length) {
