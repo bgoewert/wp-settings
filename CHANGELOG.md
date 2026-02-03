@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.13.0] - 2026-02-03
+
+### Changed
+
+- Reverse field_map columns (destination left, source right)
+- Add "Custom" option to source dropdown for merge patterns with field placeholders
+
 ## [2.12.0] - 2026-02-03
 
 ### Added

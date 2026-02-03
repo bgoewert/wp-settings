@@ -1258,8 +1258,8 @@ class WP_Setting
         echo '<table class="wps-field-map-table" style="width: 100%; margin-bottom: 10px;">';
         echo '<thead>';
         echo '<tr>';
-        echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Source Field', 'wp-settings') . '</th>';
         echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Destination Field', 'wp-settings') . '</th>';
+        echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Source Field', 'wp-settings') . '</th>';
         echo '<th style="width: 40px; border-bottom: 1px solid #ddd;"></th>';
         echo '</tr>';
         echo '</thead>';
@@ -1268,9 +1268,9 @@ class WP_Setting
         // Render existing mappings.
         if (!empty($value)) {
             foreach ($value as $mapping) {
-                $key = $mapping['key'] ?? '';
-                $val = $mapping['value'] ?? '';
-                $this->render_field_map_row($options, $key, $val);
+                $dest = $mapping['key'] ?? '';
+                $source = $mapping['value'] ?? '';
+                $this->render_field_map_row($options, $dest, $source);
             }
         }
 
@@ -1300,31 +1300,46 @@ class WP_Setting
      * Render a single field map row.
      *
      * @param array  $options Source field options.
-     * @param string $key     Selected source field key.
-     * @param string $value   Destination field value.
+     * @param string $dest    Destination field name.
+     * @param string $source  Source field key or custom pattern.
      */
-    private function render_field_map_row($options, $key, $value)
+    private function render_field_map_row($options, $dest, $source)
     {
+        // Check if source is a custom value (not in options or contains merge tags).
+        $is_custom = !empty($source) && (!isset($options[$source]) || strpos($source, '{') !== false);
+        $selected_option = $is_custom ? '__custom__' : $source;
+
         echo '<tr class="wps-field-map-row">';
 
-        // Source field dropdown.
+        // Destination field text input.
         echo '<td style="padding: 8px;">';
-        echo '<select class="wps-field-map-key" style="width: 100%;">';
+        echo '<input type="text" class="wps-field-map-key" value="' . \esc_attr($dest) . '" placeholder="' . \esc_attr__('Destination field name', 'wp-settings') . '" style="width: 100%;">';
+        echo '</td>';
+
+        // Source field dropdown or custom input.
+        echo '<td style="padding: 8px;">';
+
+        // Dropdown for field selection.
+        echo '<select class="wps-field-map-source-select" style="width: 100%;">';
         echo '<option value="">' . \esc_html__('Select a field...', 'wp-settings') . '</option>';
         foreach ($options as $option_key => $option_label) {
             echo sprintf(
                 '<option value="%s"%s>%s</option>',
                 \esc_attr($option_key),
-                \selected($key, $option_key, false),
+                \selected($selected_option, $option_key, false),
                 \esc_html($option_label)
             );
         }
+        echo '<option value="__custom__"' . \selected($selected_option, '__custom__', false) . '>' . \esc_html__('Custom...', 'wp-settings') . '</option>';
         echo '</select>';
-        echo '</td>';
 
-        // Destination field text input.
-        echo '<td style="padding: 8px;">';
-        echo '<input type="text" class="wps-field-map-value" value="' . \esc_attr($value) . '" placeholder="' . \esc_attr__('Destination field name', 'wp-settings') . '" style="width: 100%;">';
+        // Custom input (shown when <custom> is selected).
+        $custom_display = $is_custom ? 'block' : 'none';
+        echo '<input type="text" class="wps-field-map-custom-input" value="' . \esc_attr($is_custom ? $source : '') . '" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: 100%; margin-top: 5px; display: ' . $custom_display . ';">';
+
+        // Hidden input to store the actual value.
+        echo '<input type="hidden" class="wps-field-map-value" value="' . \esc_attr($source) . '">';
+
         echo '</td>';
 
         // Remove button.
@@ -1374,12 +1389,31 @@ class WP_Setting
                     dataInput.val(JSON.stringify(mappings));
                 }
 
+                // Handle source field dropdown/custom toggle.
+                function updateSourceValue(row) {
+                    var select = row.find('.wps-field-map-source-select');
+                    var customInput = row.find('.wps-field-map-custom-input');
+                    var hiddenValue = row.find('.wps-field-map-value');
+
+                    if (select.val() === '__custom__') {
+                        customInput.show();
+                        hiddenValue.val(customInput.val());
+                    } else {
+                        customInput.hide();
+                        hiddenValue.val(select.val());
+                    }
+                }
+
                 // Add new row.
                 container.on('click', '.wps-field-map-add', function(e) {
                     e.preventDefault();
                     var newRow = $('<tr class="wps-field-map-row">' +
-                        '<td style="padding: 8px;"><select class="wps-field-map-key" style="width: 100%;"><?php echo $options_html; ?></select></td>' +
-                        '<td style="padding: 8px;"><input type="text" class="wps-field-map-value" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                        '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                        '<td style="padding: 8px;">' +
+                        '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
+                        '<input type="text" class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: 100%; margin-top: 5px; display: none;">' +
+                        '<input type="hidden" class="wps-field-map-value">' +
+                        '</td>' +
                         '<td style="padding: 8px; text-align: center;"><button type="button" class="button wps-field-map-remove" style="color: #b32d2e;">&times;</button></td>' +
                         '</tr>');
                     tbody.append(newRow);
@@ -1392,9 +1426,28 @@ class WP_Setting
                     updateData();
                 });
 
-                // Update data on change.
-                container.on('change keyup', '.wps-field-map-key, .wps-field-map-value', function() {
+                // Handle source dropdown change.
+                container.on('change', '.wps-field-map-source-select', function() {
+                    var row = $(this).closest('.wps-field-map-row');
+                    updateSourceValue(row);
                     updateData();
+                });
+
+                // Handle custom input change.
+                container.on('change keyup', '.wps-field-map-custom-input', function() {
+                    var row = $(this).closest('.wps-field-map-row');
+                    row.find('.wps-field-map-value').val($(this).val());
+                    updateData();
+                });
+
+                // Update data on destination field change.
+                container.on('change keyup', '.wps-field-map-key', function() {
+                    updateData();
+                });
+
+                // Initialize source value displays on load.
+                tbody.find('.wps-field-map-row').each(function() {
+                    updateSourceValue($(this));
                 });
 
                 // Initialize data on load.
