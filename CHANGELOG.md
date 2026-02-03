@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.12.0] - 2026-02-03
+
+### Added
+
+- Add `field_map` field type for dynamic source-to-destination field mapping with add/remove rows
+
 ## [2.11.0] - 2026-02-02
 
 ### Added

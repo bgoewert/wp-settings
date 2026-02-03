@@ -436,6 +436,10 @@ class WP_Setting
                     $this->callback = array($this, 'init_fieldset');
                     break;
 
+                case 'field_map':
+                    $this->callback = array($this, 'init_field_map');
+                    break;
+
                 default:
                     $this->callback = array($this, 'init_type');
                     break;
@@ -637,9 +641,40 @@ class WP_Setting
      */
     public function sanitize_value($value)
     {
+        // Custom sanitize callback takes precedence.
         if ($this->sanitize_callback && is_callable($this->sanitize_callback)) {
             return call_user_func($this->sanitize_callback, $value);
         }
+
+        // Default sanitization for field_map type.
+        if ($this->type === 'field_map') {
+            // Decode JSON string to array.
+            if (is_string($value)) {
+                $decoded = json_decode($value, true);
+                if (is_array($decoded)) {
+                    $value = $decoded;
+                }
+            }
+
+            // Ensure we have an array.
+            if (!is_array($value)) {
+                return array();
+            }
+
+            // Sanitize each mapping.
+            $sanitized = array();
+            foreach ($value as $mapping) {
+                if (is_array($mapping) && isset($mapping['key']) && isset($mapping['value'])) {
+                    $sanitized[] = array(
+                        'key'   => \sanitize_text_field($mapping['key']),
+                        'value' => \sanitize_text_field($mapping['value']),
+                    );
+                }
+            }
+
+            return $sanitized;
+        }
+
         return $value;
     }
 
@@ -699,6 +734,9 @@ class WP_Setting
                 break;
             case 'advanced':
                 $this->init_advanced();
+                break;
+            case 'field_map':
+                $this->render_field_map($value, $name, $id);
                 break;
             default:
                 $this->render_text_value($name, $id, $value);
@@ -1180,6 +1218,191 @@ class WP_Setting
         echo '</table>';
 
         echo '</fieldset>';
+    }
+
+    /**
+     * Create a field map with dynamic add/remove rows.
+     */
+    public function init_field_map()
+    {
+        $value = self::get($this->slug, $this->default_value);
+        $this->render_field_map($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Render field map interface.
+     *
+     * @param mixed  $value Current value (array of mappings).
+     * @param string $name  Field name.
+     * @param string $id    Field ID.
+     */
+    private function render_field_map($value, $name, $id)
+    {
+        // Ensure value is an array.
+        if (!is_array($value)) {
+            $value = array();
+        }
+
+        // Get source field options from args.
+        $options = $this->args['options'] ?? array();
+
+        // Unique ID for this field map instance.
+        $unique_id = 'wps_field_map_' . uniqid();
+
+        echo '<div class="wps-field-map" id="' . \esc_attr($unique_id) . '">';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+
+        echo '<table class="wps-field-map-table" style="width: 100%; margin-bottom: 10px;">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Source Field', 'wp-settings') . '</th>';
+        echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Destination Field', 'wp-settings') . '</th>';
+        echo '<th style="width: 40px; border-bottom: 1px solid #ddd;"></th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody class="wps-field-map-rows">';
+
+        // Render existing mappings.
+        if (!empty($value)) {
+            foreach ($value as $mapping) {
+                $key = $mapping['key'] ?? '';
+                $val = $mapping['value'] ?? '';
+                $this->render_field_map_row($options, $key, $val);
+            }
+        }
+
+        // Always render one empty row if no mappings exist.
+        if (empty($value)) {
+            $this->render_field_map_row($options, '', '');
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+
+        // Add row button.
+        echo '<button type="button" class="button wps-field-map-add" style="margin-bottom: 10px;">';
+        echo \esc_html__('Add Mapping', 'wp-settings');
+        echo '</button>';
+
+        // Hidden input to store the JSON data.
+        echo '<input type="hidden" name="' . \esc_attr($name) . '" value="' . \esc_attr(json_encode($value)) . '" class="wps-field-map-data">';
+
+        echo '</div>';
+
+        // Add inline JavaScript for add/remove functionality.
+        $this->render_field_map_script($unique_id, $options);
+    }
+
+    /**
+     * Render a single field map row.
+     *
+     * @param array  $options Source field options.
+     * @param string $key     Selected source field key.
+     * @param string $value   Destination field value.
+     */
+    private function render_field_map_row($options, $key, $value)
+    {
+        echo '<tr class="wps-field-map-row">';
+
+        // Source field dropdown.
+        echo '<td style="padding: 8px;">';
+        echo '<select class="wps-field-map-key" style="width: 100%;">';
+        echo '<option value="">' . \esc_html__('Select a field...', 'wp-settings') . '</option>';
+        foreach ($options as $option_key => $option_label) {
+            echo sprintf(
+                '<option value="%s"%s>%s</option>',
+                \esc_attr($option_key),
+                \selected($key, $option_key, false),
+                \esc_html($option_label)
+            );
+        }
+        echo '</select>';
+        echo '</td>';
+
+        // Destination field text input.
+        echo '<td style="padding: 8px;">';
+        echo '<input type="text" class="wps-field-map-value" value="' . \esc_attr($value) . '" placeholder="' . \esc_attr__('Destination field name', 'wp-settings') . '" style="width: 100%;">';
+        echo '</td>';
+
+        // Remove button.
+        echo '<td style="padding: 8px; text-align: center;">';
+        echo '<button type="button" class="button wps-field-map-remove" style="color: #b32d2e;">&times;</button>';
+        echo '</td>';
+
+        echo '</tr>';
+    }
+
+    /**
+     * Render JavaScript for field map functionality.
+     *
+     * @param string $unique_id Unique ID for this field map instance.
+     * @param array  $options   Source field options.
+     */
+    private function render_field_map_script($unique_id, $options)
+    {
+        // Build options HTML for new rows.
+        $options_html = '<option value="">' . \esc_html__('Select a field...', 'wp-settings') . '</option>';
+        foreach ($options as $option_key => $option_label) {
+            $options_html .= sprintf(
+                '<option value="%s">%s</option>',
+                \esc_attr($option_key),
+                \esc_html($option_label)
+            );
+        }
+
+        ?>
+        <script type="text/javascript">
+        (function($) {
+            $(document).ready(function() {
+                var container = $('#<?php echo \esc_js($unique_id); ?>');
+                var tbody = container.find('.wps-field-map-rows');
+                var dataInput = container.find('.wps-field-map-data');
+
+                // Update hidden input with current mappings.
+                function updateData() {
+                    var mappings = [];
+                    tbody.find('.wps-field-map-row').each(function() {
+                        var key = $(this).find('.wps-field-map-key').val();
+                        var value = $(this).find('.wps-field-map-value').val();
+                        if (key && value) {
+                            mappings.push({key: key, value: value});
+                        }
+                    });
+                    dataInput.val(JSON.stringify(mappings));
+                }
+
+                // Add new row.
+                container.on('click', '.wps-field-map-add', function(e) {
+                    e.preventDefault();
+                    var newRow = $('<tr class="wps-field-map-row">' +
+                        '<td style="padding: 8px;"><select class="wps-field-map-key" style="width: 100%;"><?php echo $options_html; ?></select></td>' +
+                        '<td style="padding: 8px;"><input type="text" class="wps-field-map-value" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                        '<td style="padding: 8px; text-align: center;"><button type="button" class="button wps-field-map-remove" style="color: #b32d2e;">&times;</button></td>' +
+                        '</tr>');
+                    tbody.append(newRow);
+                });
+
+                // Remove row.
+                container.on('click', '.wps-field-map-remove', function(e) {
+                    e.preventDefault();
+                    $(this).closest('.wps-field-map-row').remove();
+                    updateData();
+                });
+
+                // Update data on change.
+                container.on('change keyup', '.wps-field-map-key, .wps-field-map-value', function() {
+                    updateData();
+                });
+
+                // Initialize data on load.
+                updateData();
+            });
+        })(jQuery);
+        </script>
+        <?php
     }
 
     public static function random_bytes($length)

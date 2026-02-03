@@ -89,11 +89,15 @@ Tab labels default to `ucwords(tab)` but you can override the display label per 
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`
+Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`, `field_map`
 
 **Advanced**: Collapsible `<details>` section containing child settings.
 
+**Fieldset**: Visual grouping of child settings with `<fieldset>` element.
+
 **Table**: Embeds a `WP_Settings_Table` instance within a section alongside other settings.
+
+**Field Map**: Dynamic add/remove rows for mapping source fields to destination fields.
 
 ### Advanced Field Example
 
@@ -231,6 +235,41 @@ new WP_Setting(
 ```
 
 This allows you to place tables within sections, rendered alongside regular settings fields.
+
+### Field Map Example
+
+```php
+use BGoewert\WP_Settings\WP_Setting;
+
+new WP_Setting(
+    'field_mapping',
+    'Field Mapping',
+    'field_map',
+    'settings',
+    'section',
+    null,
+    'Map source fields to destination fields.',
+    false,
+    null,
+    null,
+    array(
+        'options' => array(
+            'first_name' => 'First Name',
+            'last_name'  => 'Last Name',
+            'email'      => 'Email Address',
+            'phone'      => 'Phone Number',
+        ),
+    )
+);
+```
+
+The `field_map` type provides dynamic add/remove rows where users can:
+- Select a source field from dropdown (left side)
+- Enter a destination field name in text input (right side)
+- Add/remove mapping rows as needed
+- Map multiple source fields to different destinations (useful for combining values)
+
+Stored as array: `[['key' => 'first_name', 'value' => 'FirstName'], ['key' => 'email', 'value' => 'Email'], ...]`
 
 ## Settings Tables
 
