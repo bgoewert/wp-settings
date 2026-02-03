@@ -189,13 +189,23 @@
             if (rowId && rows[rowId]) {
                 var row = rows[rowId];
                 Object.keys(row).forEach(function(key) {
-                    var $field = $modalForm.find('[name="' + key + '"]');
-                    if (!$field.length) return;
-                    if ($field.attr('type') === 'checkbox') {
-                        $field.prop('checked', !!row[key]);
-                    } else if ($field.attr('type') === 'radio') {
+                    // Check for checkbox first (specifically target type=checkbox to avoid hidden inputs)
+                    var $checkbox = $modalForm.find('[name="' + key + '"][type="checkbox"]');
+                    if ($checkbox.length) {
+                        $checkbox.prop('checked', !!row[key]);
+                        return;
+                    }
+
+                    // Check for radio buttons
+                    var $radio = $modalForm.find('[name="' + key + '"][type="radio"]');
+                    if ($radio.length) {
                         $modalForm.find('[name="' + key + '"][value="' + row[key] + '"]').prop('checked', true);
-                    } else {
+                        return;
+                    }
+
+                    // Handle all other field types
+                    var $field = $modalForm.find('[name="' + key + '"]');
+                    if ($field.length) {
                         $field.val(row[key]);
                     }
                 });

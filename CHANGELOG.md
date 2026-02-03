@@ -16,6 +16,7 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 ### Fixed
 
 - Fix merge tag dropdown to open upward to prevent overflow issues
+- Fix checkbox fields not being checked when editing table rows in modals
 
 ## [2.11.0] - 2026-02-02
 
