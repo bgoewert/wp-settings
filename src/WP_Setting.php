@@ -1255,11 +1255,17 @@ class WP_Setting
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
 
+        // Build style for source field column width.
+        $source_col_style = 'text-align: left; padding: 8px; border-bottom: 1px solid #ddd;';
+        if ($this->width) {
+            $source_col_style .= ' width: ' . $this->width . ';';
+        }
+
         echo '<table class="wps-field-map-table" style="width: 100%; margin-bottom: 10px;">';
         echo '<thead>';
         echo '<tr>';
         echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Destination Field', 'wp-settings') . '</th>';
-        echo '<th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">' . \esc_html__('Source Field', 'wp-settings') . '</th>';
+        echo '<th style="' . \esc_attr($source_col_style) . '">' . \esc_html__('Source Field', 'wp-settings') . '</th>';
         echo '<th style="width: 40px; border-bottom: 1px solid #ddd;"></th>';
         echo '</tr>';
         echo '</thead>';
@@ -1270,13 +1276,13 @@ class WP_Setting
             foreach ($value as $mapping) {
                 $dest = $mapping['key'] ?? '';
                 $source = $mapping['value'] ?? '';
-                $this->render_field_map_row($options, $dest, $source);
+                $this->render_field_map_row($options, $dest, $source, $this->width);
             }
         }
 
         // Always render one empty row if no mappings exist.
         if (empty($value)) {
-            $this->render_field_map_row($options, '', '');
+            $this->render_field_map_row($options, '', '', $this->width);
         }
 
         echo '</tbody>';
@@ -1293,7 +1299,7 @@ class WP_Setting
         echo '</div>';
 
         // Add inline JavaScript for add/remove functionality.
-        $this->render_field_map_script($unique_id, $options);
+        $this->render_field_map_script($unique_id, $options, $this->width);
     }
 
     /**
@@ -1302,8 +1308,9 @@ class WP_Setting
      * @param array  $options Source field options.
      * @param string $dest    Destination field name.
      * @param string $source  Source field key or custom pattern.
+     * @param string $width   Optional width for source field column.
      */
-    private function render_field_map_row($options, $dest, $source)
+    private function render_field_map_row($options, $dest, $source, $width = '')
     {
         // Check if source is a custom value (not in options or contains merge tags).
         $is_custom = !empty($source) && (!isset($options[$source]) || strpos($source, '{') !== false);
@@ -1317,7 +1324,11 @@ class WP_Setting
         echo '</td>';
 
         // Source field dropdown or custom input.
-        echo '<td style="padding: 8px;">';
+        $source_td_style = 'padding: 8px;';
+        if ($width) {
+            $source_td_style .= ' width: ' . $width . ';';
+        }
+        echo '<td style="' . \esc_attr($source_td_style) . '">';
 
         // Dropdown for field selection.
         echo '<select class="wps-field-map-source-select" style="width: 100%;">';
@@ -1373,8 +1384,9 @@ class WP_Setting
      *
      * @param string $unique_id Unique ID for this field map instance.
      * @param array  $options   Source field options.
+     * @param string $width     Optional width for source field column.
      */
-    private function render_field_map_script($unique_id, $options)
+    private function render_field_map_script($unique_id, $options, $width = '')
     {
         // Build options HTML for new rows.
         $options_html = '<option value="">' . \esc_html__('Select a field...', 'wp-settings') . '</option>';
@@ -1393,6 +1405,12 @@ class WP_Setting
             $merge_tags_html .= '<strong>' . \esc_html($option_label) . '</strong><br>';
             $merge_tags_html .= '<code style="font-size: 11px; color: #666;">{' . \esc_html($option_key) . '}</code>';
             $merge_tags_html .= '</div>';
+        }
+
+        // Build style for source field column.
+        $source_td_style = 'padding: 8px;';
+        if ($width) {
+            $source_td_style .= ' width: ' . $width . ';';
         }
 
         ?>
@@ -1447,7 +1465,7 @@ class WP_Setting
                     e.preventDefault();
                     var newRow = $('<tr class="wps-field-map-row">' +
                         '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
-                        '<td style="padding: 8px;">' +
+                        '<td style="<?php echo \esc_js($source_td_style); ?>">' +
                         '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
                         '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
                         '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
