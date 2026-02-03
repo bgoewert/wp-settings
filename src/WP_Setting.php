@@ -1336,11 +1336,11 @@ class WP_Setting
         // Custom input (shown when <custom> is selected).
         $custom_display = $is_custom ? 'block' : 'none';
         echo '<div class="wps-field-map-custom-wrapper" style="display: ' . $custom_display . '; margin-top: 5px; position: relative;">';
-        echo '<input type="text" class="wps-field-map-custom-input" value="' . \esc_attr($is_custom ? $source : '') . '" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: calc(100% - 40px); padding-right: 35px;">';
+        echo '<textarea class="wps-field-map-custom-input" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;">' . \esc_textarea($is_custom ? $source : '') . '</textarea>';
 
         // Merge tag button.
-        echo '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 1px; padding: 3px 8px; height: 28px;" title="' . \esc_attr__('Insert merge tag', 'wp-settings') . '">';
-        echo '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
+        echo '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="' . \esc_attr__('Insert merge tag', 'wp-settings') . '">';
+        echo '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>';
         echo '</button>';
 
         // Merge tag dropdown (hidden by default).
@@ -1450,9 +1450,9 @@ class WP_Setting
                         '<td style="padding: 8px;">' +
                         '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
                         '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
-                        '<input type="text" class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px;">' +
-                        '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 1px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
-                        '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>' +
+                        '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
+                        '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
+                        '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>' +
                         '</button>' +
                         '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; top: 100%; margin-top: 2px;">' +
                         '<?php echo addslashes($merge_tags_html); ?>' +
