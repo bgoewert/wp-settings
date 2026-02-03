@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 
 ## [2.13.0] - 2026-02-03
 
+### Added
+
+- Add merge tag selector button to custom field input with dropdown showing available fields
+
 ### Changed
 
 - Reverse field_map columns (destination left, source right)

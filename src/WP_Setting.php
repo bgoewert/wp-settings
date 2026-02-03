@@ -1335,7 +1335,25 @@ class WP_Setting
 
         // Custom input (shown when <custom> is selected).
         $custom_display = $is_custom ? 'block' : 'none';
-        echo '<input type="text" class="wps-field-map-custom-input" value="' . \esc_attr($is_custom ? $source : '') . '" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: 100%; margin-top: 5px; display: ' . $custom_display . ';">';
+        echo '<div class="wps-field-map-custom-wrapper" style="display: ' . $custom_display . '; margin-top: 5px; position: relative;">';
+        echo '<input type="text" class="wps-field-map-custom-input" value="' . \esc_attr($is_custom ? $source : '') . '" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: calc(100% - 40px); padding-right: 35px;">';
+
+        // Merge tag button.
+        echo '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 1px; padding: 3px 8px; height: 28px;" title="' . \esc_attr__('Insert merge tag', 'wp-settings') . '">';
+        echo '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
+        echo '</button>';
+
+        // Merge tag dropdown (hidden by default).
+        echo '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; top: 100%; margin-top: 2px;">';
+        foreach ($options as $option_key => $option_label) {
+            echo '<div class="wps-merge-tag-item" data-tag="{' . \esc_attr($option_key) . '}" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;">';
+            echo '<strong>' . \esc_html($option_label) . '</strong><br>';
+            echo '<code style="font-size: 11px; color: #666;">{' . \esc_html($option_key) . '}</code>';
+            echo '</div>';
+        }
+        echo '</div>';
+
+        echo '</div>';
 
         // Hidden input to store the actual value.
         echo '<input type="hidden" class="wps-field-map-value" value="' . \esc_attr($source) . '">';
@@ -1368,6 +1386,15 @@ class WP_Setting
             );
         }
 
+        // Build merge tags HTML for new rows.
+        $merge_tags_html = '';
+        foreach ($options as $option_key => $option_label) {
+            $merge_tags_html .= '<div class="wps-merge-tag-item" data-tag="{' . \esc_attr($option_key) . '}" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;">';
+            $merge_tags_html .= '<strong>' . \esc_html($option_label) . '</strong><br>';
+            $merge_tags_html .= '<code style="font-size: 11px; color: #666;">{' . \esc_html($option_key) . '}</code>';
+            $merge_tags_html .= '</div>';
+        }
+
         ?>
         <script type="text/javascript">
         (function($) {
@@ -1392,16 +1419,27 @@ class WP_Setting
                 // Handle source field dropdown/custom toggle.
                 function updateSourceValue(row) {
                     var select = row.find('.wps-field-map-source-select');
+                    var customWrapper = row.find('.wps-field-map-custom-wrapper');
                     var customInput = row.find('.wps-field-map-custom-input');
                     var hiddenValue = row.find('.wps-field-map-value');
 
                     if (select.val() === '__custom__') {
-                        customInput.show();
+                        customWrapper.show();
                         hiddenValue.val(customInput.val());
                     } else {
-                        customInput.hide();
+                        customWrapper.hide();
                         hiddenValue.val(select.val());
                     }
+                }
+
+                // Insert text at cursor position.
+                function insertAtCursor(input, text) {
+                    var startPos = input.selectionStart;
+                    var endPos = input.selectionEnd;
+                    var value = input.value;
+                    input.value = value.substring(0, startPos) + text + value.substring(endPos);
+                    input.selectionStart = input.selectionEnd = startPos + text.length;
+                    $(input).trigger('change');
                 }
 
                 // Add new row.
@@ -1411,7 +1449,15 @@ class WP_Setting
                         '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
                         '<td style="padding: 8px;">' +
                         '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
-                        '<input type="text" class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: 100%; margin-top: 5px; display: none;">' +
+                        '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
+                        '<input type="text" class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px;">' +
+                        '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 1px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
+                        '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>' +
+                        '</button>' +
+                        '<div class="wps-field-map-merge-tags" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; width: 250px; top: 100%; margin-top: 2px;">' +
+                        '<?php echo addslashes($merge_tags_html); ?>' +
+                        '</div>' +
+                        '</div>' +
                         '<input type="hidden" class="wps-field-map-value">' +
                         '</td>' +
                         '<td style="padding: 8px; text-align: center;"><button type="button" class="button wps-field-map-remove" style="color: #b32d2e;">&times;</button></td>' +
@@ -1443,6 +1489,40 @@ class WP_Setting
                 // Update data on destination field change.
                 container.on('change keyup', '.wps-field-map-key', function() {
                     updateData();
+                });
+
+                // Toggle merge tag dropdown.
+                container.on('click', '.wps-field-map-merge-tag-btn', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var dropdown = $(this).siblings('.wps-field-map-merge-tags');
+                    // Close all other dropdowns.
+                    container.find('.wps-field-map-merge-tags').not(dropdown).hide();
+                    dropdown.toggle();
+                });
+
+                // Insert merge tag at cursor.
+                container.on('click', '.wps-merge-tag-item', function(e) {
+                    e.preventDefault();
+                    var tag = $(this).data('tag');
+                    var input = $(this).closest('.wps-field-map-custom-wrapper').find('.wps-field-map-custom-input')[0];
+                    insertAtCursor(input, tag);
+                    $(this).closest('.wps-field-map-merge-tags').hide();
+                });
+
+                // Hover effect for merge tag items.
+                container.on('mouseenter', '.wps-merge-tag-item', function() {
+                    $(this).css('background-color', '#f0f0f0');
+                });
+                container.on('mouseleave', '.wps-merge-tag-item', function() {
+                    $(this).css('background-color', 'white');
+                });
+
+                // Close dropdowns when clicking outside.
+                $(document).on('click', function(e) {
+                    if (!$(e.target).closest('.wps-field-map-custom-wrapper').length) {
+                        container.find('.wps-field-map-merge-tags').hide();
+                    }
                 });
 
                 // Initialize source value displays on load.
