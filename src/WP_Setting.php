@@ -667,7 +667,7 @@ class WP_Setting
                 if (is_array($mapping) && isset($mapping['key']) && isset($mapping['value'])) {
                     $sanitized[] = array(
                         'key'   => \sanitize_text_field($mapping['key']),
-                        'value' => \sanitize_text_field($mapping['value']),
+                        'value' => \sanitize_textarea_field($mapping['value']),
                     );
                 }
             }
