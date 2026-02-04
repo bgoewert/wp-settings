@@ -104,6 +104,13 @@ class WP_Settings_Table
     protected $bulk_actions;
 
     /**
+     * Whether to show individual status toggle buttons.
+     *
+     * @var bool
+     */
+    protected $show_status_toggle;
+
+    /**
      * Create a settings table.
      *
      * @param array $args Table configuration.
@@ -125,6 +132,7 @@ class WP_Settings_Table
         $this->capability  = $args['capability'] ?? 'manage_options';
         $this->row_id_key  = $args['row_id_key'] ?? 'id';
         $this->bulk_actions = $args['bulk_actions'] ?? null;
+        $this->show_status_toggle = $args['show_status_toggle'] ?? false;
     }
 
     /**
@@ -263,6 +271,10 @@ class WP_Settings_Table
                 $this->handle_toggle($_POST);
                 \wp_send_json_success();
                 break;
+            case 'toggle_status':
+                $this->handle_toggle_status($_POST);
+                \wp_send_json_success();
+                break;
             case 'bulk':
                 $this->handle_bulk($_POST);
                 \wp_send_json_success();
@@ -335,6 +347,28 @@ class WP_Settings_Table
         } else {
             $row[$this->status_key] = $this->status_value_for('enabled', $row);
         }
+
+        $rows[$row_id] = $row;
+        $this->update_rows($rows);
+    }
+
+    /**
+     * Toggle a row status to a specific target status.
+     *
+     * @param array $data Raw request data.
+     */
+    protected function handle_toggle_status(array $data)
+    {
+        $rows = $this->get_rows();
+        $row_id = isset($data['row_id']) ? \sanitize_text_field(\wp_unslash($data['row_id'])) : '';
+        $target_status = isset($data['target_status']) ? \sanitize_key(\wp_unslash($data['target_status'])) : '';
+
+        if (!$row_id || !isset($rows[$row_id]) || !$this->is_valid_status($target_status)) {
+            return;
+        }
+
+        $row = $rows[$row_id];
+        $row[$this->status_key] = $this->status_value_for($target_status, $row);
 
         $rows[$row_id] = $row;
         $this->update_rows($rows);
@@ -463,6 +497,16 @@ class WP_Settings_Table
                 echo '<td class="wps-actions">';
                 $edit_url = '?page=' . rawurlencode($page_slug) . '&tab=' . rawurlencode($active_tab) . '&edit=' . rawurlencode($row_id);
                 echo '<a href="' . \esc_url($edit_url) . '" class="button wps-edit-row" data-row-id="' . \esc_attr($row_id) . '">' . \esc_html__('Edit', 'wp-settings') . '</a> ';
+
+                // Show status toggle button if enabled.
+                if ($this->show_status_toggle) {
+                    $current_status = $this->normalize_status($row);
+                    $is_enabled = ($current_status === 'enabled');
+                    $toggle_text = $is_enabled ? __('Disable', 'wp-settings') : __('Enable', 'wp-settings');
+                    $target_status = $is_enabled ? 'disabled' : 'enabled';
+                    echo '<button type="button" class="button wps-toggle-status" data-row-id="' . \esc_attr($row_id) . '" data-target-status="' . \esc_attr($target_status) . '">' . \esc_html($toggle_text) . '</button> ';
+                }
+
                 echo '<button type="button" class="button wps-delete-row" data-row-id="' . \esc_attr($row_id) . '" data-row-action="delete">' . \esc_html__('Delete', 'wp-settings') . '</button>';
                 echo '</td>';
                 echo '</tr>';

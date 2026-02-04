@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.14.0] - 2026-02-03
+
+### Added
+
+- Add `show_status_toggle` option for WP_Settings_Table to display Enable/Disable buttons on individual rows
+
 ## [2.13.0] - 2026-02-03
 
 ### Added

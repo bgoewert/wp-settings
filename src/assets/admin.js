@@ -280,6 +280,27 @@
             });
         });
 
+        $container.on('click', '.wps-toggle-status', function() {
+            var $button = $(this);
+            var rowId = $button.data('row-id');
+            var targetStatus = $button.data('target-status');
+            if (!rowId) return;
+
+            $.post(ajaxurl, {
+                action: ajaxAction,
+                nonce: ajaxNonce,
+                subaction: 'toggle_status',
+                row_id: rowId,
+                target_status: targetStatus
+            }).done(function(response) {
+                if (response.success) {
+                    window.location.reload();
+                } else {
+                    alert(response.data && response.data.message ? response.data.message : 'Error toggling status.');
+                }
+            });
+        });
+
         $container.on('click', '.wps-status-toggle', function() {
             var rowId = $(this).data('row-id');
             if (!rowId) return;
