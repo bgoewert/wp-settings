@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.15.1] - 2026-02-12
+
+### Fixed
+
+- Change default footer_text behavior to show empty string instead of WordPress default on plugin settings pages
+
 ## [2.15.0] - 2026-02-12
 
 ### Added
