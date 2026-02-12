@@ -509,9 +509,9 @@ class WP_Settings
     {
         $current_screen = \get_current_screen();
 
-        // Only show custom text on plugin's settings page
-        if ($current_screen && $current_screen->id === $this->submenu_page_hook && !empty($this->footer_text)) {
-            return $this->footer_text;
+        // On plugin's settings page, use custom footer_text (defaults to empty string)
+        if ($current_screen && $current_screen->id === $this->submenu_page_hook) {
+            return $this->footer_text ?? '';
         }
 
         return $text;
