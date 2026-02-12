@@ -70,6 +70,13 @@ class WP_Settings
     protected $version = null;
 
     /**
+     * Custom footer text to display on left side of admin footer.
+     *
+     * @var string|null
+     */
+    protected $footer_text = null;
+
+    /**
      * Initialize plugin settings.
      *
      * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
@@ -103,6 +110,7 @@ class WP_Settings
         \add_action('admin_menu', array($this, 'admin_menu'));
         \add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
         \add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
+        \add_filter('admin_footer_text', array($this, 'admin_footer_text'), 11);
         \add_filter('update_footer', array($this, 'admin_footer_version'), 11);
         \add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
     }
@@ -489,6 +497,24 @@ class WP_Settings
         }
 
         return false;
+    }
+
+    /**
+     * Display custom footer text on left side of admin footer if on plugin's settings page.
+     *
+     * @param string $text The current footer text.
+     * @return string Modified footer text.
+     */
+    public function admin_footer_text($text)
+    {
+        $current_screen = \get_current_screen();
+
+        // Only show custom text on plugin's settings page
+        if ($current_screen && $current_screen->id === $this->submenu_page_hook && !empty($this->footer_text)) {
+            return $this->footer_text;
+        }
+
+        return $text;
     }
 
     /**

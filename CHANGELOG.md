@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.15.0] - 2026-02-12
+
+### Added
+
+- Add optional `version` property to display plugin version in admin footer on settings pages (right side)
+- Add optional `footer_text` property to customize left side of admin footer on settings pages
+
 ## [2.14.0] - 2026-02-03
 
 ### Added
