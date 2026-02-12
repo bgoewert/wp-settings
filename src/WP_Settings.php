@@ -63,6 +63,13 @@ class WP_Settings
     protected $text_domain;
 
     /**
+     * Plugin version to display in footer.
+     *
+     * @var string|null
+     */
+    protected $version = null;
+
+    /**
      * Initialize plugin settings.
      *
      * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
@@ -96,6 +103,7 @@ class WP_Settings
         \add_action('admin_menu', array($this, 'admin_menu'));
         \add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
         \add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
+        \add_filter('update_footer', array($this, 'admin_footer_version'), 11);
         \add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
     }
 
@@ -481,5 +489,27 @@ class WP_Settings
         }
 
         return false;
+    }
+
+    /**
+     * Display plugin version in admin footer if on plugin's settings page.
+     *
+     * @param string $footer_text The current footer text.
+     * @return string Modified footer text with version.
+     */
+    public function admin_footer_version($footer_text)
+    {
+        $current_screen = \get_current_screen();
+
+        // Only show version on plugin's settings page
+        if ($current_screen && $current_screen->id === $this->submenu_page_hook && !empty($this->version)) {
+            return sprintf(
+                /* translators: %s: Plugin version number */
+                \esc_html__('Version %s', 'wp-settings'),
+                \esc_html($this->version)
+            );
+        }
+
+        return $footer_text;
     }
 }
