@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.1] - 2026-02-13
+
+### Fixed
+
+- Only render form wrapper and submit button when tab has actual settings fields, not just section callbacks
+
 ## [2.16.0] - 2026-02-12
 
 ### Added
