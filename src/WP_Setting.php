@@ -661,14 +661,20 @@ class WP_Setting
                 return array();
             }
 
-            // Sanitize each mapping.
+            // Sanitize each mapping - only include if BOTH key and value are filled.
             $sanitized = array();
             foreach ($value as $mapping) {
                 if (is_array($mapping) && isset($mapping['key']) && isset($mapping['value'])) {
-                    $sanitized[] = array(
-                        'key'   => \sanitize_text_field($mapping['key']),
-                        'value' => \sanitize_textarea_field($mapping['value']),
-                    );
+                    $key = \sanitize_text_field($mapping['key']);
+                    $val = \sanitize_textarea_field($mapping['value']);
+
+                    // Only include mapping if both destination and source are non-empty.
+                    if (!empty($key) && !empty($val)) {
+                        $sanitized[] = array(
+                            'key'   => $key,
+                            'value' => $val,
+                        );
+                    }
                 }
             }
 
