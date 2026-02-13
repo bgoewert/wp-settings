@@ -240,6 +240,8 @@ class WP_Settings
 ?>
         <h1 style="display:inline-block;"><?php echo \esc_html($this->plugin_data['Name']); ?></h1>
 
+        <?php \settings_errors($this->text_domain . '_messages'); ?>
+
         <nav class="nav-tab-wrapper">
             <?php foreach ($tabs as $t) : ?>
                 <a href="?page=<?php echo rawurlencode($this->text_domain); ?>&tab=<?php echo $t ?>" class="nav-tab <?php echo ($t === $tab ? ' nav-tab-active' : ''); ?>"><?php echo \esc_html($tab_labels[$t] ?? ucwords($t)) ?></a>
