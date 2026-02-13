@@ -468,7 +468,8 @@ class WP_Settings
     protected function has_settings_for_tab($tab)
     {
         foreach ($this->settings as $setting) {
-            if ($setting->page === $this->text_domain . '_' . $tab) {
+            // Check both prefixed and non-prefixed page values
+            if ($setting->page === $tab || $setting->page === $this->text_domain . '_' . $tab) {
                 return true;
             }
         }
