@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.3] - 2026-02-13
+
+### Fixed
+
+- Filter out field map rows where either destination or source field is empty during save
+
 ## [2.16.2] - 2026-02-13
 
 ### Fixed
