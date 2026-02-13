@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.2] - 2026-02-13
+
+### Fixed
+
+- Fix has_settings_for_tab to check both prefixed and non-prefixed page values
+
 ## [2.16.1] - 2026-02-13
 
 ### Fixed
