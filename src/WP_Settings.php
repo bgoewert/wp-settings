@@ -252,15 +252,24 @@ class WP_Settings
                 <?php $table->render($this->text_domain, $tab); ?>
             <?php endif; ?>
 
-            <?php if ($this->has_sections_for_tab($tab)) : ?>
-            <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
-                <?php
-                \wp_nonce_field('update', 'sbp_nonce');
-                \settings_fields($this->text_domain . '_' . $tab);
-                \do_settings_sections($this->text_domain . '_' . $tab);
-                \submit_button('Save');
-                ?>
-            </form>
+            <?php
+            $has_settings = $this->has_settings_for_tab($tab);
+            $has_sections = $this->has_any_sections_for_tab($tab);
+            ?>
+
+            <?php if ($has_sections) : ?>
+                <?php if ($has_settings) : ?>
+                <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
+                    <?php
+                    \wp_nonce_field('update', 'sbp_nonce');
+                    \settings_fields($this->text_domain . '_' . $tab);
+                    \do_settings_sections($this->text_domain . '_' . $tab);
+                    \submit_button('Save');
+                    ?>
+                </form>
+                <?php else : ?>
+                    <?php \do_settings_sections($this->text_domain . '_' . $tab); ?>
+                <?php endif; ?>
             <?php endif; ?>
     <?php
     }
@@ -451,12 +460,29 @@ class WP_Settings
     }
 
     /**
-     * Check if a tab has any sections with settings.
+     * Check if a tab has any actual settings (fields).
      *
      * @param string $tab Tab slug.
      * @return bool
      */
-    protected function has_sections_for_tab($tab)
+    protected function has_settings_for_tab($tab)
+    {
+        foreach ($this->settings as $setting) {
+            if ($setting->page === $this->text_domain . '_' . $tab) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a tab has any sections (for rendering callbacks).
+     *
+     * @param string $tab Tab slug.
+     * @return bool
+     */
+    protected function has_any_sections_for_tab($tab)
     {
         foreach ($this->sections as $section) {
             if ($section['tab'] === $tab) {
