@@ -250,7 +250,9 @@ class WP_Settings
 
             <?php if ($table) : ?>
                 <?php $table->render($this->text_domain, $tab); ?>
-            <?php else : ?>
+            <?php endif; ?>
+
+            <?php if ($this->has_sections_for_tab($tab)) : ?>
             <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
                 <?php
                 \wp_nonce_field('update', 'sbp_nonce');
@@ -446,6 +448,23 @@ class WP_Settings
         }
 
         return null;
+    }
+
+    /**
+     * Check if a tab has any sections with settings.
+     *
+     * @param string $tab Tab slug.
+     * @return bool
+     */
+    protected function has_sections_for_tab($tab)
+    {
+        foreach ($this->sections as $section) {
+            if ($section['tab'] === $tab) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function has_sortable_settings()
