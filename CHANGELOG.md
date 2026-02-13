@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.0] - 2026-02-12
+
+### Added
+
+- Support rendering both table and settings sections on the same tab
+
 ## [2.15.1] - 2026-02-12
 
 ### Fixed
