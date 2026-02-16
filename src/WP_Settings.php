@@ -196,7 +196,8 @@ class WP_Settings
         }
 
         // Get the active tab.
-        $tab = isset($_GET['tab']) ? \sanitize_text_field(\wp_unslash($_GET['tab'])) : $this->sections[0]['tab'];
+        $first_section = reset($this->sections);
+        $tab = isset($_GET['tab']) ? \sanitize_text_field(\wp_unslash($_GET['tab'])) : $first_section['tab'];
 
         // Get all tabs
         $tabs = array();
