@@ -298,6 +298,18 @@ class WP_Setting
     );
 
     /**
+     * Normalize text domain by converting hyphens to underscores.
+     * WordPress text domains use hyphens but option names use underscores.
+     *
+     * @param string $text_domain The text domain to normalize.
+     * @return string The normalized text domain with underscores.
+     */
+    private static function normalize_text_domain($text_domain)
+    {
+        return \str_replace('-', '_', $text_domain);
+    }
+
+    /**
      * Creates an option/setting.
      *
      * Note: text_domain is no longer a parameter. Use WP_Setting::set_text_domain() or WP_Settings class to configure.
@@ -497,7 +509,8 @@ class WP_Setting
     public static function get($setting, $default_value = \false, $decrypt = \false)
     {
         if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
-            $setting = self::$text_domain . '_' . $setting;
+            $prefix = self::normalize_text_domain(self::$text_domain);
+            $setting = $prefix . '_' . $setting;
         }
         $value = \get_option($setting, $default_value);
         if ($decrypt) {
@@ -516,7 +529,8 @@ class WP_Setting
     {
         if ($encrypt) $value = self::encrypt($value);
         if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
-            $setting = self::$text_domain . '_' . $setting;
+            $prefix = self::normalize_text_domain(self::$text_domain);
+            $setting = $prefix . '_' . $setting;
         }
         return \update_option($setting, $value);
     }
@@ -1645,8 +1659,8 @@ class WP_Setting
         }
 
         $crypt = new WP_Setting_Encryption(
-            strtoupper(str_replace('-', '_', self::$text_domain . '_key')),
-            strtoupper(str_replace('-', '_', self::$text_domain . '_nonce'))
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
         );
 
         try {
@@ -1668,8 +1682,8 @@ class WP_Setting
     public static function encrypt($value)
     {
         $crypt = new WP_Setting_Encryption(
-            strtoupper(str_replace('-', '_', self::$text_domain . '_key')),
-            strtoupper(str_replace('-', '_', self::$text_domain . '_nonce'))
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
         );
 
         try {
