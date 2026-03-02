@@ -7,6 +7,11 @@ if (!defined('ABSPATH')) {
     die;
 }
 
+// Protect against redeclaration errors.
+if (class_exists('BGoewert\\WP_Settings\\WP_Settings')) {
+    return;
+}
+
 /**
  * Defines all the settings to be used.
  */

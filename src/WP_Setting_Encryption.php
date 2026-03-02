@@ -7,6 +7,10 @@ if (!defined('ABSPATH')) {
     die;
 }
 
+if (class_exists('BGoewert\\WP_Settings\\WP_Setting_Encryption')) {
+    return;
+}
+
 /**
  * Handle encryption and decryption of data in WordPress using `libsodium`.
  * Expects keys to be stored in wp-config.

@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.7] - 2026-03-02
+
+### Fixed
+
+- Add class existence guards to prevent fatal redeclaration errors when multiple plugins load the library
+
 ## [2.16.6] - 2026-03-02
 
 ### Changed

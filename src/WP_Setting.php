@@ -7,6 +7,11 @@ if (!defined('ABSPATH')) {
     die;
 }
 
+// Protect against redeclaration errors.
+if (class_exists('BGoewert\\WP_Settings\\WP_Setting')) {
+    return;
+}
+
 /**
  * Setting class used to create an option and define the setting to be displayed in the admin panel.
  */
