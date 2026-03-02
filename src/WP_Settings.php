@@ -82,28 +82,29 @@ class WP_Settings
      * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
      *                                   or a simple text domain string.
      */
-    protected function __construct($plugin_data)
+    protected function __construct($plugin_data = null)
     {
         // Support both plugin data array and simple text domain string
         if (is_string($plugin_data)) {
             // Convert text domain to a friendly name
-            $name = ucwords(str_replace(['-', '_'], ' ', $plugin_data));
-            $this->plugin_data = [
-                'Name' => $name,
-                'TextDomain' => $plugin_data,
-            ];
-            $this->text_domain = $plugin_data;
-        } else {
+            $this->text_domain = WP_Setting::normalize_text_domain($plugin_data);
+            $this->plugin_data = ['Name' => ucwords(str_replace(['-', '_'], ' ', $plugin_data)), 'TextDomain' => $this->text_domain];
+        } elseif (is_array($plugin_data)) {
             $this->plugin_data = $plugin_data;
-            $this->text_domain = $plugin_data['TextDomain'];
+            $this->text_domain = WP_Setting::normalize_text_domain($plugin_data['TextDomain']);
+        } elseif ($plugin_data === null && $this->text_domain) {
+            // Allow using the class property if set by a child class before calling parent constructor
+            $this->text_domain = WP_Setting::normalize_text_domain($this->text_domain);
+            $this->plugin_data = ['Name' => ucwords(str_replace(['-', '_'], ' ', $this->text_domain)), 'TextDomain' => $this->text_domain];
+        } else {
+            throw new \InvalidArgumentException('Invalid plugin data provided. Must be an array with Name and TextDomain keys, a string text domain, or null.');
         }
 
         // Set static text_domain for all WP_Setting instances
         WP_Setting::$text_domain = $this->text_domain;
-
         new WP_Setting_Encryption(
-            strtoupper(str_replace('-', '_', $this->text_domain . '_key')),
-            strtoupper(str_replace('-', '_', $this->text_domain . '_nonce'))
+            strtoupper($this->text_domain . '_key'),
+            strtoupper($this->text_domain . '_nonce')
         );
 
         \add_action('admin_init', array($this, 'init'));
@@ -262,14 +263,14 @@ class WP_Settings
 
             <?php if ($has_sections) : ?>
                 <?php if ($has_settings) : ?>
-                <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
-                    <?php
-                    \wp_nonce_field('update', 'sbp_nonce');
-                    \settings_fields($this->text_domain . '_' . $tab);
-                    \do_settings_sections($this->text_domain . '_' . $tab);
-                    \submit_button('Save');
-                    ?>
-                </form>
+                    <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
+                        <?php
+                        \wp_nonce_field('update', 'sbp_nonce');
+                        \settings_fields($this->text_domain . '_' . $tab);
+                        \do_settings_sections($this->text_domain . '_' . $tab);
+                        \submit_button('Save');
+                        ?>
+                    </form>
                 <?php else : ?>
                     <?php \do_settings_sections($this->text_domain . '_' . $tab); ?>
                 <?php endif; ?>

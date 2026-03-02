@@ -304,7 +304,7 @@ class WP_Setting
      * @param string $text_domain The text domain to normalize.
      * @return string The normalized text domain with underscores.
      */
-    private static function normalize_text_domain($text_domain)
+    public static function normalize_text_domain($text_domain)
     {
         return \str_replace('-', '_', $text_domain);
     }

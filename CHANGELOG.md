@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.16.6] - 2026-03-02
+
+### Changed
+
+- Improve constructor flexibility with null parameter support and input validation
+- Normalize text domain to use underscores consistently for option names
+
+### Fixed
+
+- Handle associative array keys when getting default tab
+- Display settings saved notification
+
 ## [2.16.3] - 2026-02-13
 
 ### Fixed
