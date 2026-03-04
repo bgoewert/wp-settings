@@ -3,12 +3,12 @@
 namespace BGoewert\WP_Settings;
 
 // If this file is called directly, abort.
-if (!defined('ABSPATH')) {
-    die;
+if (!defined("ABSPATH")) {
+    die();
 }
 
 // Protect against redeclaration errors.
-if (class_exists('BGoewert\\WP_Settings\\WP_Settings')) {
+if (class_exists("BGoewert\\WP_Settings\\WP_Settings")) {
     return;
 }
 
@@ -17,7 +17,6 @@ if (class_exists('BGoewert\\WP_Settings\\WP_Settings')) {
  */
 class WP_Settings
 {
-
     /**
      * Array of defined settings.
      *
@@ -37,7 +36,7 @@ class WP_Settings
      *
      * @var WP_Settings_Table[]
      */
-    protected $tables = array();
+    protected $tables = [];
 
     /**
      * Parent admin page hook.
@@ -92,33 +91,52 @@ class WP_Settings
         // Support both plugin data array and simple text domain string
         if (is_string($plugin_data)) {
             // Convert text domain to a friendly name
-            $this->text_domain = WP_Setting::normalize_text_domain($plugin_data);
-            $this->plugin_data = ['Name' => ucwords(str_replace(['-', '_'], ' ', $plugin_data)), 'TextDomain' => $this->text_domain];
+            $this->text_domain = WP_Setting::normalize_text_domain(
+                $plugin_data,
+            );
+            $this->plugin_data = [
+                "Name" => ucwords(str_replace(["-", "_"], " ", $plugin_data)),
+                "TextDomain" => $this->text_domain,
+            ];
         } elseif (is_array($plugin_data)) {
             $this->plugin_data = $plugin_data;
-            $this->text_domain = WP_Setting::normalize_text_domain($plugin_data['TextDomain']);
+            $this->text_domain = WP_Setting::normalize_text_domain(
+                $plugin_data["TextDomain"],
+            );
         } elseif ($plugin_data === null && $this->text_domain) {
             // Allow using the class property if set by a child class before calling parent constructor
-            $this->text_domain = WP_Setting::normalize_text_domain($this->text_domain);
-            $this->plugin_data = ['Name' => ucwords(str_replace(['-', '_'], ' ', $this->text_domain)), 'TextDomain' => $this->text_domain];
+            $this->text_domain = WP_Setting::normalize_text_domain(
+                $this->text_domain,
+            );
+            $this->plugin_data = [
+                "Name" => ucwords(
+                    str_replace(["-", "_"], " ", $this->text_domain),
+                ),
+                "TextDomain" => $this->text_domain,
+            ];
         } else {
-            throw new \InvalidArgumentException('Invalid plugin data provided. Must be an array with Name and TextDomain keys, a string text domain, or null.');
+            throw new \InvalidArgumentException(
+                "Invalid plugin data provided. Must be an array with Name and TextDomain keys, a string text domain, or null.",
+            );
         }
 
         // Set static text_domain for all WP_Setting instances
         WP_Setting::$text_domain = $this->text_domain;
         new WP_Setting_Encryption(
-            strtoupper($this->text_domain . '_key'),
-            strtoupper($this->text_domain . '_nonce')
+            strtoupper($this->text_domain . "_key"),
+            strtoupper($this->text_domain . "_nonce"),
         );
 
-        \add_action('admin_init', array($this, 'init'));
-        \add_action('admin_menu', array($this, 'admin_menu'));
-        \add_filter('set-screen-option', array($this, 'set_screen_option'), 10, 3);
-        \add_action('admin_enqueue_scripts', array($this, 'enqueue_admin'));
-        \add_filter('admin_footer_text', array($this, 'admin_footer_text'), 11);
-        \add_filter('update_footer', array($this, 'admin_footer_version'), 11);
-        \add_option($this->text_domain . '_key', base64_encode(WP_Setting::random_bytes(32)));
+        \add_action("admin_init", [$this, "init"]);
+        \add_action("admin_menu", [$this, "admin_menu"]);
+        \add_filter("set-screen-option", [$this, "set_screen_option"], 10, 3);
+        \add_action("admin_enqueue_scripts", [$this, "enqueue_admin"]);
+        \add_filter("admin_footer_text", [$this, "admin_footer_text"], 11);
+        \add_filter("update_footer", [$this, "admin_footer_version"], 11);
+        \add_option(
+            $this->text_domain . "_key",
+            base64_encode(WP_Setting::random_bytes(32)),
+        );
     }
 
     /**
@@ -127,12 +145,12 @@ class WP_Settings
      * Automatically prevents duplicate menu registration by checking if a submenu
      * with the same slug already exists under the same parent menu.
      */
-    public function admin_menu()
+    public function admin_menu(): void
     {
         global $submenu;
 
         $slug = $this->text_domain;
-        $parent = 'options-general.php';
+        $parent = "options-general.php";
 
         // Check if a submenu with this slug already exists under this parent
         if (isset($submenu[$parent])) {
@@ -148,33 +166,41 @@ class WP_Settings
         // Safe to register - no duplicate found
         $this->submenu_page_hook = \add_submenu_page(
             $parent,
-            $this->plugin_data['Name'],
-            $this->plugin_data['Name'],
-            'manage_options',
+            $this->plugin_data["Name"],
+            $this->plugin_data["Name"],
+            "manage_options",
             $slug,
-            array($this, 'menu_page_callback')
+            [$this, "menu_page_callback"],
         );
 
-        \add_action('load-' . $this->submenu_page_hook, array($this, 'load_menu_screen'));
+        \add_action("load-" . $this->submenu_page_hook, [
+            $this,
+            "load_menu_screen",
+        ]);
     }
 
     /**
      * Init all the options/settings.
      */
-    public function init()
+    public function init(): void
     {
         foreach ($this->sections as $key => $section) {
             // Use array key as slug if slug property not defined (backward compatible).
-            $slug = $section['slug'] ?? $key;
+            $slug = $section["slug"] ?? $key;
             // translators: Placeholder is for the settings section name. This should have already been defined. This can be ignored.
-            \add_settings_section($this->text_domain . '_section_' . $slug, $section['name'], $section['callback'], $this->text_domain . '_' . $section['tab']);
+            \add_settings_section(
+                $this->text_domain . "_section_" . $slug,
+                $section["name"],
+                $section["callback"],
+                $this->text_domain . "_" . $section["tab"],
+            );
         }
 
         foreach ($this->settings as $setting) {
             $setting->init();
 
             // Initialize child settings for advanced field types
-            if ($setting->type === 'advanced' && !empty($setting->children)) {
+            if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
                     $child->init();
                 }
@@ -194,28 +220,30 @@ class WP_Settings
     /**
      * Callback for the plugin's admin page.
      */
-    public function menu_page_callback()
+    public function menu_page_callback(): void
     {
         // Check user capabilities.
-        if (!\current_user_can('manage_options')) {
+        if (!\current_user_can("manage_options")) {
             return;
         }
 
         // Get the active tab.
         $first_section = reset($this->sections);
-        $tab = isset($_GET['tab']) ? \sanitize_text_field(\wp_unslash($_GET['tab'])) : $first_section['tab'];
+        $tab = isset($_GET["tab"])
+            ? \sanitize_text_field(\wp_unslash($_GET["tab"]))
+            : $first_section["tab"];
 
         // Get all tabs
-        $tabs = array();
-        $tab_labels = array();
+        $tabs = [];
+        $tab_labels = [];
         foreach ($this->sections as $section) {
-            if (in_array($section['tab'], $tabs, true)) {
+            if (in_array($section["tab"], $tabs, true)) {
                 continue;
             } else {
-                $tabs[] = $section['tab'];
-                $tab_labels[$section['tab']] = $section['tab_name']
-                    ?? $section['tab_title']
-                    ?? ucwords($section['tab']);
+                $tabs[] = $section["tab"];
+                $tab_labels[$section["tab"]] =
+                    $section["tab_name"] ??
+                    ($section["tab_title"] ?? ucwords($section["tab"]));
             }
         }
 
@@ -223,20 +251,41 @@ class WP_Settings
 
         // Check if the user have submitted the settings.
         // WordPress will add the "settings-updated" $_GET parameter to the url.
-        if (isset($_GET['settings-updated']) && \check_admin_referer('update', 'sbp_nonce')) {
+        if (
+            isset($_GET["settings-updated"]) &&
+            \check_admin_referer("update", "sbp_nonce")
+        ) {
             // Add settings saved message with the class of "updated".
-            \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' Saved', 'updated');
+            \add_settings_error(
+                $this->text_domain . "_messages",
+                $this->text_domain . "_message",
+                $tab_label . " Saved",
+                "updated",
+            );
         }
 
-        if (isset($_POST['submit']) && \check_admin_referer('update', 'sbp_nonce')) {
-
+        if (
+            isset($_POST["submit"]) &&
+            \check_admin_referer("update", "sbp_nonce")
+        ) {
             try {
                 // Save all the settings.
-                foreach ($this->settings as $setting) $setting->save();
+                foreach ($this->settings as $setting) {
+                    $setting->save();
+                }
 
-                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' settings saved', 'updated');
+                \add_settings_error(
+                    $this->text_domain . "_messages",
+                    $this->text_domain . "_message",
+                    $tab_label . " settings saved",
+                    "updated",
+                );
             } catch (\Throwable $th) {
-                \add_settings_error($this->text_domain . '_messages', $this->text_domain . '_message', $tab_label . ' failed to save.');
+                \add_settings_error(
+                    $this->text_domain . "_messages",
+                    $this->text_domain . "_message",
+                    $tab_label . " failed to save.",
+                );
             }
         }
 
@@ -244,20 +293,27 @@ class WP_Settings
         if ($table) {
             $table->handle_post($tab);
         }
-?>
-        <h1 style="display:inline-block;"><?php echo \esc_html($this->plugin_data['Name']); ?></h1>
+        ?>
+        <h1 style="display:inline-block;"><?php echo \esc_html(
+            $this->plugin_data["Name"],
+        ); ?></h1>
 
-        <?php \settings_errors($this->text_domain . '_messages'); ?>
+        <?php \settings_errors($this->text_domain . "_messages"); ?>
 
         <nav class="nav-tab-wrapper">
-            <?php foreach ($tabs as $t) : ?>
-                <a href="?page=<?php echo rawurlencode($this->text_domain); ?>&tab=<?php echo $t ?>" class="nav-tab <?php echo ($t === $tab ? ' nav-tab-active' : ''); ?>"><?php echo \esc_html($tab_labels[$t] ?? ucwords($t)) ?></a>
+            <?php foreach ($tabs as $t): ?>
+                <a href="?page=<?php echo rawurlencode(
+                    $this->text_domain,
+                ); ?>&tab=<?php echo $t; ?>" class="nav-tab <?php echo $t ===
+$tab
+    ? " nav-tab-active"
+    : ""; ?>"><?php echo \esc_html($tab_labels[$t] ?? ucwords($t)); ?></a>
             <?php endforeach; ?>
         </nav>
 
         <div class="tab-content">
 
-            <?php if ($table) : ?>
+            <?php if ($table): ?>
                 <?php $table->render($this->text_domain, $tab); ?>
             <?php endif; ?>
 
@@ -266,18 +322,24 @@ class WP_Settings
             $has_sections = $this->has_any_sections_for_tab($tab);
             ?>
 
-            <?php if ($has_sections) : ?>
-                <?php if ($has_settings) : ?>
-                    <form method="post" class="<?php echo \esc_html($this->text_domain . '-' . $tab); ?>" <?= ('settings' === $tab) ? ' enctype="multipart/form-data"' : '' ?>>
+            <?php if ($has_sections): ?>
+                <?php if ($has_settings): ?>
+                    <form method="post" class="<?php echo \esc_html(
+                        $this->text_domain . "-" . $tab,
+                    ); ?>" <?= "settings" === $tab
+    ? ' enctype="multipart/form-data"'
+    : "" ?>>
                         <?php
-                        \wp_nonce_field('update', 'sbp_nonce');
-                        \settings_fields($this->text_domain . '_' . $tab);
-                        \do_settings_sections($this->text_domain . '_' . $tab);
-                        \submit_button('Save');
+                        \wp_nonce_field("update", "sbp_nonce");
+                        \settings_fields($this->text_domain . "_" . $tab);
+                        \do_settings_sections($this->text_domain . "_" . $tab);
+                        \submit_button("Save");
                         ?>
                     </form>
-                <?php else : ?>
-                    <?php \do_settings_sections($this->text_domain . '_' . $tab); ?>
+                <?php else: ?>
+                    <?php \do_settings_sections(
+                        $this->text_domain . "_" . $tab,
+                    ); ?>
                 <?php endif; ?>
             <?php endif; ?>
     <?php
@@ -286,7 +348,7 @@ class WP_Settings
     /**
      * Load table list screens.
      */
-    public function load_menu_screen() {}
+    public function load_menu_screen(): void {}
 
     /**
      * Set the screen options for settings pages/tabs.
@@ -294,26 +356,27 @@ class WP_Settings
      * @param mixed  $status The value to save instead of the option value.
      * @param string $option The option name.
      * @param int    $value The option value.
+     * @return int The value to save as the option value.
      */
-    public function set_screen_option($status, $option, $value)
+    public function set_screen_option($status, $option, $value): int
     {
         return $value;
     }
 
     /**
      * Get all the settings.
+     * @return WP_Setting[] Array of settings.
      */
-    public function get_settings()
+    public function get_settings(): array
     {
         return $this->settings;
     }
 
     /**
      * Enqueue the styles/scripts for the admin panel.
-     *
      * @param string $hook The current admin page.
      */
-    public function enqueue_admin($hook)
+    public function enqueue_admin($hook): void
     {
         // Only load on the plugin's admin page.
         if ($hook !== $this->submenu_page_hook) {
@@ -325,44 +388,46 @@ class WP_Settings
 
         if ($has_tables || $has_conditionals) {
             \wp_enqueue_style(
-                'wp-settings-admin',
-                \plugin_dir_url(__FILE__) . 'assets/admin.css',
-                array(),
-                '1.0.0'
+                "wp-settings-admin",
+                \plugin_dir_url(__FILE__) . "assets/admin.css",
+                [],
+                "1.0.0",
             );
             \wp_enqueue_script(
-                'wp-settings-admin',
-                \plugin_dir_url(__FILE__) . 'assets/admin.js',
-                array('jquery'),
-                '1.0.0',
-                true
+                "wp-settings-admin",
+                \plugin_dir_url(__FILE__) . "assets/admin.js",
+                ["jquery"],
+                "1.0.0",
+                true,
             );
 
             // If we have conditional settings (not in tables), add inline script for initialization.
             if ($has_conditionals) {
                 $controlling_fields = $this->get_controlling_fields();
                 \wp_add_inline_script(
-                    'wp-settings-admin',
-                    'window.wpsSettingsConditionals = ' . \wp_json_encode(array(
-                        'controllingFields' => $controlling_fields,
-                    )) . ';'
+                    "wp-settings-admin",
+                    "window.wpsSettingsConditionals = " .
+                        \wp_json_encode([
+                            "controllingFields" => $controlling_fields,
+                        ]) .
+                        ";",
                 );
             }
         }
 
         if ($this->has_sortable_settings()) {
             \wp_enqueue_style(
-                'wp-settings-admin-sortable',
-                \plugin_dir_url(__FILE__) . 'assets/admin-sortable.css',
-                array(),
-                '1.0.0'
+                "wp-settings-admin-sortable",
+                \plugin_dir_url(__FILE__) . "assets/admin-sortable.css",
+                [],
+                "1.0.0",
             );
             \wp_enqueue_script(
-                'wp-settings-admin-sortable',
-                \plugin_dir_url(__FILE__) . 'assets/admin-sortable.js',
-                array('jquery', 'jquery-ui-sortable'),
-                '1.0.0',
-                true
+                "wp-settings-admin-sortable",
+                \plugin_dir_url(__FILE__) . "assets/admin-sortable.js",
+                ["jquery", "jquery-ui-sortable"],
+                "1.0.0",
+                true,
             );
         }
     }
@@ -374,7 +439,7 @@ class WP_Settings
      */
     protected function get_controlling_fields()
     {
-        $controlling_fields = array();
+        $controlling_fields = [];
 
         foreach ($this->settings as $setting) {
             if (!$setting instanceof WP_Setting) {
@@ -383,23 +448,40 @@ class WP_Settings
 
             if ($setting->has_conditions()) {
                 foreach ($setting->conditions as $condition) {
-                    if (!empty($condition['field'])) {
+                    if (!empty($condition["field"])) {
                         // Try to find the full slug for this field.
-                        $field_slug = $this->find_field_slug($condition['field']);
-                        if ($field_slug && !in_array($field_slug, $controlling_fields, true)) {
+                        $field_slug = $this->find_field_slug(
+                            $condition["field"],
+                        );
+                        if (
+                            $field_slug &&
+                            !in_array($field_slug, $controlling_fields, true)
+                        ) {
                             $controlling_fields[] = $field_slug;
                         }
                     }
                 }
             }
 
-            if ($setting->type === 'advanced' && !empty($setting->children)) {
+            if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
-                    if ($child instanceof WP_Setting && $child->has_conditions()) {
+                    if (
+                        $child instanceof WP_Setting &&
+                        $child->has_conditions()
+                    ) {
                         foreach ($child->conditions as $condition) {
-                            if (!empty($condition['field'])) {
-                                $field_slug = $this->find_field_slug($condition['field']);
-                                if ($field_slug && !in_array($field_slug, $controlling_fields, true)) {
+                            if (!empty($condition["field"])) {
+                                $field_slug = $this->find_field_slug(
+                                    $condition["field"],
+                                );
+                                if (
+                                    $field_slug &&
+                                    !in_array(
+                                        $field_slug,
+                                        $controlling_fields,
+                                        true,
+                                    )
+                                ) {
                                     $controlling_fields[] = $field_slug;
                                 }
                             }
@@ -429,9 +511,12 @@ class WP_Settings
                 return $setting->slug;
             }
 
-            if ($setting->type === 'advanced' && !empty($setting->children)) {
+            if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
-                    if ($child instanceof WP_Setting && $child->name === $field_name) {
+                    if (
+                        $child instanceof WP_Setting &&
+                        $child->name === $field_name
+                    ) {
                         return $child->slug;
                     }
                 }
@@ -439,7 +524,7 @@ class WP_Settings
         }
 
         // If not found, return the field_name with text_domain prefix as fallback.
-        return $this->text_domain . '_' . $field_name;
+        return $this->text_domain . "_" . $field_name;
     }
 
     /**
@@ -460,7 +545,10 @@ class WP_Settings
         }
 
         foreach ($this->tables as $table) {
-            if ($table instanceof WP_Settings_Table && $table->handles_tab($tab)) {
+            if (
+                $table instanceof WP_Settings_Table &&
+                $table->handles_tab($tab)
+            ) {
                 return $table;
             }
         }
@@ -478,7 +566,10 @@ class WP_Settings
     {
         foreach ($this->settings as $setting) {
             // Check both prefixed and non-prefixed page values
-            if ($setting->page === $tab || $setting->page === $this->text_domain . '_' . $tab) {
+            if (
+                $setting->page === $tab ||
+                $setting->page === $this->text_domain . "_" . $tab
+            ) {
                 return true;
             }
         }
@@ -495,7 +586,7 @@ class WP_Settings
     protected function has_any_sections_for_tab($tab)
     {
         foreach ($this->sections as $section) {
-            if ($section['tab'] === $tab) {
+            if ($section["tab"] === $tab) {
                 return true;
             }
         }
@@ -510,13 +601,16 @@ class WP_Settings
                 continue;
             }
 
-            if ($setting->type === 'sortable') {
+            if ($setting->type === "sortable") {
                 return true;
             }
 
-            if ($setting->type === 'advanced' && !empty($setting->children)) {
+            if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
-                    if ($child instanceof WP_Setting && $child->type === 'sortable') {
+                    if (
+                        $child instanceof WP_Setting &&
+                        $child->type === "sortable"
+                    ) {
                         return true;
                     }
                 }
@@ -542,9 +636,12 @@ class WP_Settings
                 return true;
             }
 
-            if ($setting->type === 'advanced' && !empty($setting->children)) {
+            if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
-                    if ($child instanceof WP_Setting && $child->has_conditions()) {
+                    if (
+                        $child instanceof WP_Setting &&
+                        $child->has_conditions()
+                    ) {
                         return true;
                     }
                 }
@@ -565,8 +662,11 @@ class WP_Settings
         $current_screen = \get_current_screen();
 
         // On plugin's settings page, use custom footer_text (defaults to empty string)
-        if ($current_screen && $current_screen->id === $this->submenu_page_hook) {
-            return $this->footer_text ?? '';
+        if (
+            $current_screen &&
+            $current_screen->id === $this->submenu_page_hook
+        ) {
+            return $this->footer_text ?? "";
         }
 
         return $text;
@@ -583,11 +683,15 @@ class WP_Settings
         $current_screen = \get_current_screen();
 
         // Only show version on plugin's settings page
-        if ($current_screen && $current_screen->id === $this->submenu_page_hook && !empty($this->version)) {
+        if (
+            $current_screen &&
+            $current_screen->id === $this->submenu_page_hook &&
+            !empty($this->version)
+        ) {
             return sprintf(
                 /* translators: %s: Plugin version number */
-                \esc_html__('Version %s', 'wp-settings'),
-                \esc_html($this->version)
+                \esc_html__("Version %s", "wp-settings"),
+                \esc_html($this->version),
             );
         }
 
