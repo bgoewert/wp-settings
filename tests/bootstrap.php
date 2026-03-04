@@ -472,13 +472,27 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
         return $wp_test_settings_sections;
     }
 
+    /**
+     * Directly set an option value in the test environment.
+     * This bypasses any WordPress option handling and is useful for setting up test conditions.
+     * @param string $option The name of the option to set.
+     * @param mixed $value The value to set for the option.
+     * @return void
+     */
     protected function setOption(string $option, $value): void
     {
         global $wp_test_options;
         $wp_test_options[$option] = $value;
     }
 
-    protected function getOption(string $option, $default = false)
+    /**
+     * Retrieve an option value from the test environment.
+     * This bypasses any WordPress option handling and is useful for verifying test conditions.
+     * @param string $option The name of the option to retrieve.
+     * @param mixed $default The default value to return if the option is not set.
+     * @return mixed The value of the option or the default if not set.
+     */
+    protected function getOption(string $option, $default = false): mixed
     {
         global $wp_test_options;
         return $wp_test_options[$option] ?? $default;

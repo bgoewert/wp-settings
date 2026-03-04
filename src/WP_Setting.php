@@ -326,6 +326,7 @@ class WP_Setting
      * @param string        $section       Section name under which to display the setting.
      * @param string|null   $width         Width of the input.
      * @param string|null   $description   Description to use for the setting.
+     * @param bool          $required      Whether the field is required.
      * @param mixed|null    $default_value Default value to use for the option/setting.
      * @param callable|null $callback      Callback function that displays the input for the setting.
      * @param array|null    $args          Array of options to use for the select or radio inputs.
@@ -469,8 +470,10 @@ class WP_Setting
 
     /**
      * Initialize the setting.
+     *
+     * @return void
      */
-    public function init()
+    public function init(): void
     {
         $this->add_setting();
 
@@ -485,8 +488,10 @@ class WP_Setting
 
     /**
      * Create the option/setting.
+     *
+     * @return void
      */
-    private function add_setting()
+    private function add_setting(): void
     {
         \add_option($this->slug, $this->default_value);
 
@@ -536,7 +541,8 @@ class WP_Setting
      * Set an option to a defined value.
      *
      * @param string $setting The name of the setting. Expected not to be SQL-escaped.
-     * @param mixed  $value Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
+     * @param mixed  $value   Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
+     * @param bool   $encrypt Whether to encrypt the value before saving (for sensitive settings).
      * @return bool True if the value was updated, false otherwise.
      */
     public static function set($setting, $value, $encrypt = \false): bool
@@ -559,7 +565,12 @@ class WP_Setting
         return \update_option($setting, $value);
     }
 
-    public function save()
+    /**
+     * Save the setting value from POST data.
+     *
+     * @return void
+     */
+    public function save(): void
     {
         $value = isset($_POST[$this->slug]) ? $_POST[$this->slug] : null;
 
@@ -596,16 +607,20 @@ class WP_Setting
 
     /**
      * Create an input using a defined type.
+     *
+     * @return void
      */
-    public function init_type()
+    public function init_type(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
     /**
      * Create a textarea.
+     *
+     * @return void
      */
-    public function init_textarea()
+    public function init_textarea(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
@@ -613,8 +628,10 @@ class WP_Setting
 
     /**
      * Create a checkbox input.
+     *
+     * @return void
      */
-    public function init_checkbox()
+    public function init_checkbox(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
@@ -622,8 +639,10 @@ class WP_Setting
 
     /**
      * Create a select input.
+     *
+     * @return void
      */
-    public function init_select()
+    public function init_select(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
@@ -631,8 +650,10 @@ class WP_Setting
 
     /**
      * Create a radio input. If there are more than one option, it will create a field set.
+     *
+     * @return void
      */
-    public function init_radio()
+    public function init_radio(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
@@ -640,8 +661,10 @@ class WP_Setting
 
     /**
      * Create a hidden input field.
+     *
+     * @return void
      */
-    public function init_hidden()
+    public function init_hidden(): void
     {
         $value = self::get($this->slug);
         $this->render_unbound($value, $this->slug, $this->slug);
@@ -653,8 +676,9 @@ class WP_Setting
      * @param mixed       $value Optional value override.
      * @param string|null $name  Optional field name override.
      * @param string|null $id    Optional field id override.
+     * @return void
      */
-    public function render_unbound($value = null, $name = null, $id = null)
+    public function render_unbound($value = null, $name = null, $id = null): void
     {
         $field_name = $name ?? $this->name;
         $field_id   = $id ?? $field_name;
@@ -677,7 +701,7 @@ class WP_Setting
      * @param mixed $value Raw value.
      * @return mixed
      */
-    public function sanitize_value($value)
+    public function sanitize_value($value): mixed
     {
         // Custom sanitize callback takes precedence.
         if ($this->sanitize_callback && is_callable($this->sanitize_callback)) {
@@ -727,7 +751,7 @@ class WP_Setting
      *
      * @return bool
      */
-    public function has_conditions()
+    public function has_conditions(): bool
     {
         return !empty($this->conditions);
     }
@@ -737,7 +761,7 @@ class WP_Setting
      *
      * @return string JSON-encoded conditions or empty string if none.
      */
-    public function get_conditions_json()
+    public function get_conditions_json(): string
     {
         if (empty($this->conditions)) {
             return '';
@@ -751,8 +775,9 @@ class WP_Setting
      * @param string $name  Field name.
      * @param string $id    Field id.
      * @param mixed  $value Field value.
+     * @return void
      */
-    protected function render_with_value($name, $id, $value)
+    protected function render_with_value($name, $id, $value): void
     {
         switch ($this->type) {
             case 'textarea':
@@ -788,7 +813,15 @@ class WP_Setting
         }
     }
 
-    protected function render_text_value($name, $id, $value)
+    /**
+     * Render a text-like input field (text, email, url, number, password).
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_text_value($name, $id, $value): void
     {
         // Safety check: if value is an array, convert to empty string
         if (is_array($value)) {
@@ -828,7 +861,15 @@ class WP_Setting
         }
     }
 
-    protected function render_textarea_value($name, $id, $value)
+    /**
+     * Render a textarea field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_textarea_value($name, $id, $value): void
     {
         if (!$value) {
             $value = $this->default_value;
@@ -848,7 +889,15 @@ class WP_Setting
         }
     }
 
-    protected function render_checkbox_value($name, $id, $value)
+    /**
+     * Render a checkbox field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_checkbox_value($name, $id, $value): void
     {
         $checked = !empty($value) && $value !== '0' && $value !== 0 && $value !== false;
         $atts = ' ' . \checked($checked, true, false);
@@ -863,7 +912,15 @@ class WP_Setting
         }
     }
 
-    protected function render_select_value($name, $id, $value)
+    /**
+     * Render a select dropdown field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_select_value($name, $id, $value): void
     {
         if (!$value) {
             $value = $this->default_value;
@@ -883,7 +940,15 @@ class WP_Setting
         }
     }
 
-    protected function render_radio_value($name, $id, $value)
+    /**
+     * Render a radio button group.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_radio_value($name, $id, $value): void
     {
         if (!$value) {
             $value = $this->default_value;
@@ -913,7 +978,15 @@ class WP_Setting
         }
     }
 
-    protected function render_hidden_value($name, $id, $value)
+    /**
+     * Render a hidden input field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_hidden_value($name, $id, $value): void
     {
         // Safety check: if value is an array, convert to empty string
         if (is_array($value)) {
@@ -928,7 +1001,15 @@ class WP_Setting
         echo \wp_kses(sprintf('<input type="hidden" name="%s" id="%s" value="%s">', $name, $id, \esc_attr($value)), self::$allowed_html);
     }
 
-    protected function render_sortable_value($name, $id, $value)
+    /**
+     * Render a sortable list field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_sortable_value($name, $id, $value): void
     {
         $options = $this->resolve_options();
         if (empty($options)) {
@@ -1017,8 +1098,9 @@ class WP_Setting
      * @param string $name  Field name (unused for tables).
      * @param string $id    Field id (unused for tables).
      * @param mixed  $value Field value (unused for tables).
+     * @return void
      */
-    protected function render_table_value($name, $id, $value)
+    protected function render_table_value($name, $id, $value): void
     {
         // Get the table instance from args.
         $table = $this->args['table'] ?? null;
@@ -1047,7 +1129,12 @@ class WP_Setting
         $table->render($text_domain, $tab);
     }
 
-    protected function resolve_options()
+    /**
+     * Resolve the options for select, radio, or sortable fields.
+     *
+     * @return array Array of options.
+     */
+    protected function resolve_options(): array
     {
         $options = $this->args['options'] ?? $this->options ?? array();
 
@@ -1058,7 +1145,14 @@ class WP_Setting
         return is_array($options) ? $options : array();
     }
 
-    protected function normalize_sortable_value($value, $options)
+    /**
+     * Normalize a sortable field value, merging missing option keys in order.
+     *
+     * @param mixed $value   Current field value.
+     * @param array $options Allowed option keys.
+     * @return array Normalized sorted array of option keys.
+     */
+    protected function normalize_sortable_value($value, $options): array
     {
         $ordered = array();
         $option_keys = array_map('strval', array_keys($options));
@@ -1086,8 +1180,10 @@ class WP_Setting
 
     /**
      * Create an advanced collapsible field with child settings.
+     *
+     * @return void
      */
-    public function init_advanced()
+    public function init_advanced(): void
     {
         // Create collapsible details section
         // Note: We don't render hidden fields for children because the visible inputs
@@ -1188,8 +1284,10 @@ class WP_Setting
 
     /**
      * Create a fieldset grouping with child settings.
+     *
+     * @return void
      */
-    public function init_fieldset()
+    public function init_fieldset(): void
     {
         // Create fieldset grouping
         echo '<fieldset style="border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">';
@@ -1266,8 +1364,10 @@ class WP_Setting
 
     /**
      * Create a field map with dynamic add/remove rows.
+     *
+     * @return void
      */
-    public function init_field_map()
+    public function init_field_map(): void
     {
         $value = self::get($this->slug, $this->default_value);
         $this->render_field_map($value, $this->slug, $this->slug);
@@ -1279,8 +1379,9 @@ class WP_Setting
      * @param mixed  $value Current value (array of mappings).
      * @param string $name  Field name.
      * @param string $id    Field ID.
+     * @return void
      */
-    private function render_field_map($value, $name, $id)
+    private function render_field_map($value, $name, $id): void
     {
         // Ensure value is an array.
         if (!is_array($value)) {
@@ -1353,8 +1454,9 @@ class WP_Setting
      * @param string $dest    Destination field name.
      * @param string $source  Source field key or custom pattern.
      * @param string $width   Optional width for source field column.
+     * @return void
      */
-    private function render_field_map_row($options, $dest, $source, $width = '')
+    private function render_field_map_row($options, $dest, $source, $width = ''): void
     {
         // Check if source is a custom value (not in options or contains merge tags).
         $is_custom = !empty($source) && (!isset($options[$source]) || strpos($source, '{') !== false);
@@ -1429,8 +1531,9 @@ class WP_Setting
      * @param string $unique_id Unique ID for this field map instance.
      * @param array  $options   Source field options.
      * @param string $width     Optional width for source field column.
+     * @return void
      */
-    private function render_field_map_script($unique_id, $options, $width = '')
+    private function render_field_map_script($unique_id, $options, $width = ''): void
     {
         // Build options HTML for new rows.
         $options_html = '<option value="">' . \esc_html__('Select a field...', 'wp-settings') . '</option>';
@@ -1658,7 +1761,13 @@ class WP_Setting
         <?php
     }
 
-    public static function random_bytes($length)
+    /**
+     * Generate cryptographically secure random bytes as a hex string.
+     *
+     * @param int $length Number of random bytes to generate.
+     * @return string Hex-encoded random bytes.
+     */
+    public static function random_bytes($length): string
     {
         if (function_exists('random_bytes')) {
             /** @disregard p1010 Undefined function */
@@ -1675,7 +1784,7 @@ class WP_Setting
      *
      * @return string The decrypted value.
      */
-    public static function decrypt($value)
+    public static function decrypt($value): mixed
     {
 
         if (empty($value)) {
@@ -1703,7 +1812,7 @@ class WP_Setting
      *
      * @return string The encrypted value.
      */
-    public static function encrypt($value)
+    public static function encrypt($value): mixed
     {
         $crypt = new WP_Setting_Encryption(
             strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
@@ -1725,7 +1834,7 @@ class WP_Setting
      *
      * @return bool True if valid URL, false otherwise.
      */
-    public static function is_valid_url($value)
+    public static function is_valid_url($value): bool
     {
         if (empty($value)) {
             return false;
@@ -1740,7 +1849,7 @@ class WP_Setting
      *
      * @return bool True if valid email, false otherwise.
      */
-    public static function is_valid_email($value)
+    public static function is_valid_email($value): bool
     {
         if (empty($value)) {
             return false;
@@ -1755,7 +1864,7 @@ class WP_Setting
      *
      * @return bool True if not empty, false otherwise.
      */
-    public static function is_not_empty($value)
+    public static function is_not_empty($value): bool
     {
         if (is_string($value)) {
             return trim($value) !== '';
@@ -1770,7 +1879,7 @@ class WP_Setting
      *
      * @return string|false Sanitized URL or false if invalid.
      */
-    public static function sanitize_url($value)
+    public static function sanitize_url($value): string|false
     {
         if (empty($value)) {
             return '';
@@ -1792,7 +1901,7 @@ class WP_Setting
      *
      * @return string|false Sanitized email or false if invalid.
      */
-    public static function sanitize_email($value)
+    public static function sanitize_email($value): string|false
     {
         if (empty($value)) {
             return '';
