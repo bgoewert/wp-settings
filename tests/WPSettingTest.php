@@ -234,7 +234,7 @@ class WPSettingTest extends WP_Settings_TestCase
         // Create a setting first to set the text_domain
         new WP_Setting('my-plugin', 'dummy', 'Dummy', 'text', 'general', 'main');
 
-        $this->setOption('my-plugin_my_option', 'test_value');
+        $this->setOption('my_plugin_my_option', 'test_value');
 
         $value = WP_Setting::get('my_option');
         $this->assertSame('test_value', $value);
@@ -262,7 +262,7 @@ class WPSettingTest extends WP_Settings_TestCase
 
         WP_Setting::set('my_option', 'new_value');
 
-        $this->assertSame('new_value', $this->getOption('my-plugin_my_option'));
+        $this->assertSame('new_value', $this->getOption('my_plugin_my_option'));
     }
 
     /**
@@ -921,6 +921,33 @@ class WPSettingTest extends WP_Settings_TestCase
 
         // Clean up
         unset($_POST['my-plugin_textarea_field']);
+    }
+
+    /**
+     * Test textarea field preserves newlines while removing tags
+     */
+    public function test_textarea_field_preserves_newlines(): void
+    {
+        $setting = new WP_Setting(
+            'textarea_newlines',
+            'Textarea with Newlines',
+            'textarea',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        // Test that newlines are preserved and HTML tags are removed
+        $_POST['my-plugin_textarea_newlines'] = "Line 1\nLine 2\n<b>Bold Line 3</b>";
+        $setting->save();
+
+        $value = WP_Setting::get('textarea_newlines');
+        // Should preserve newlines but remove HTML tags
+        $this->assertSame("Line 1\nLine 2\nBold Line 3", $value);
+
+        // Clean up
+        unset($_POST['my-plugin_textarea_newlines']);
     }
 
     /**

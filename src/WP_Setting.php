@@ -309,7 +309,7 @@ class WP_Setting
      * @param string $text_domain The text domain to normalize.
      * @return string The normalized text domain with underscores.
      */
-    public static function normalize_text_domain($text_domain)
+    public static function normalize_text_domain($text_domain): string
     {
         return \str_replace('-', '_', $text_domain);
     }
@@ -411,8 +411,11 @@ class WP_Setting
                     break;
 
                 case 'text':
-                case 'textarea':
                     $this->sanitize_callback = array(__CLASS__, 'sanitize_text');
+                    break;
+
+                case 'textarea':
+                    $this->sanitize_callback = array(__CLASS__, 'sanitize_textarea');
                     break;
             }
         }
@@ -510,9 +513,14 @@ class WP_Setting
      *
      * @param string $setting The name of the setting. Expected not to be SQL-escaped.
      * @param mixed $default_value The default value for the setting if no value exists.
+     * @param bool $decrypt Whether to decrypt the value before returning (for encrypted settings).
+     * @return mixed The option value, or default_value if not found.
      */
-    public static function get($setting, $default_value = \false, $decrypt = \false)
-    {
+    public static function get(
+        $setting,
+        $default_value = \false,
+        $decrypt = \false,
+    ): mixed {
         if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
             $prefix = self::normalize_text_domain(self::$text_domain);
             $setting = $prefix . '_' . $setting;
@@ -529,13 +537,24 @@ class WP_Setting
      *
      * @param string $setting The name of the setting. Expected not to be SQL-escaped.
      * @param mixed  $value Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
+     * @return bool True if the value was updated, false otherwise.
      */
-    public static function set($setting, $value, $encrypt = \false)
+    public static function set($setting, $value, $encrypt = \false): bool
     {
-        if ($encrypt) $value = self::encrypt($value);
-        if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
-            $prefix = self::normalize_text_domain(self::$text_domain);
-            $setting = $prefix . '_' . $setting;
+        if ($encrypt) {
+            $value = self::encrypt($value);
+        }
+        $normalized_domain = self::normalize_text_domain(self::$text_domain);
+        if (
+            self::$text_domain &&
+            \false === strpos($setting, self::$text_domain) &&
+            \false === strpos($setting, $normalized_domain)
+        ) {
+            $setting = $normalized_domain . '_' . $setting;
+        }
+        // Normalize any hyphenated text domain prefix to underscores
+        if (self::$text_domain !== $normalized_domain) {
+            $setting = str_replace(self::$text_domain . '_', $normalized_domain . '_', $setting);
         }
         return \update_option($setting, $value);
     }
@@ -1795,8 +1814,20 @@ class WP_Setting
      *
      * @return string Sanitized text.
      */
-    public static function sanitize_text($value)
+    public static function sanitize_text($value): string
     {
         return \sanitize_text_field($value);
+    }
+
+    /**
+     * Sanitize textarea field value.
+     *
+     * @param mixed $value Field value to sanitize.
+     *
+     * @return string Sanitized textarea text.
+     */
+    public static function sanitize_textarea($value): string
+    {
+        return \sanitize_textarea_field($value);
     }
 }
