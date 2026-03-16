@@ -232,6 +232,25 @@ class WP_Setting
             'form'         => array(),
             'style'        => array(),
         ),
+        'option'   => array(
+            'value'    => array(),
+            'selected' => array(),
+            'disabled' => array(),
+            'label'    => array(),
+        ),
+        'optgroup' => array(
+            'label'    => array(),
+            'disabled' => array(),
+        ),
+        'fieldset' => array(
+            'class'    => array(),
+            'style'    => array(),
+            'disabled' => array(),
+        ),
+        'legend'   => array(
+            'class'    => array(),
+            'style'    => array(),
+        ),
         'table'    => array(
             'autofocus' => array(),
             'class'     => array(),
@@ -926,15 +945,18 @@ class WP_Setting
             $value = $this->default_value;
         }
         $options = $this->resolve_options();
-        echo sprintf('<select name="%s" id="%s">', $name, $id);
+        ob_start();
+        echo sprintf('<select name="%s" id="%s">', \esc_attr($name), \esc_attr($id));
         foreach ($options as $option => $label) {
             $atts = ' ' . \selected($value, $option, false);
             if ($this->required) {
                 $atts .= ' required';
             }
-            echo sprintf('<option value="%s"%s>%s</option>', $option, $atts, $label);
+            echo sprintf('<option value="%s"%s>%s</option>', \esc_attr($option), $atts, \esc_html($label));
         }
         echo '</select>';
+        $html = ob_get_clean();
+        echo \wp_kses($html, self::$allowed_html);
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
@@ -957,6 +979,8 @@ class WP_Setting
         $options = $this->resolve_options();
         $option_count = count($options);
 
+        ob_start();
+
         if ($option_count > 1) {
             echo '<fieldset>';
         }
@@ -966,12 +990,15 @@ class WP_Setting
             if ($this->required) {
                 $atts .= ' required';
             }
-            echo sprintf('<label><input type="radio" name="%s" value="%s"%s>%s</label><br>', $name, $option, $atts, $label);
+            echo sprintf('<label><input type="radio" name="%s" value="%s"%s>%s</label><br>', \esc_attr($name), \esc_attr($option), $atts, \esc_html($label));
         }
 
         if ($option_count > 1) {
             echo '</fieldset>';
         }
+
+        $html = ob_get_clean();
+        echo \wp_kses($html, self::$allowed_html);
 
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
