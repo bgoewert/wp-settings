@@ -125,11 +125,11 @@ class WP_Setting_Encryption
             file_exists($config_file)
             && (
                 (defined($this->key_constant) && '' !== constant($this->key_constant))
-                || preg_match("/define\('{$this->key_constant}',\s?'[\w\W\d]{{$this->key_length},}'\);/", file_get_contents($config_file))
+                || preg_match("/define\('{$this->key_constant}',\s?'[^']+'\);/", file_get_contents($config_file))
             )
         ) {
             if (!defined($this->key_constant)) {
-                return $this->check_key_len(self::safe_base64_decode(preg_match("/define\('{$this->key_constant}',\s?'([\w\W\d]{{$this->key_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
+                return $this->check_key_len(self::safe_base64_decode(preg_match("/define\('{$this->key_constant}',\s?'([^']+)'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
             return $this->check_key_len(self::safe_base64_decode(constant($this->key_constant)));
         } else if (is_writable($config_file)) {
@@ -155,11 +155,11 @@ class WP_Setting_Encryption
             file_exists($config_file)
             && (
                 (defined($this->nonce_constant) && '' !== constant($this->nonce_constant))
-                || preg_match("/define\('{$this->nonce_constant}',\s?'[\w\W\d]{{$this->nonce_length},}'\);/", file_get_contents($config_file))
+                || preg_match("/define\('{$this->nonce_constant}',\s?'[^']+'\);/", file_get_contents($config_file))
             )
         ) {
             if (!defined($this->nonce_constant)) {
-                return $this->check_nonce_len(self::safe_base64_decode(preg_match("/define\('{$this->nonce_constant}',\s?'([\w\W\d]{{$this->nonce_length},})'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
+                return $this->check_nonce_len(self::safe_base64_decode(preg_match("/define\('{$this->nonce_constant}',\s?'([^']+)'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
             return $this->check_nonce_len(self::safe_base64_decode(constant($this->nonce_constant)));
         } else if (is_writable($config_file)) {
