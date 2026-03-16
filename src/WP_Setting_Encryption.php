@@ -189,7 +189,6 @@ class WP_Setting_Encryption
         $encrypted = base64_encode($this->nonce . $cipher);
 
         sodium_memzero($string);
-        sodium_memzero($this->key);
 
         return $encrypted;
     }

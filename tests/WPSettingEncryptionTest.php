@@ -43,13 +43,13 @@ class WPSettingEncryptionTest extends WP_Settings_TestCase
     public function test_key_read_from_config_file_decodes_correctly(): void
     {
         // Create a temp wp-config with a known key
-        $test_key_value = 'hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=';
-        $test_nonce_value = 'f7kSL5pu0pjc+/AKBVWGDqzUQOR4ZFOb';
+        $test_key_value = 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=';
+        $test_nonce_value = 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW';
         
         $config_content = <<<'PHP'
 <?php
-define('TEST_ENC_KEY_BUG1', 'hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=');
-define('TEST_ENC_NONCE_BUG1', 'f7kSL5pu0pjc+/AKBVWGDqzUQOR4ZFOb');
+define('TEST_ENC_KEY_BUG1', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
+define('TEST_ENC_NONCE_BUG1', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
 require_once ABSPATH . 'wp-settings.php';
 PHP;
 
@@ -84,8 +84,8 @@ PHP;
         // Create a temp wp-config with known key/nonce
         $config_content = <<<'PHP'
 <?php
-define('TEST_ENC_KEY_ROUNDTRIP', 'hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=');
-define('TEST_ENC_NONCE_ROUNDTRIP', 'f7kSL5pu0pjc+/AKBVWGDqzUQOR4ZFOb');
+define('TEST_ENC_KEY_ROUNDTRIP', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
+define('TEST_ENC_NONCE_ROUNDTRIP', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
 require_once ABSPATH . 'wp-settings.php';
 PHP;
 
@@ -188,8 +188,8 @@ PHP;
         $config_content = <<<'PHP'
 <?php
 require_once ABSPATH . 'wp-settings.php';
-define('TEST_LATE_KEY_BUG12', 'hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=');
-define('TEST_LATE_NONCE_BUG12', 'f7kSL5pu0pjc+/AKBVWGDqzUQOR4ZFOb');
+define('TEST_LATE_KEY_BUG12', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
+define('TEST_LATE_NONCE_BUG12', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
 PHP;
 
         file_put_contents($this->config_file, $config_content);
@@ -227,7 +227,7 @@ PHP;
         $method->setAccessible(true);
 
         // Test with valid base64
-        $original = 'hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=';
+        $original = 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=';
         $decoded = $method->invoke(null, $original);
         $expected = base64_decode($original);
 
@@ -248,7 +248,7 @@ PHP;
         $method->setAccessible(true);
 
         // Test with invalid base64 (contains closing punctuation)
-        $invalid = "hkTAU78Tqoij9jZZbvfIzPtUOmTawuZxzN5a5rMHvfg=');";
+        $invalid = "K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');";
         $result = $method->invoke(null, $invalid);
 
         // Should return the original string since it's not valid base64
