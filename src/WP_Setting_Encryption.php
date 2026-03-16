@@ -117,6 +117,28 @@ class WP_Setting_Encryption
         return $nonce;
     }
 
+    /**
+     * Write a define() constant to wp-config.php before the require_once wp-settings.php line.
+     * Falls back to FILE_APPEND if the require_once line is not found (non-standard installations).
+     *
+     * @param string $config_file   Absolute path to wp-config.php.
+     * @param string $constant_line The full define() line to insert (e.g. "define('KEY', 'value');\n").
+     * @return void
+     */
+    private function write_config_constant(string $config_file, string $constant_line): void
+    {
+        $content = file_get_contents($config_file);
+        // Match require_once wp-settings.php in various formats (tabs, spaces, parentheses)
+        $pattern = '/^(\s*require_once\s*\(?\s*ABSPATH\s*\.\s*[\'"]wp-settings\.php[\'"]\s*\)?\s*;)/m';
+        if (preg_match($pattern, $content)) {
+            $content = preg_replace($pattern, $constant_line . '$1', $content, 1);
+            file_put_contents($config_file, $content);
+        } else {
+            // Fallback: append to end of file
+            file_put_contents($config_file, $constant_line, FILE_APPEND);
+        }
+    }
+
     private function get_default_key()
     {
         $config_file = ABSPATH . 'wp-config.php';
@@ -135,7 +157,7 @@ class WP_Setting_Encryption
         } else if (is_writable($config_file)) {
             $key = self::random_bytes($this->key_length);
             $key_constant = "define('" . $this->key_constant . "', '" . base64_encode($key) . "');\n";
-            file_put_contents($config_file, $key_constant, FILE_APPEND);
+            $this->write_config_constant($config_file, $key_constant);
             return $key;
         }
 
@@ -164,9 +186,8 @@ class WP_Setting_Encryption
             return $this->check_nonce_len(self::safe_base64_decode(constant($this->nonce_constant)));
         } else if (is_writable($config_file)) {
             $nonce = self::random_bytes($this->nonce_length);
-            $config_file = $config_file;
             $nonce_constant = "define('" . $this->nonce_constant . "', '" . base64_encode($nonce) . "');\n";
-            file_put_contents($config_file, $nonce_constant, FILE_APPEND);
+            $this->write_config_constant($config_file, $nonce_constant);
             return $nonce;
         }
 
