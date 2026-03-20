@@ -1265,6 +1265,7 @@ class WP_Setting
                 case 'url':
                 case 'number':
                     $value = self::get($child->slug, $child->default_value);
+                    $enter_submit = $this->get_enter_submit_attribute();
                     echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
                     $atts = '';
                     if ($child->width) {
@@ -1273,7 +1274,7 @@ class WP_Setting
                     if ($child->required) {
                         $atts .= ' required';
                     }
-                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts), self::$allowed_html);
+                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts, $enter_submit), self::$allowed_html);
                     if ($child->description) {
                         echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
                     }
@@ -1316,6 +1317,11 @@ class WP_Setting
         }
 
         echo '</div></details>';
+    }
+
+    protected function get_enter_submit_attribute(): string
+    {
+        return ' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();if(this.form&&this.form.requestSubmit){this.form.requestSubmit();}else if(this.form){this.form.submit();}}"';
     }
 
     /**

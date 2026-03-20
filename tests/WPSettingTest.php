@@ -626,6 +626,38 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('Child Checkbox', $output);
     }
 
+    public function test_init_advanced_text_child_supports_enter_submit(): void
+    {
+        $child = new WP_Setting(
+            'child_text',
+            'Child Text',
+            'text',
+            'general',
+            'main'
+        );
+
+        $setting = new WP_Setting(
+            'advanced_settings',
+            'Advanced Settings',
+            'advanced',
+            'general',
+            'main',
+            null,
+            'Configure advanced options',
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        ob_start();
+        $setting->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString("event.key==='Enter'", $output);
+        $this->assertStringContainsString('requestSubmit', $output);
+    }
+
     /**
      * Test required attribute is added to inputs
      */
