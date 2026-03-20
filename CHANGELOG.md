@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.18.1] - 2026-03-20
+
+### Fixed
+
+- Preserve the normal Enter-to-save behavior for text-like child fields inside advanced settings groups
+
 ## [2.18.0] - 2026-03-20
 
 ### Added
