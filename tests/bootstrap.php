@@ -378,6 +378,13 @@ if (!function_exists("submit_button")) {
     }
 }
 
+if (!function_exists("settings_errors")) {
+    function settings_errors($setting = "", $sanitize = false, $hide_on_update = false)
+    {
+        return null;
+    }
+}
+
 if (!function_exists("add_settings_error")) {
     function add_settings_error($setting, $code, $message, $type = "error")
     {
@@ -396,6 +403,71 @@ if (!function_exists("wp_send_json_error")) {
     function wp_send_json_error($data = null)
     {
         return ["success" => false, "data" => $data];
+    }
+}
+
+if (!function_exists("admin_url")) {
+    function admin_url($path = "")
+    {
+        return "http://example.com/wp-admin/" . ltrim($path, "/");
+    }
+}
+
+if (!function_exists("wp_json_encode")) {
+    function wp_json_encode($value)
+    {
+        return json_encode($value);
+    }
+}
+
+if (!function_exists("wp_enqueue_style")) {
+    function wp_enqueue_style($handle, $src = "", $deps = [], $ver = false, $media = "all")
+    {
+        return true;
+    }
+}
+
+if (!function_exists("wp_enqueue_script")) {
+    function wp_enqueue_script($handle, $src = "", $deps = [], $ver = false, $in_footer = false)
+    {
+        return true;
+    }
+}
+
+if (!function_exists("wp_add_inline_script")) {
+    function wp_add_inline_script($handle, $data, $position = "after")
+    {
+        return true;
+    }
+}
+
+if (!function_exists("plugin_dir_url")) {
+    function plugin_dir_url($file)
+    {
+        return "http://example.com/wp-content/plugins/wp-settings/src/";
+    }
+}
+
+if (!function_exists("get_current_screen")) {
+    function get_current_screen()
+    {
+        return (object) ["id" => "settings_page_test-plugin"];
+    }
+}
+
+if (!function_exists("sanitize_title")) {
+    function sanitize_title($title)
+    {
+        $title = strtolower((string) $title);
+        $title = preg_replace('/[^a-z0-9]+/', '-', $title);
+        return trim((string) $title, '-');
+    }
+}
+
+if (!function_exists("esc_js")) {
+    function esc_js($text)
+    {
+        return addslashes((string) $text);
     }
 }
 

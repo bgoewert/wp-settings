@@ -1,6 +1,24 @@
 <?php
 
 use BGoewert\WP_Settings\WP_Setting;
+use BGoewert\WP_Settings\WP_Settings;
+
+class Test_WP_Settings_Advanced_Fields extends WP_Settings
+{
+    public function __construct(array $settings)
+    {
+        $this->settings = $settings;
+        $this->sections = array(
+            'main' => array(
+                'name' => 'Main',
+                'tab' => 'general',
+                'callback' => '__return_false',
+            ),
+        );
+
+        parent::__construct('my-plugin');
+    }
+}
 
 /**
  * Tests for WP_Setting class
@@ -197,6 +215,73 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
         // Title should be empty for advanced fields
         $this->assertSame('', $fields['my-plugin_advanced_option_field']['title']);
+    }
+
+    public function test_advanced_children_do_not_register_standalone_fields(): void
+    {
+        $child = new WP_Setting(
+            'child_option',
+            'Child',
+            'text',
+            'general',
+            'main'
+        );
+
+        $setting = new WP_Setting(
+            'advanced_option',
+            'Advanced Settings',
+            'advanced',
+            'general',
+            'main',
+            null,
+            'Advanced description',
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $setting->init();
+
+        $fields = $this->getRegisteredSettingsFields();
+
+        $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
+        $this->assertArrayNotHasKey('my-plugin_child_option_field', $fields);
+        $this->assertNotNull($this->getOption('my-plugin_child_option'));
+    }
+
+    public function test_wp_settings_init_skips_advanced_child_field_registration(): void
+    {
+        $child = new WP_Setting(
+            'child_option',
+            'Child',
+            'text',
+            'general',
+            'main'
+        );
+
+        $setting = new WP_Setting(
+            'advanced_option',
+            'Advanced Settings',
+            'advanced',
+            'general',
+            'main',
+            null,
+            'Advanced description',
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $settings_page = new Test_WP_Settings_Advanced_Fields([$setting]);
+        $settings_page->init();
+
+        $fields = $this->getRegisteredSettingsFields();
+
+        $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
+        $this->assertArrayNotHasKey('my-plugin_child_option_field', $fields);
+        $this->assertNotNull($this->getOption('my-plugin_child_option'));
     }
 
     /**

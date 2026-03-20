@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.18.0] - 2026-03-20
+
+### Added
+
+- Add optional built-in logging support with a `Logging` settings tab, plugin log files, retention controls, and an admin log viewer
+
+## [2.17.3] - 2026-03-20
+
+### Fixed
+
+- Prevent advanced child settings from being registered and rendered as standalone rows beneath the collapsible advanced field
+
 ## [2.17.2] - 2026-03-16
 
 ### Fixed

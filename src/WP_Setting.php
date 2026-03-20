@@ -152,6 +152,8 @@ class WP_Setting
      */
     public static $text_domain;
 
+    protected static $logger = null;
+
     /**
      * Array of allowed HTML tags.
      *
@@ -492,17 +494,20 @@ class WP_Setting
      *
      * @return void
      */
-    public function init(): void
+    public function init(bool $register_field = true): void
     {
-        $this->add_setting();
+        $this->add_setting($register_field);
 
-        // For fieldset and advanced fields, also register children so they save properly
-        // This allows these field types to work in both settings pages and table modals
         if (($this->type === 'fieldset' || $this->type === 'advanced') && !empty($this->children)) {
             foreach ($this->children as $child) {
-                $child->init();
+                $child->init($this->type !== 'advanced');
             }
         }
+    }
+
+    public static function set_logger($logger): void
+    {
+        self::$logger = $logger;
     }
 
     /**
@@ -510,7 +515,7 @@ class WP_Setting
      *
      * @return void
      */
-    private function add_setting(): void
+    private function add_setting(bool $register_field = true): void
     {
         \add_option($this->slug, $this->default_value);
 
@@ -520,6 +525,10 @@ class WP_Setting
         }
 
         \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
+
+        if (!$register_field) {
+            return;
+        }
 
         // Skip add_settings_field for hidden fields to avoid empty table rows
         // Advanced and fieldset fields handle their own rendering including child fields
@@ -1826,6 +1835,9 @@ class WP_Setting
         try {
             $decrypted_value = $crypt->decrypt($value);
         } catch (\Exception $e) {
+            if (self::$logger !== null) {
+                self::$logger->warning('Decryption failed', array('operation' => 'decrypt'));
+            }
             trigger_error('Decryption failed: ' . $e->getMessage(), E_USER_WARNING);
             return $value;
         }
@@ -1849,6 +1861,9 @@ class WP_Setting
         try {
             return $crypt->encrypt($value);
         } catch (\Exception $e) {
+            if (self::$logger !== null) {
+                self::$logger->warning('Encryption failed', array('operation' => 'encrypt'));
+            }
             trigger_error('Encryption failed: ' . $e->getMessage(), E_USER_WARNING);
             return $value;
         }

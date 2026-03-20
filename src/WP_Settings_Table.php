@@ -94,6 +94,8 @@ class WP_Settings_Table
      */
     protected $text_domain;
 
+    protected $logger;
+
     /**
      * Row id key in each row.
      *
@@ -148,6 +150,11 @@ class WP_Settings_Table
     public function set_text_domain($text_domain)
     {
         $this->text_domain = $text_domain;
+    }
+
+    public function set_logger($logger)
+    {
+        $this->logger = $logger;
     }
 
     /**
@@ -231,18 +238,30 @@ class WP_Settings_Table
         switch ($action) {
             case 'save':
                 $this->handle_save($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row saved', array('table' => $this->id, 'tab' => $this->tab));
+                }
                 $this->redirect_with_notice('saved');
                 break;
             case 'delete':
                 $this->handle_delete($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row deleted', array('table' => $this->id, 'tab' => $this->tab));
+                }
                 $this->redirect_with_notice('deleted');
                 break;
             case 'toggle':
                 $this->handle_toggle($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row toggled', array('table' => $this->id, 'tab' => $this->tab));
+                }
                 $this->redirect_with_notice('saved');
                 break;
             case 'bulk':
                 $this->handle_bulk($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table bulk action applied', array('table' => $this->id, 'tab' => $this->tab, 'action' => $_POST['bulk_action'] ?? ''));
+                }
                 $this->redirect_with_notice('saved');
                 break;
         }
@@ -254,10 +273,16 @@ class WP_Settings_Table
     public function ajax_handler()
     {
         if (!isset($_POST['nonce']) || !\wp_verify_nonce(\sanitize_text_field(\wp_unslash($_POST['nonce'])), $this->get_nonce_action())) {
+            if ($this->logger !== null) {
+                $this->logger->warning('Settings table AJAX request rejected for invalid nonce', array('table' => $this->id));
+            }
             \wp_send_json_error(array('message' => __('Invalid nonce', 'wp-settings')));
         }
 
         if (!\current_user_can($this->capability)) {
+            if ($this->logger !== null) {
+                $this->logger->warning('Settings table AJAX request rejected for insufficient permissions', array('table' => $this->id));
+            }
             \wp_send_json_error(array('message' => __('Insufficient permissions', 'wp-settings')));
         }
 
@@ -266,26 +291,44 @@ class WP_Settings_Table
         switch ($subaction) {
             case 'save':
                 $row_id = $this->handle_save($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row saved via AJAX', array('table' => $this->id, 'row_id' => $row_id));
+                }
                 \wp_send_json_success(array('row_id' => $row_id));
                 break;
             case 'delete':
                 $this->handle_delete($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row deleted via AJAX', array('table' => $this->id));
+                }
                 \wp_send_json_success();
                 break;
             case 'toggle':
                 $this->handle_toggle($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row toggled via AJAX', array('table' => $this->id));
+                }
                 \wp_send_json_success();
                 break;
             case 'toggle_status':
                 $this->handle_toggle_status($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table row status changed via AJAX', array('table' => $this->id));
+                }
                 \wp_send_json_success();
                 break;
             case 'bulk':
                 $this->handle_bulk($_POST);
+                if ($this->logger !== null) {
+                    $this->logger->info('Settings table bulk action applied via AJAX', array('table' => $this->id, 'action' => $_POST['bulk_action'] ?? ''));
+                }
                 \wp_send_json_success();
                 break;
         }
 
+        if ($this->logger !== null) {
+            $this->logger->warning('Settings table AJAX request rejected for unknown action', array('table' => $this->id, 'subaction' => $subaction));
+        }
         \wp_send_json_error(array('message' => __('Unknown action', 'wp-settings')));
     }
 

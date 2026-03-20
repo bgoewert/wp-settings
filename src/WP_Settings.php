@@ -80,6 +80,12 @@ class WP_Settings
      */
     protected $footer_text = null;
 
+    protected $logging_config = array();
+
+    protected $logger = null;
+
+    protected $uses_builtin_logging_tab = false;
+
     /**
      * Initialize plugin settings.
      *
@@ -126,6 +132,7 @@ class WP_Settings
             strtoupper($this->text_domain . "_key"),
             strtoupper($this->text_domain . "_nonce"),
         );
+        $this->initialize_logging_support();
 
         \add_action("admin_init", [$this, "init"]);
         \add_action("admin_menu", [$this, "admin_menu"]);
@@ -198,19 +205,15 @@ class WP_Settings
 
         foreach ($this->settings as $setting) {
             $setting->init();
-
-            // Initialize child settings for advanced field types
-            if ($setting->type === "advanced" && !empty($setting->children)) {
-                foreach ($setting->children as $child) {
-                    $child->init();
-                }
-            }
         }
 
         if (!empty($this->tables)) {
             foreach ($this->tables as $table) {
                 if ($table instanceof WP_Settings_Table) {
                     $table->set_text_domain($this->text_domain);
+                    if ($this->logger !== null) {
+                        $table->set_logger($this->logger);
+                    }
                     $table->init();
                 }
             }
@@ -281,6 +284,12 @@ class WP_Settings
                     "updated",
                 );
             } catch (\Throwable $th) {
+                if ($this->logger !== null) {
+                    $this->logger->error(
+                        $tab_label . ' failed to save',
+                        array('exception' => $th->getMessage(), 'tab' => $tab),
+                    );
+                }
                 \add_settings_error(
                     $this->text_domain . "_messages",
                     $this->text_domain . "_message",
@@ -342,7 +351,32 @@ $tab
                     ); ?>
                 <?php endif; ?>
             <?php endif; ?>
+
+            <?php if ($this->should_render_logging_viewer($tab)): ?>
+                <?php $this->render_logging_viewer(); ?>
+            <?php endif; ?>
     <?php
+    }
+
+    public function logging(array $config): void
+    {
+        $this->logging_config = array_merge(
+            array(
+                'enabled' => true,
+                'plugin_dir_path' => '',
+                'tab_slug' => 'logging',
+                'tab_name' => 'Logging',
+                'retention_days_default' => 14,
+                'auto_refresh_default' => 0,
+                'default_level' => 'error',
+            ),
+            $config,
+        );
+    }
+
+    public function get_logger()
+    {
+        return $this->logger;
     }
 
     /**
@@ -554,6 +588,269 @@ $tab
         }
 
         return null;
+    }
+
+    protected function initialize_logging_support(): void
+    {
+        if (!$this->is_logging_feature_enabled()) {
+            return;
+        }
+
+        $this->logger = new WP_Settings_Logger(
+            array(
+                'plugin_dir_path' => $this->logging_config['plugin_dir_path'],
+                'text_domain' => $this->text_domain,
+                'default_level' => $this->logging_config['default_level'] ?? 'error',
+            )
+        );
+
+        WP_Setting::set_logger($this->logger);
+
+        if (!$this->has_logging_tab_conflict()) {
+            $this->append_logging_definitions();
+        }
+
+        \add_action('wp_ajax_' . $this->get_logging_ajax_action('view'), array($this, 'ajax_view_log'));
+        \add_action('wp_ajax_' . $this->get_logging_ajax_action('tail'), array($this, 'ajax_tail_log'));
+        \add_action('wp_ajax_' . $this->get_logging_ajax_action('clear'), array($this, 'ajax_clear_log'));
+    }
+
+    protected function is_logging_feature_enabled(): bool
+    {
+        return !empty($this->logging_config['enabled']) && !empty($this->logging_config['plugin_dir_path']);
+    }
+
+    protected function get_logging_tab_slug(): string
+    {
+        return $this->logging_config['tab_slug'] ?? 'logging';
+    }
+
+    protected function get_logging_section_slug(): string
+    {
+        return $this->get_logging_tab_slug() . '_settings';
+    }
+
+    protected function get_logging_ajax_action(string $action): string
+    {
+        return $this->text_domain . '_logging_' . $action;
+    }
+
+    protected function get_logging_nonce_action(string $action): string
+    {
+        return $this->get_logging_ajax_action($action);
+    }
+
+    protected function has_logging_tab_conflict(): bool
+    {
+        if (empty($this->sections)) {
+            return false;
+        }
+
+        foreach ($this->sections as $section) {
+            if (($section['tab'] ?? '') === $this->get_logging_tab_slug()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function append_logging_definitions(): void
+    {
+        if (!is_array($this->sections)) {
+            $this->sections = array();
+        }
+
+        if (!is_array($this->settings)) {
+            $this->settings = array();
+        }
+
+        $tab_slug = $this->get_logging_tab_slug();
+        $section_slug = $this->get_logging_section_slug();
+
+        $this->sections[$section_slug] = array(
+            'name' => 'Logging Settings',
+            'tab' => $tab_slug,
+            'tab_name' => $this->logging_config['tab_name'] ?? 'Logging',
+            'callback' => array($this, 'empty_section_callback'),
+        );
+        $this->uses_builtin_logging_tab = true;
+
+        $settings = array(
+            'logging_enabled' => new WP_Setting('logging_enabled', 'Enable Logging', 'checkbox', $tab_slug, $section_slug, null, 'Enable file-based logging for this plugin.', false, ''),
+            'log_destination' => new WP_Setting('log_destination', 'Log Destination', 'select', $tab_slug, $section_slug, '280px', 'Choose where new log entries are written.', false, 'plugin', null, array('options' => array('plugin' => 'Plugin Log File', 'wordpress' => 'WordPress Debug Log'))),
+            'log_level' => new WP_Setting('log_level', 'Log Level', 'select', $tab_slug, $section_slug, '220px', 'Only messages at or above this level are written.', false, $this->logging_config['default_level'] ?? 'error', null, array('options' => array('error' => 'Error', 'warning' => 'Warning', 'info' => 'Info', 'debug' => 'Debug'))),
+            'log_retention_days' => new WP_Setting('log_retention_days', 'Retention Days', 'number', $tab_slug, $section_slug, '120px', 'Delete plugin log files older than this many days.', false, (string) ($this->logging_config['retention_days_default'] ?? 14)),
+            'log_auto_refresh' => new WP_Setting('log_auto_refresh', 'Auto Refresh', 'select', $tab_slug, $section_slug, '220px', 'Automatically refresh the log viewer on this interval.', false, (string) ($this->logging_config['auto_refresh_default'] ?? 0), null, array('options' => array('0' => 'Disabled', '2' => '2 seconds', '5' => '5 seconds', '10' => '10 seconds', '30' => '30 seconds'))),
+        );
+
+        foreach ($settings as $key => $setting) {
+            if (!isset($this->settings[$key])) {
+                $this->settings[$key] = $setting;
+            }
+        }
+    }
+
+    protected function should_render_logging_viewer($tab): bool
+    {
+        return $this->logger !== null && $this->uses_builtin_logging_tab && $tab === $this->get_logging_tab_slug();
+    }
+
+    protected function render_logging_viewer(): void
+    {
+        $files = $this->logger->get_log_files();
+        $selected_file = isset($_GET['log_file']) ? \sanitize_text_field(\wp_unslash($_GET['log_file'])) : '';
+        if ($selected_file === '' || !in_array($selected_file, $files, true)) {
+            $selected_file = $files[0] ?? '';
+        }
+
+        $destination = $this->logger->get_destination();
+        $contents = $destination === 'plugin'
+            ? $this->logger->get_log_contents($selected_file, 200)
+            : 'Log destination is set to WordPress debug log. Switch destination to Plugin Log File to use the built-in viewer.';
+        $ajax_url = \admin_url('admin-ajax.php');
+        $view_nonce = \wp_create_nonce($this->get_logging_nonce_action('view'));
+        $clear_nonce = \wp_create_nonce($this->get_logging_nonce_action('clear'));
+        $tab_slug = $this->get_logging_tab_slug();
+        $refresh = $this->logger->get_auto_refresh_interval();
+        ?>
+        <hr>
+        <h2><?php echo \esc_html__('Log Viewer', 'wp-settings'); ?></h2>
+        <p><?php echo \esc_html($this->logger->get_log_dir()); ?></p>
+        <div style="margin: 0 0 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <form method="get" style="display: inline-flex; gap: 8px; align-items: center;">
+                <input type="hidden" name="page" value="<?php echo \esc_attr($this->text_domain); ?>">
+                <input type="hidden" name="tab" value="<?php echo \esc_attr($tab_slug); ?>">
+                <select name="log_file">
+                    <option value=""><?php echo \esc_html__('Current Log', 'wp-settings'); ?></option>
+                    <?php foreach ($files as $file): ?>
+                        <option value="<?php echo \esc_attr($file); ?>"<?php echo \selected($selected_file, $file, false); ?>><?php echo \esc_html($file); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="button"><?php echo \esc_html__('Open', 'wp-settings'); ?></button>
+            </form>
+            <button type="button" class="button" id="wps-log-refresh"><?php echo \esc_html__('Refresh', 'wp-settings'); ?></button>
+            <button type="button" class="button" id="wps-log-clear"><?php echo \esc_html__('Clear Logs', 'wp-settings'); ?></button>
+            <span id="wps-log-status"></span>
+        </div>
+        <pre id="wps-log-viewer" data-file="<?php echo \esc_attr($selected_file); ?>" style="background:#1e1e1e;color:#d4d4d4;padding:16px;max-height:480px;overflow:auto;white-space:pre-wrap;"><?php echo \esc_html($contents); ?></pre>
+        <script>
+            (function() {
+                var viewer = document.getElementById('wps-log-viewer');
+                var refreshButton = document.getElementById('wps-log-refresh');
+                var clearButton = document.getElementById('wps-log-clear');
+                var status = document.getElementById('wps-log-status');
+                if (!viewer || !refreshButton || !clearButton) {
+                    return;
+                }
+
+                function post(action, nonce, extra, done) {
+                    var body = new URLSearchParams();
+                    body.append('action', action);
+                    body.append('nonce', nonce);
+                    body.append('file', viewer.getAttribute('data-file') || '');
+                    if (extra) {
+                        Object.keys(extra).forEach(function(key) {
+                            body.append(key, extra[key]);
+                        });
+                    }
+                    fetch('<?php echo \esc_url($ajax_url); ?>', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                        body: body.toString()
+                    }).then(function(response) {
+                        return response.json();
+                    }).then(done);
+                }
+
+                refreshButton.addEventListener('click', function() {
+                    status.textContent = 'Refreshing...';
+                    post('<?php echo \esc_attr($this->get_logging_ajax_action('view')); ?>', '<?php echo \esc_attr($view_nonce); ?>', null, function(result) {
+                        if (result && result.success && result.data) {
+                            viewer.textContent = result.data.content || '';
+                            status.textContent = 'Updated';
+                        } else {
+                            status.textContent = 'Refresh failed';
+                        }
+                    });
+                });
+
+                clearButton.addEventListener('click', function() {
+                    status.textContent = 'Clearing...';
+                    post('<?php echo \esc_attr($this->get_logging_ajax_action('clear')); ?>', '<?php echo \esc_attr($clear_nonce); ?>', null, function(result) {
+                        if (result && result.success) {
+                            viewer.textContent = '';
+                            status.textContent = 'Cleared';
+                        } else {
+                            status.textContent = 'Clear failed';
+                        }
+                    });
+                });
+
+                <?php if ($destination === 'plugin' && $refresh > 0): ?>
+                window.setInterval(function() {
+                    refreshButton.click();
+                }, <?php echo (int) $refresh * 1000; ?>);
+                <?php endif; ?>
+            }());
+        </script>
+        <?php
+    }
+
+    public function ajax_view_log()
+    {
+        if (!$this->can_manage_logging_request('view')) {
+            return \wp_send_json_error(array('message' => __('Invalid logging request', 'wp-settings')));
+        }
+
+        $file = isset($_POST['file']) ? \sanitize_text_field(\wp_unslash($_POST['file'])) : '';
+
+        return \wp_send_json_success(
+            array(
+                'content' => $this->logger->get_destination() === 'plugin' ? $this->logger->get_log_contents($file, 200) : '',
+                'file' => $file,
+                'file_size' => $this->logger->get_log_size($file),
+                'files' => $this->logger->get_log_files(),
+            )
+        );
+    }
+
+    public function ajax_tail_log()
+    {
+        if (!$this->can_manage_logging_request('tail')) {
+            return \wp_send_json_error(array('message' => __('Invalid logging request', 'wp-settings')));
+        }
+
+        $file = isset($_POST['file']) ? \sanitize_text_field(\wp_unslash($_POST['file'])) : '';
+        $offset = isset($_POST['offset']) ? (int) \wp_unslash($_POST['offset']) : 0;
+
+        return \wp_send_json_success($this->logger->get_log_tail($file, $offset));
+    }
+
+    public function ajax_clear_log()
+    {
+        if (!$this->can_manage_logging_request('clear')) {
+            return \wp_send_json_error(array('message' => __('Invalid logging request', 'wp-settings')));
+        }
+
+        return \wp_send_json_success(array('cleared' => $this->logger->clear_logs()));
+    }
+
+    protected function can_manage_logging_request(string $action): bool
+    {
+        if ($this->logger === null || !\current_user_can('manage_options')) {
+            return false;
+        }
+
+        if (!isset($_POST['nonce'])) {
+            return false;
+        }
+
+        return \wp_verify_nonce(
+            \sanitize_text_field(\wp_unslash($_POST['nonce'])),
+            $this->get_logging_nonce_action($action)
+        );
     }
 
     /**

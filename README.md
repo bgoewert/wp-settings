@@ -36,8 +36,6 @@ class My_Settings extends WP_Settings
 
         $plugin_data = get_plugin_data(MY_PLUGIN_FILE, false, false);
 
-        parent::__construct($plugin_data);
-
         $this->sections = array(
             array(
                 'name'      => 'General Settings',
@@ -79,6 +77,8 @@ class My_Settings extends WP_Settings
                 )
             ),
         );
+
+        parent::__construct($plugin_data);
     }
 }
 
@@ -86,6 +86,58 @@ new My_Settings();
 ```
 
 Tab labels default to `ucwords(tab)` but you can override the display label per tab with `tab_name`.
+
+## Built-In Logging
+
+You can opt into a built-in `Logging` tab with plugin log files, retention settings, and an admin log viewer.
+
+```php
+class My_Settings extends WP_Settings
+{
+    public function __construct()
+    {
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugin_data = get_plugin_data(MY_PLUGIN_FILE, false, false);
+
+        $this->sections = array(
+            'general_settings' => array(
+                'name' => 'General Settings',
+                'tab' => 'general',
+                'callback' => '__return_false',
+            ),
+        );
+
+        $this->settings = array(
+            'my_option' => new WP_Setting('my_option', 'My Option', 'text', 'general', 'general_settings'),
+        );
+
+        $this->logging(array(
+            'plugin_dir_path' => plugin_dir_path(MY_PLUGIN_FILE),
+            'retention_days_default' => 14,
+            'default_level' => 'error',
+        ));
+
+        parent::__construct($plugin_data);
+    }
+}
+```
+
+What it adds:
+
+- A `Logging` tab with settings for enable/disable, destination, level, retention days, and auto-refresh
+- Plugin log files in `<plugin-dir>/logs`
+- Daily file rotation using `<text-domain>-YYYY-MM-DD.log`
+- A built-in viewer for plugin log files with refresh and clear actions
+
+Notes:
+
+- Logging is disabled by default until the `Enable Logging` setting is saved
+- `log_destination` can write to the plugin log file or WordPress `debug.log`
+- The built-in viewer only displays plugin log files, not WordPress `debug.log`
+- Crypto failure logging records only generic operation metadata, not encrypted or decrypted values
 
 ## Field Types
 
