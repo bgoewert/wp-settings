@@ -633,6 +633,17 @@ class WP_Setting
                 }
                 break;
 
+            case 'repeater':
+                // Skip saving if the field was not submitted (prevents accidental data wipe).
+                if ($value === null) {
+                    break;
+                }
+                if ($this->sanitize_callback && is_callable($this->sanitize_callback)) {
+                    $value = call_user_func($this->sanitize_callback, $value);
+                }
+                self::set($this->slug, $value);
+                break;
+
             case 'advanced':
                 // Save all child settings
                 if (!empty($this->children)) {
@@ -1569,7 +1580,8 @@ class WP_Setting
                     break;
 
                 default:
-                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '" style="width: 100%;">';
+                    $placeholder = $child['placeholder'] ?? '';
+                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '"' . ($placeholder ? ' placeholder="' . \esc_attr($placeholder) . '"' : '') . ' style="width: 100%;">';
                     break;
             }
 
