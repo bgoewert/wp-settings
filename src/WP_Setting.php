@@ -201,6 +201,8 @@ class WP_Setting
             'size'         => array(),
             'step'         => array(),
             'hidden'       => array(),
+            'data-field'   => array(),
+            'data-index'   => array(),
         ),
         'textarea' => array(
             'name'         => array(),
@@ -220,6 +222,8 @@ class WP_Setting
             'spellcheck'   => array(),
             'wrap'         => array(),
             'style'        => array(),
+            'data-field'   => array(),
+            'data-index'   => array(),
         ),
         'select'   => array(
             'id'           => array(),
@@ -233,6 +237,8 @@ class WP_Setting
             'size'         => array(),
             'form'         => array(),
             'style'        => array(),
+            'data-field'   => array(),
+            'data-index'   => array(),
         ),
         'option'   => array(
             'value'    => array(),
@@ -282,9 +288,14 @@ class WP_Setting
             'style' => array(),
         ),
         'div'      => array(
+            'class'      => array(),
+            'style'      => array(),
+            'id'         => array(),
+            'data-field' => array(),
+            'data-index' => array(),
+        ),
+        'template' => array(
             'class' => array(),
-            'style' => array(),
-            'id'    => array(),
         ),
         'hr'       => array(
             'class' => array(),
@@ -439,6 +450,10 @@ class WP_Setting
                 case 'textarea':
                     $this->sanitize_callback = array(__CLASS__, 'sanitize_textarea');
                     break;
+
+                case 'repeater':
+                    $this->sanitize_callback = array($this, 'sanitize_repeater');
+                    break;
             }
         }
 
@@ -480,6 +495,10 @@ class WP_Setting
 
                 case 'field_map':
                     $this->callback = array($this, 'init_field_map');
+                    break;
+
+                case 'repeater':
+                    $this->callback = array($this, 'init_repeater');
                     break;
 
                 default:
@@ -771,6 +790,11 @@ class WP_Setting
             return $sanitized;
         }
 
+        // Default sanitization for repeater type.
+        if ($this->type === 'repeater') {
+            return $this->sanitize_repeater($value);
+        }
+
         return $value;
     }
 
@@ -834,6 +858,9 @@ class WP_Setting
                 break;
             case 'field_map':
                 $this->render_field_map($value, $name, $id);
+                break;
+            case 'repeater':
+                $this->render_repeater($value, $name, $id);
                 break;
             default:
                 $this->render_text_value($name, $id, $value);
@@ -1413,6 +1440,277 @@ class WP_Setting
     {
         $value = self::get($this->slug, $this->default_value);
         $this->render_field_map($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Create a repeater field with dynamic add/remove rows.
+     *
+     * @return void
+     */
+    public function init_repeater(): void
+    {
+        $value = self::get($this->slug, $this->default_value);
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            }
+        }
+        if (!is_array($value)) {
+            $value = array();
+        }
+        $this->render_repeater($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Sanitize repeater field value.
+     *
+     * @param mixed $value Raw value (JSON string or array).
+     * @return array Sanitized array of row objects.
+     */
+    private function sanitize_repeater(mixed $value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            }
+        }
+
+        if (!is_array($value)) {
+            return array();
+        }
+
+        $children = $this->args['children'] ?? array();
+        $sanitized = array();
+
+        foreach ($value as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $clean_row = array();
+            foreach ($children as $child) {
+                $field_name = $child['name'] ?? '';
+                $field_type = $child['type'] ?? 'text';
+                if ($field_name === '') {
+                    continue;
+                }
+                $raw = $row[$field_name] ?? '';
+
+                switch ($field_type) {
+                    case 'email':
+                        $clean_row[$field_name] = \sanitize_email($raw);
+                        break;
+                    case 'url':
+                        $clean_row[$field_name] = \esc_url_raw($raw);
+                        break;
+                    case 'textarea':
+                        $clean_row[$field_name] = \sanitize_textarea_field($raw);
+                        break;
+                    case 'select':
+                        $allowed_options = array_keys($child['options'] ?? array());
+                        $clean_row[$field_name] = in_array($raw, $allowed_options, true) ? $raw : '';
+                        break;
+                    default:
+                        $clean_row[$field_name] = \sanitize_text_field($raw);
+                        break;
+                }
+            }
+
+            // Skip rows where all fields are empty.
+            $non_empty = array_filter($clean_row, function($v) { return $v !== ''; });
+            if (empty($non_empty)) {
+                continue;
+            }
+
+            $sanitized[] = $clean_row;
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Render a single repeater row.
+     *
+     * @param array      $children  Child field definitions.
+     * @param array      $row_data  Row data values.
+     * @param int|string $index     Row index.
+     * @return void
+     */
+    private function render_repeater_row(array $children, array $row_data, $index): void
+    {
+        echo '<div class="wps-repeater-row" data-index="' . \esc_attr($index) . '">';
+
+        foreach ($children as $child) {
+            $field_name = $child['name'] ?? '';
+            $field_type = $child['type'] ?? 'text';
+            $field_width = $child['width'] ?? '';
+            $field_value = $row_data[$field_name] ?? '';
+
+            $cell_style = $field_width ? ' style="width:' . \esc_attr($field_width) . ';"' : '';
+            echo '<div class="wps-repeater-cell"' . $cell_style . '>';
+
+            switch ($field_type) {
+                case 'textarea':
+                    echo '<textarea class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '">' . \esc_textarea($field_value) . '</textarea>';
+                    break;
+
+                case 'select':
+                    $options = $child['options'] ?? array();
+                    echo '<select class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '">';
+                    foreach ($options as $opt_value => $opt_label) {
+                        echo sprintf(
+                            '<option value="%s"%s>%s</option>',
+                            \esc_attr($opt_value),
+                            \selected($field_value, $opt_value, false),
+                            \esc_html($opt_label)
+                        );
+                    }
+                    echo '</select>';
+                    break;
+
+                default:
+                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '">';
+                    break;
+            }
+
+            echo '</div>';
+        }
+
+        echo '<div class="wps-repeater-cell wps-repeater-cell--remove">';
+        echo '<button type="button" class="button wps-repeater-remove">&times;</button>';
+        echo '</div>';
+
+        echo '</div>';
+    }
+
+    /**
+     * Render inline JavaScript for repeater functionality.
+     *
+     * @param string $uid Unique container ID.
+     * @return void
+     */
+    private function render_repeater_script(string $uid): void
+    {
+        ?>
+        <script type="text/javascript">
+        (function($) {
+            $(document).ready(function() {
+                var container = $('#<?php echo \esc_js($uid); ?>');
+                var dataInput = container.find('.wps-repeater-data');
+
+                function updateData() {
+                    var rows = [];
+                    container.find('.wps-repeater-rows .wps-repeater-row').each(function() {
+                        var row = {};
+                        $(this).find('.wps-repeater-field').each(function() {
+                            var field = $(this).data('field');
+                            if (field) {
+                                row[field] = $(this).val();
+                            }
+                        });
+                        rows.push(row);
+                    });
+                    dataInput.val(JSON.stringify(rows));
+                }
+
+                container.on('click', '.wps-repeater-add', function(e) {
+                    e.preventDefault();
+                    var tmpl = container.find('.wps-repeater-row-template')[0];
+                    if (!tmpl) return;
+                    var newIndex = container.find('.wps-repeater-rows .wps-repeater-row').length;
+                    var clone = document.importNode(tmpl.content, true);
+                    var rowEl = $(clone).find('.wps-repeater-row').addBack('.wps-repeater-row');
+                    if (!rowEl.length) {
+                        rowEl = $(clone);
+                    }
+                    rowEl.attr('data-index', newIndex);
+                    container.find('.wps-repeater-rows').append(clone);
+                    updateData();
+                });
+
+                container.on('click', '.wps-repeater-remove', function(e) {
+                    e.preventDefault();
+                    $(this).closest('.wps-repeater-row').remove();
+                    updateData();
+                });
+
+                container.on('change input', '.wps-repeater-field', function() {
+                    updateData();
+                });
+
+                updateData();
+            });
+        })(jQuery);
+        </script>
+        <?php
+    }
+
+    /**
+     * Render repeater interface.
+     *
+     * @param mixed  $value Current value (array of rows).
+     * @param string $name  Field name.
+     * @param string $id    Field ID.
+     * @return void
+     */
+    private function render_repeater($value, string $name, string $id): void
+    {
+        $children = $this->args['children'] ?? array();
+
+        if (empty($children)) {
+            echo \wp_kses('<p class="description" style="color: red;">Error: Repeater field requires children definitions.</p>', self::$allowed_html);
+            return;
+        }
+
+        if (!is_array($value)) {
+            $value = array();
+        }
+
+        $uid = 'wps_repeater_' . uniqid();
+
+        echo '<div class="wps-repeater" id="' . \esc_attr($uid) . '">';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+
+        // Header row.
+        echo '<div class="wps-repeater-header">';
+        foreach ($children as $child) {
+            echo '<span>' . \esc_html($child['label'] ?? '') . '</span>';
+        }
+        echo '<span></span>';
+        echo '</div>';
+
+        // Rows container.
+        echo '<div class="wps-repeater-rows">';
+
+        if (!empty($value)) {
+            foreach ($value as $index => $row) {
+                $this->render_repeater_row($children, $row, $index);
+            }
+        } else {
+            $this->render_repeater_row($children, array(), 0);
+        }
+
+        echo '</div>';
+
+        // Add row button.
+        echo '<button type="button" class="button wps-repeater-add">' . \esc_html__('Add Row', 'wp-settings') . '</button>';
+
+        // Hidden input to store JSON.
+        echo '<input type="hidden" name="' . \esc_attr($name) . '" value="' . \esc_attr(json_encode($value)) . '" class="wps-repeater-data">';
+
+        // Template for new rows.
+        echo '<template class="wps-repeater-row-template">';
+        $this->render_repeater_row($children, array(), '__INDEX__');
+        echo '</template>';
+
+        echo '</div>';
+
+        $this->render_repeater_script($uid);
     }
 
     /**

@@ -124,3 +124,15 @@
 .wps-has-js .wps-fallback-form {
     display: none;
 }
+
+/* Repeater field */
+.wps-repeater { max-width: 100%; }
+.wps-repeater-header { display: flex; gap: 8px; padding: 0 0 6px 0; border-bottom: 1px solid #ddd; font-weight: 600; font-size: 13px; }
+.wps-repeater-header span { flex: 1; }
+.wps-repeater-header span:last-child { flex: 0 0 36px; }
+.wps-repeater-rows { margin-bottom: 10px; }
+.wps-repeater-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+.wps-repeater-cell { flex: 1; }
+.wps-repeater-cell input, .wps-repeater-cell select, .wps-repeater-cell textarea { width: 100%; box-sizing: border-box; }
+.wps-repeater-cell--remove { flex: 0 0 36px; padding-top: 2px; }
+.wps-repeater-add { margin-top: 8px; }
