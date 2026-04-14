@@ -4,11 +4,15 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.19.0-alpha.1] - 2026-04-14
+## [2.19.0-alpha.2] - 2026-04-14
 
 ### Added
 
 - Add repeater field type for dynamic lists of structured rows with configurable child fields (text, email, url, number, textarea, select)
+
+### Fixed
+
+- Convert repeater field layout from flex divs to table, matching field_map pattern for reliable display in WordPress admin
 
 ## [2.18.1] - 2026-03-20
 
