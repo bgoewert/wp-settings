@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.19.0-alpha.1] - 2026-04-14
+
+### Added
+
+- Add repeater field type for dynamic lists of structured rows with configurable child fields (text, email, url, number, textarea, select)
+
 ## [2.18.1] - 2026-03-20
 
 ### Fixed

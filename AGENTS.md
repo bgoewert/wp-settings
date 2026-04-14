@@ -166,6 +166,23 @@ We maintain a changelog following [Common Changelog](https://common-changelog.or
 - Each release must include category headings like `### Added`/`### Fixed` to satisfy Common Changelog and the GitHub release action parser
 - Breaking changes use `**Breaking:**` prefix in bold
 
+### Pre-releases
+
+Pre-releases are used to test new features before a stable release. The GitHub Actions `release.yml` workflow triggers on any `v*` tag, so pre-release tags follow the same flow.
+
+**Tag format:** `vMAJOR.MINOR.PATCH-alpha.N` (e.g., `v2.19.0-alpha.1`)  
+Other valid suffixes: `-beta.N`, `-rc.N`
+
+**Process:**
+1. Update `composer.json` version to match the pre-release tag (e.g., `2.19.0-alpha.1`)
+2. Add a CHANGELOG entry under `## [2.19.0-alpha.1] - YYYY-MM-DD` with the same category heading format as stable releases
+3. Commit: `chore: release version 2.19.0-alpha.1`
+4. Tag: `git tag v2.19.0-alpha.1`
+5. Push tag: `git push origin v2.19.0-alpha.1`
+6. GitHub Actions creates the release; GitHub automatically marks it as a pre-release when the tag contains a pre-release suffix
+
+**Note:** Pre-release versions in Composer (`2.19.0-alpha.1`) are treated as unstable — consumers pinned to `^2.18` will not receive them unless they explicitly require the pre-release version or use `minimum-stability: alpha`.
+
 ### Code Documentation
 - Document all public APIs, functions, and complex logic
 - Keep inline comments clear and purposeful
