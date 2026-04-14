@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.19.0-alpha.4] - 2026-04-14
+
+### Fixed
+
+- Add form submit listener to repeater fields so hidden input is always updated before save, fixing values not persisting when clicking Save without triggering a change event
+
 ## [2.19.0-alpha.3] - 2026-04-14
 
 ### Added
