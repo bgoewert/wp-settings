@@ -619,7 +619,7 @@ class WP_Setting
      */
     public function save(): void
     {
-        $value = isset($_POST[$this->slug]) ? $_POST[$this->slug] : null;
+        $value = isset($_POST[$this->slug]) ? \wp_unslash($_POST[$this->slug]) : null;
 
         switch ($this->type) {
             case 'checkbox':

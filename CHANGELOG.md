@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.19.0-alpha.7] - 2026-04-14
+
+### Fixed
+
+- Call wp_unslash() on POST values in save() so WordPress magic quotes don't break JSON decoding of repeater field data
+
 ## [2.19.0-alpha.6] - 2026-04-14
 
 ### Fixed
