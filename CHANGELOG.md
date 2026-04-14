@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.19.0-alpha.5] - 2026-04-14
+
+### Fixed
+
+- Change sanitize_repeater visibility from private to public so WordPress can invoke it as a registered sanitize callback
+
 ## [2.19.0-alpha.4] - 2026-04-14
 
 ### Fixed

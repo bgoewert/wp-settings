@@ -1468,7 +1468,7 @@ class WP_Setting
      * @param mixed $value Raw value (JSON string or array).
      * @return array Sanitized array of row objects.
      */
-    private function sanitize_repeater(mixed $value): array
+    public function sanitize_repeater(mixed $value): array
     {
         if (is_string($value)) {
             $decoded = json_decode($value, true);
