@@ -449,6 +449,10 @@ $tab
             }
         }
 
+        if ($this->has_password_settings()) {
+            \wp_enqueue_script("wp-auth");
+        }
+
         if ($this->has_sortable_settings()) {
             \wp_enqueue_style(
                 "wp-settings-admin-sortable",
@@ -885,6 +889,29 @@ $tab
         foreach ($this->sections as $section) {
             if ($section["tab"] === $tab) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function has_password_settings()
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->type === "password") {
+                return true;
+            }
+
+            if ($setting->type === "advanced" && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->type === "password") {
+                        return true;
+                    }
+                }
             }
         }
 
