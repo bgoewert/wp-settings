@@ -4,7 +4,7 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.19.0-alpha.2] - 2026-04-14
+## [2.19.0-alpha.3] - 2026-04-14
 
 ### Added
 
@@ -13,6 +13,7 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 ### Fixed
 
 - Convert repeater field layout from flex divs to table, matching field_map pattern for reliable display in WordPress admin
+- Remove updateData() call on document.ready to prevent overwriting PHP-rendered hidden input on page load, which caused saved values to be lost on save
 
 ## [2.18.1] - 2026-03-20
 
