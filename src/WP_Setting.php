@@ -1540,25 +1540,23 @@ class WP_Setting
      */
     private function render_repeater_row(array $children, array $row_data, $index): void
     {
-        echo '<div class="wps-repeater-row" data-index="' . \esc_attr($index) . '">';
+        echo '<tr class="wps-repeater-row" data-index="' . \esc_attr($index) . '">';
 
         foreach ($children as $child) {
             $field_name = $child['name'] ?? '';
             $field_type = $child['type'] ?? 'text';
-            $field_width = $child['width'] ?? '';
             $field_value = $row_data[$field_name] ?? '';
 
-            $cell_style = $field_width ? ' style="width:' . \esc_attr($field_width) . ';"' : '';
-            echo '<div class="wps-repeater-cell"' . $cell_style . '>';
+            echo '<td class="wps-repeater-cell" style="padding: 6px;">';
 
             switch ($field_type) {
                 case 'textarea':
-                    echo '<textarea class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '">' . \esc_textarea($field_value) . '</textarea>';
+                    echo '<textarea class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" style="width: 100%;">' . \esc_textarea($field_value) . '</textarea>';
                     break;
 
                 case 'select':
                     $options = $child['options'] ?? array();
-                    echo '<select class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '">';
+                    echo '<select class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" style="width: 100%;">';
                     foreach ($options as $opt_value => $opt_label) {
                         echo sprintf(
                             '<option value="%s"%s>%s</option>',
@@ -1571,18 +1569,18 @@ class WP_Setting
                     break;
 
                 default:
-                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '">';
+                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '" style="width: 100%;">';
                     break;
             }
 
-            echo '</div>';
+            echo '</td>';
         }
 
-        echo '<div class="wps-repeater-cell wps-repeater-cell--remove">';
-        echo '<button type="button" class="button wps-repeater-remove">&times;</button>';
-        echo '</div>';
+        echo '<td class="wps-repeater-cell--remove" style="padding: 6px; width: 40px; text-align: center;">';
+        echo '<button type="button" class="button wps-repeater-remove" style="color: #b32d2e;">&times;</button>';
+        echo '</td>';
 
-        echo '</div>';
+        echo '</tr>';
     }
 
     /**
@@ -1676,16 +1674,19 @@ class WP_Setting
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
 
-        // Header row.
-        echo '<div class="wps-repeater-header">';
+        echo '<table class="wps-repeater-table" style="width: 100%; margin-bottom: 10px;">';
+        echo '<thead><tr>';
         foreach ($children as $child) {
-            echo '<span>' . \esc_html($child['label'] ?? '') . '</span>';
+            $th_style = 'text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd;';
+            if (!empty($child['width'])) {
+                $th_style .= ' width: ' . \esc_attr($child['width']) . ';';
+            }
+            echo '<th style="' . \esc_attr($th_style) . '">' . \esc_html($child['label'] ?? '') . '</th>';
         }
-        echo '<span></span>';
-        echo '</div>';
+        echo '<th style="width: 40px; border-bottom: 1px solid #ddd;"></th>';
+        echo '</tr></thead>';
 
-        // Rows container.
-        echo '<div class="wps-repeater-rows">';
+        echo '<tbody class="wps-repeater-rows">';
 
         if (!empty($value)) {
             foreach ($value as $index => $row) {
@@ -1695,7 +1696,7 @@ class WP_Setting
             $this->render_repeater_row($children, array(), 0);
         }
 
-        echo '</div>';
+        echo '</tbody></table>';
 
         // Add row button.
         echo '<button type="button" class="button wps-repeater-add">' . \esc_html__('Add Row', 'wp-settings') . '</button>';
