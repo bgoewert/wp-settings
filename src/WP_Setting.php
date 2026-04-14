@@ -1637,8 +1637,6 @@ class WP_Setting
                 container.on('change input', '.wps-repeater-field', function() {
                     updateData();
                 });
-
-                updateData();
             });
         })(jQuery);
         </script>
