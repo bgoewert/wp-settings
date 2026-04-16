@@ -628,6 +628,28 @@ class WP_Setting
     }
 
     /**
+     * Delete an option.
+     *
+     * @param string $setting The name of the setting. Expected not to be SQL-escaped.
+     * @return bool True if the option was deleted, false otherwise.
+     */
+    public static function delete($setting): bool
+    {
+        $normalized_domain = self::normalize_text_domain(self::$text_domain);
+        if (
+            self::$text_domain &&
+            \false === strpos($setting, self::$text_domain) &&
+            \false === strpos($setting, $normalized_domain)
+        ) {
+            $setting = $normalized_domain . '_' . $setting;
+        }
+        if (self::$text_domain !== $normalized_domain) {
+            $setting = str_replace(self::$text_domain . '_', $normalized_domain . '_', $setting);
+        }
+        return \delete_option($setting);
+    }
+
+    /**
      * Save the setting value from POST data.
      *
      * @return void
