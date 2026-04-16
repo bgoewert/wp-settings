@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.20.0] - 2026-04-16
+
+### Added
+
+- Add `autoload` parameter to `WP_Setting` to control whether options are loaded on every WordPress page load, with guidance on when to enable or disable autoloading
+
+### Changed
+
+- Disable autoloading for the encryption key option, as it is only needed on settings pages
+
 ## [2.19.0] - 2026-04-14
 
 ### Added
