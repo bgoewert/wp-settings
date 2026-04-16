@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.21.0] - 2026-04-16
+
+### Added
+
+- Add `WP_Setting::delete()` static method to complete the get/set/delete CRUD API, with the same slug prefix normalization as `get()` and `set()`
+
 ## [2.20.1] - 2026-04-16
 
 ### Fixed
