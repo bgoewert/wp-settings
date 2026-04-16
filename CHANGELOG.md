@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.20.1] - 2026-04-16
+
+### Fixed
+
+- Fix `WP_Setting::set()` missing `$autoload` parameter — pass it through to `update_option()` (WP 6.4+)
+
 ## [2.20.0] - 2026-04-16
 
 ### Added
