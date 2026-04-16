@@ -407,3 +407,34 @@ new WP_Setting(
 | `not_empty` | Field value is not empty |
 
 Multiple conditions are combined with AND logic (all must be true for the field to be visible).
+
+## Autoloading
+
+WordPress stores options in the `wp_options` table, which has an `autoload` column. Options marked for autoloading are fetched in a single query on every page load. Autoloading too many options — especially large ones — degrades site performance.
+
+Set `autoload` via the constructor's 12th argument or the `autoload` key in `$args`:
+
+```php
+// Via dedicated param (recommended for clarity)
+new WP_Setting(
+    'license_key', 'License Key', 'text', 'general', 'general_settings',
+    null, null, false, null, null, array(), true  // autoload = true
+);
+
+// Via args key
+new WP_Setting(
+    'sync_log', 'Sync Log', 'textarea', 'general', 'general_settings',
+    null, null, false, null, null, array('autoload' => false)
+);
+```
+
+**When to autoload (`true`):**
+- Options read on the **frontend** (e.g. license status, global feature flags, API base URLs)
+- Options accessed on **every admin page** (e.g. plugin-wide preferences)
+
+**When NOT to autoload (`false`):**
+- Options only read on **specific admin pages** (e.g. per-page settings, API credentials, logs)
+- **Large values** like serialized arrays, HTML blobs, or cached remote data
+- Options accessed via `WP_Setting::get()` in a targeted context
+
+When `null` (default), WordPress decides — which defaults to autoloading in most WP versions, so prefer explicitly setting `false` for admin-only options.
