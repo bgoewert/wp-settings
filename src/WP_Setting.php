@@ -146,6 +146,17 @@ class WP_Setting
     public $conditions;
 
     /**
+     * Whether to autoload this option when WordPress loads.
+     *
+     * Pass true for options needed on every page load (e.g. license keys, global feature flags).
+     * Pass false for options only needed on specific admin pages.
+     * Pass null to let WordPress decide (defaults to true in older WP, 'on' in WP 6.4+).
+     *
+     * @var bool|null
+     */
+    public $autoload;
+
+    /**
      * Plugin text domain. Set by WP_Settings during initialization or manually via $text_domain assignment.
      *
      * @var string
@@ -363,7 +374,7 @@ class WP_Setting
      * @param callable|null $callback      Callback function that displays the input for the setting.
      * @param array|null    $args          Array of options to use for the select or radio inputs.
      */
-    public function __construct($name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array())
+    public function __construct($name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array(), $autoload = \null)
     {
         $this->name          = $name;
         $prefix              = !array_key_exists('prefix', $args) ? self::$text_domain : ($args['prefix'] ?? '');
@@ -384,6 +395,9 @@ class WP_Setting
 
         // Extract conditions from args for conditional visibility
         $this->conditions = isset($args['conditions']) ? $args['conditions'] : array();
+
+        // Extract autoload from args or use the dedicated param
+        $this->autoload = isset($args['autoload']) ? $args['autoload'] : $autoload;
 
         // Extract sanitize_callback from args if provided
         $this->sanitize_callback = isset($args['sanitize_callback']) ? $args['sanitize_callback'] : null;
@@ -536,7 +550,7 @@ class WP_Setting
      */
     private function add_setting(bool $register_field = true): void
     {
-        \add_option($this->slug, $this->default_value);
+        \add_option($this->slug, $this->default_value, '', $this->autoload === null ? null : ($this->autoload ? 'yes' : 'no'));
 
         $register_args = array('default' => $this->default_value);
         if ($this->sanitize_callback !== null) {

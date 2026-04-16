@@ -143,6 +143,8 @@ class WP_Settings
         \add_option(
             $this->text_domain . "_key",
             base64_encode(WP_Setting::random_bytes(32)),
+            '',
+            'no',
         );
     }
 
