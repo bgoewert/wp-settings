@@ -601,12 +601,13 @@ class WP_Setting
     /**
      * Set an option to a defined value.
      *
-     * @param string $setting The name of the setting. Expected not to be SQL-escaped.
-     * @param mixed  $value   Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
-     * @param bool   $encrypt Whether to encrypt the value before saving (for sensitive settings).
+     * @param string    $setting  The name of the setting. Expected not to be SQL-escaped.
+     * @param mixed     $value    Option value. Must be serializable if non-scalar. Expected to not be SQL-escaped.
+     * @param bool      $encrypt  Whether to encrypt the value before saving (for sensitive settings).
+     * @param bool|null $autoload Whether to autoload the option on every WordPress page load. Null preserves the existing value (WP 6.4+).
      * @return bool True if the value was updated, false otherwise.
      */
-    public static function set($setting, $value, $encrypt = \false): bool
+    public static function set($setting, $value, $encrypt = \false, $autoload = \null): bool
     {
         if ($encrypt) {
             $value = self::encrypt($value);
@@ -623,7 +624,7 @@ class WP_Setting
         if (self::$text_domain !== $normalized_domain) {
             $setting = str_replace(self::$text_domain . '_', $normalized_domain . '_', $setting);
         }
-        return \update_option($setting, $value);
+        return \update_option($setting, $value, $autoload);
     }
 
     /**
