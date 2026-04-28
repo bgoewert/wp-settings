@@ -377,7 +377,7 @@ class WP_Setting
     public function __construct($name, $title, $type, $page, $section, $width = \null, $description = \null, $required = \false, $default_value = \null, $callback = \null, $args = array(), $autoload = \null)
     {
         $this->name          = $name;
-        $prefix              = !array_key_exists('prefix', $args) ? self::$text_domain : ($args['prefix'] ?? '');
+        $prefix              = !array_key_exists('prefix', $args) ? self::normalize_text_domain(self::$text_domain) : ($args['prefix'] ?? '');
         $this->slug          = ($prefix === '' ? '' : $prefix . '_') . $this->name;
         $this->title         = $title;
         $this->type          = $type;
@@ -587,9 +587,13 @@ class WP_Setting
         $default_value = \false,
         $decrypt = \false,
     ): mixed {
-        if (self::$text_domain && \false === strpos($setting, self::$text_domain)) {
-            $prefix = self::normalize_text_domain(self::$text_domain);
-            $setting = $prefix . '_' . $setting;
+        $normalized_domain = self::normalize_text_domain(self::$text_domain);
+        if (
+            self::$text_domain &&
+            \false === strpos($setting, self::$text_domain) &&
+            \false === strpos($setting, $normalized_domain)
+        ) {
+            $setting = $normalized_domain . '_' . $setting;
         }
         $value = \get_option($setting, $default_value);
         if ($decrypt) {
@@ -647,6 +651,39 @@ class WP_Setting
             $setting = str_replace(self::$text_domain . '_', $normalized_domain . '_', $setting);
         }
         return \delete_option($setting);
+    }
+
+    /**
+     * Migrate options that were stored under the un-normalized prefix (with hyphens) to the
+     * normalized prefix (with underscores). Call this from a plugin's upgrade routine after
+     * updating to a version that normalizes the text_domain prefix in the constructor.
+     *
+     * This is a no-op when the text_domain contains no hyphens.
+     *
+     * @return void
+     */
+    public static function migrate_option_prefix(): void
+    {
+        $old_prefix = self::$text_domain . '_';
+        $new_prefix = self::normalize_text_domain(self::$text_domain) . '_';
+        if ($old_prefix === $new_prefix) {
+            return; // text_domain has no hyphens — no-op
+        }
+        global $wpdb;
+        $like = $wpdb->esc_like($old_prefix) . '%';
+        $rows = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
+                $like
+            )
+        );
+        foreach ($rows as $old) {
+            $new = $new_prefix . substr($old, strlen($old_prefix));
+            if (false === get_option($new, false)) {
+                update_option($new, get_option($old));
+            }
+            delete_option($old);
+        }
     }
 
     /**

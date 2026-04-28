@@ -50,7 +50,7 @@ class WPSettingTest extends WP_Settings_TestCase
         );
 
         $this->assertSame('test_option', $setting->name);
-        $this->assertSame('my-plugin_test_option', $setting->slug);
+        $this->assertSame('my_plugin_test_option', $setting->slug);
         $this->assertSame('Test Option', $setting->title);
         $this->assertSame('text', $setting->type);
         $this->assertSame('general', $setting->page);
@@ -113,11 +113,11 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Check option was added
-        $this->assertNotNull($this->getOption('my-plugin_test_option'));
+        $this->assertNotNull($this->getOption('my_plugin_test_option'));
 
         // Check settings field was registered
         $fields = $this->getRegisteredSettingsFields();
-        $this->assertArrayHasKey('my-plugin_test_option_field', $fields);
+        $this->assertArrayHasKey('my_plugin_test_option_field', $fields);
     }
 
     /**
@@ -141,7 +141,7 @@ class WPSettingTest extends WP_Settings_TestCase
 
         // Settings field should not be registered for hidden type
         $fields = $this->getRegisteredSettingsFields();
-        $this->assertArrayNotHasKey('my-plugin_hidden_option_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_hidden_option_field', $fields);
     }
 
     /**
@@ -212,9 +212,9 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         $fields = $this->getRegisteredSettingsFields();
-        $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
+        $this->assertArrayHasKey('my_plugin_advanced_option_field', $fields);
         // Title should be empty for advanced fields
-        $this->assertSame('', $fields['my-plugin_advanced_option_field']['title']);
+        $this->assertSame('', $fields['my_plugin_advanced_option_field']['title']);
     }
 
     public function test_advanced_children_do_not_register_standalone_fields(): void
@@ -245,9 +245,9 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $fields = $this->getRegisteredSettingsFields();
 
-        $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
-        $this->assertArrayNotHasKey('my-plugin_child_option_field', $fields);
-        $this->assertNotNull($this->getOption('my-plugin_child_option'));
+        $this->assertArrayHasKey('my_plugin_advanced_option_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_child_option_field', $fields);
+        $this->assertNotNull($this->getOption('my_plugin_child_option'));
     }
 
     public function test_wp_settings_init_skips_advanced_child_field_registration(): void
@@ -279,9 +279,9 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $fields = $this->getRegisteredSettingsFields();
 
-        $this->assertArrayHasKey('my-plugin_advanced_option_field', $fields);
-        $this->assertArrayNotHasKey('my-plugin_child_option_field', $fields);
-        $this->assertNotNull($this->getOption('my-plugin_child_option'));
+        $this->assertArrayHasKey('my_plugin_advanced_option_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_child_option_field', $fields);
+        $this->assertNotNull($this->getOption('my_plugin_child_option'));
     }
 
     /**
@@ -365,14 +365,14 @@ class WPSettingTest extends WP_Settings_TestCase
             'Enter text here'
         );
 
-        $this->setOption('my-plugin_text_option', 'current_value');
+        $this->setOption('my_plugin_text_option', 'current_value');
 
         ob_start();
         $setting->init_type();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('type="text"', $output);
-        $this->assertStringContainsString('name="my-plugin_text_option"', $output);
+        $this->assertStringContainsString('name="my_plugin_text_option"', $output);
         $this->assertStringContainsString('value="current_value"', $output);
         $this->assertStringContainsString('style="width:300px;"', $output);
         $this->assertStringContainsString('Enter text here', $output);
@@ -393,14 +393,14 @@ class WPSettingTest extends WP_Settings_TestCase
             'Enable this feature'
         );
 
-        $this->setOption('my-plugin_checkbox_option', true);
+        $this->setOption('my_plugin_checkbox_option', true);
 
         ob_start();
         $setting->init_checkbox();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('type="checkbox"', $output);
-        $this->assertStringContainsString('name="my-plugin_checkbox_option"', $output);
+        $this->assertStringContainsString('name="my_plugin_checkbox_option"', $output);
         $this->assertStringContainsString('checked="checked"', $output);
         $this->assertStringContainsString('Enable this feature', $output);
     }
@@ -420,14 +420,14 @@ class WPSettingTest extends WP_Settings_TestCase
             'Enter long text'
         );
 
-        $this->setOption('my-plugin_textarea_option', 'multiline content');
+        $this->setOption('my_plugin_textarea_option', 'multiline content');
 
         ob_start();
         $setting->init_textarea();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('<textarea', $output);
-        $this->assertStringContainsString('name="my-plugin_textarea_option"', $output);
+        $this->assertStringContainsString('name="my_plugin_textarea_option"', $output);
         $this->assertStringContainsString('multiline content', $output);
         $this->assertStringContainsString('style="width:500px;"', $output);
     }
@@ -451,14 +451,14 @@ class WPSettingTest extends WP_Settings_TestCase
             ['options' => ['option1' => 'Option 1', 'option2' => 'Option 2', 'option3' => 'Option 3']]
         );
 
-        $this->setOption('my-plugin_select_option', 'option2');
+        $this->setOption('my_plugin_select_option', 'option2');
 
         ob_start();
         $setting->init_select();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('<select', $output);
-        $this->assertStringContainsString('name="my-plugin_select_option"', $output);
+        $this->assertStringContainsString('name="my_plugin_select_option"', $output);
         $this->assertStringContainsString('Option 1', $output);
         $this->assertStringContainsString('Option 2', $output);
         $this->assertStringContainsString('Option 3', $output);
@@ -483,14 +483,14 @@ class WPSettingTest extends WP_Settings_TestCase
             ['options' => ['item_a' => 'Item A', 'item_b' => 'Item B', 'item_c' => 'Item C']]
         );
 
-        $this->setOption('my-plugin_sortable_option', ['item_b', 'item_a']);
+        $this->setOption('my_plugin_sortable_option', ['item_b', 'item_a']);
 
         ob_start();
         $setting->init_type();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('class="wps-sortable-list"', $output);
-        $this->assertStringContainsString('name="my-plugin_sortable_option[]"', $output);
+        $this->assertStringContainsString('name="my_plugin_sortable_option[]"', $output);
 
         $pos_b = strpos($output, 'data-key="item_b"');
         $pos_a = strpos($output, 'data-key="item_a"');
@@ -547,14 +547,14 @@ class WPSettingTest extends WP_Settings_TestCase
             'secret'
         );
 
-        $this->setOption('my-plugin_hidden_option', 'hidden_value');
+        $this->setOption('my_plugin_hidden_option', 'hidden_value');
 
         ob_start();
         $setting->init_hidden();
         $output = ob_get_clean();
 
         $this->assertStringContainsString('type="hidden"', $output);
-        $this->assertStringContainsString('name="my-plugin_hidden_option"', $output);
+        $this->assertStringContainsString('name="my_plugin_hidden_option"', $output);
         $this->assertStringContainsString('value="hidden_value"', $output);
     }
 
@@ -576,7 +576,7 @@ class WPSettingTest extends WP_Settings_TestCase
         );
 
         // Set an array value (edge case)
-        $this->setOption('my-plugin_hidden_option', ['unexpected', 'array']);
+        $this->setOption('my_plugin_hidden_option', ['unexpected', 'array']);
 
         ob_start();
         $setting->init_hidden();
@@ -810,7 +810,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving an email
-        $_POST['my-plugin_email_field'] = ' user@example.com ';
+        $_POST['my_plugin_email_field'] = ' user@example.com ';
         $setting->save();
 
         // Check the value was sanitized
@@ -818,7 +818,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('user@example.com', $value);
 
         // Clean up
-        unset($_POST['my-plugin_email_field']);
+        unset($_POST['my_plugin_email_field']);
     }
 
     /**
@@ -837,7 +837,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving an invalid email
-        $_POST['my-plugin_email_field'] = 'not an email';
+        $_POST['my_plugin_email_field'] = 'not an email';
         $setting->save();
 
         // Check the value was rejected (should return false)
@@ -845,7 +845,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertFalse($value);
 
         // Clean up
-        unset($_POST['my-plugin_email_field']);
+        unset($_POST['my_plugin_email_field']);
     }
 
     /**
@@ -864,7 +864,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving a URL
-        $_POST['my-plugin_url_field'] = 'https://example.com/path';
+        $_POST['my_plugin_url_field'] = 'https://example.com/path';
         $setting->save();
 
         // Check the value was sanitized
@@ -872,7 +872,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('https://example.com/path', $value);
 
         // Clean up
-        unset($_POST['my-plugin_url_field']);
+        unset($_POST['my_plugin_url_field']);
     }
 
     /**
@@ -891,7 +891,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving an invalid URL
-        $_POST['my-plugin_url_field'] = 'not a url';
+        $_POST['my_plugin_url_field'] = 'not a url';
         $setting->save();
 
         // Check the value was rejected
@@ -899,7 +899,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertFalse($value);
 
         // Clean up
-        unset($_POST['my-plugin_url_field']);
+        unset($_POST['my_plugin_url_field']);
     }
 
     /**
@@ -918,7 +918,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving a number
-        $_POST['my-plugin_number_field'] = '42';
+        $_POST['my_plugin_number_field'] = '42';
         $setting->save();
 
         // Check the value was saved
@@ -926,7 +926,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('42', $value);
 
         // Clean up
-        unset($_POST['my-plugin_number_field']);
+        unset($_POST['my_plugin_number_field']);
     }
 
     /**
@@ -945,7 +945,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving a non-numeric value
-        $_POST['my-plugin_number_field'] = 'not a number';
+        $_POST['my_plugin_number_field'] = 'not a number';
         $setting->save();
 
         // Check the value was rejected (empty string)
@@ -953,7 +953,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('', $value);
 
         // Clean up
-        unset($_POST['my-plugin_number_field']);
+        unset($_POST['my_plugin_number_field']);
     }
 
     /**
@@ -977,13 +977,13 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $setting->init();
 
-        $_POST['my-plugin_sortable_field'] = ['item_b', 'item_b', 'invalid', 'item_a'];
+        $_POST['my_plugin_sortable_field'] = ['item_b', 'item_b', 'invalid', 'item_a'];
         $setting->save();
 
         $value = WP_Setting::get('sortable_field');
         $this->assertSame(['item_b', 'item_a', 'item_c'], $value);
 
-        unset($_POST['my-plugin_sortable_field']);
+        unset($_POST['my_plugin_sortable_field']);
     }
 
     /**
@@ -1002,7 +1002,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving text with HTML
-        $_POST['my-plugin_text_field'] = '<b>Bold</b> text';
+        $_POST['my_plugin_text_field'] = '<b>Bold</b> text';
         $setting->save();
 
         // Check the value was sanitized (tags removed but content kept)
@@ -1010,7 +1010,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('Bold text', $value);
 
         // Clean up
-        unset($_POST['my-plugin_text_field']);
+        unset($_POST['my_plugin_text_field']);
     }
 
     /**
@@ -1029,7 +1029,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving text with HTML
-        $_POST['my-plugin_textarea_field'] = '<b>Bold text</b>';
+        $_POST['my_plugin_textarea_field'] = '<b>Bold text</b>';
         $setting->save();
 
         // Check the value was sanitized (tags removed)
@@ -1037,7 +1037,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('Bold text', $value);
 
         // Clean up
-        unset($_POST['my-plugin_textarea_field']);
+        unset($_POST['my_plugin_textarea_field']);
     }
 
     /**
@@ -1056,7 +1056,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Test that newlines are preserved and HTML tags are removed
-        $_POST['my-plugin_textarea_newlines'] = "Line 1\nLine 2\n<b>Bold Line 3</b>";
+        $_POST['my_plugin_textarea_newlines'] = "Line 1\nLine 2\n<b>Bold Line 3</b>";
         $setting->save();
 
         $value = WP_Setting::get('textarea_newlines');
@@ -1064,7 +1064,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame("Line 1\nLine 2\nBold Line 3", $value);
 
         // Clean up
-        unset($_POST['my-plugin_textarea_newlines']);
+        unset($_POST['my_plugin_textarea_newlines']);
     }
 
     /**
@@ -1093,7 +1093,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving an email
-        $_POST['my-plugin_custom_email'] = 'user@example.com';
+        $_POST['my_plugin_custom_email'] = 'user@example.com';
         $setting->save();
 
         // Check the custom callback was used (uppercase)
@@ -1101,7 +1101,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('USER@EXAMPLE.COM', $value);
 
         // Clean up
-        unset($_POST['my-plugin_custom_email']);
+        unset($_POST['my_plugin_custom_email']);
     }
 
     /**
@@ -1131,7 +1131,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving a select value
-        $_POST['my-plugin_custom_select'] = 'a';
+        $_POST['my_plugin_custom_select'] = 'a';
         $setting->save();
 
         // Check the custom callback was applied
@@ -1139,7 +1139,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('sanitized_a', $value);
 
         // Clean up
-        unset($_POST['my-plugin_custom_select']);
+        unset($_POST['my_plugin_custom_select']);
     }
 
     /**
@@ -1166,7 +1166,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving a valid email
-        $_POST['my-plugin_validated_email'] = ' test@example.com ';
+        $_POST['my_plugin_validated_email'] = ' test@example.com ';
         $setting->save();
 
         // Check the static method was called and email was sanitized
@@ -1174,7 +1174,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('test@example.com', $value);
 
         // Clean up
-        unset($_POST['my-plugin_validated_email']);
+        unset($_POST['my_plugin_validated_email']);
     }
 
     /**
@@ -1204,19 +1204,19 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Test valid value
-        $_POST['my-plugin_validated_number'] = '50';
+        $_POST['my_plugin_validated_number'] = '50';
         $setting->save();
         $value = WP_Setting::get('validated_number');
         $this->assertSame('50', $value);
 
         // Test invalid value (over 100)
-        $_POST['my-plugin_validated_number'] = '150';
+        $_POST['my_plugin_validated_number'] = '150';
         $setting->save();
         $value = WP_Setting::get('validated_number');
         $this->assertFalse($value);
 
         // Clean up
-        unset($_POST['my-plugin_validated_number']);
+        unset($_POST['my_plugin_validated_number']);
     }
 
     /**
@@ -1248,13 +1248,13 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init();
 
         // Simulate saving
-        $_POST['my-plugin_callback_test'] = 'test_value_123';
+        $_POST['my_plugin_callback_test'] = 'test_value_123';
         $setting->save();
 
         // Check the callback received the correct value
         $this->assertSame('test_value_123', $received_value);
 
         // Clean up
-        unset($_POST['my-plugin_callback_test']);
+        unset($_POST['my_plugin_callback_test']);
     }
 }
