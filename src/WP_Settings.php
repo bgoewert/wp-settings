@@ -274,10 +274,7 @@ class WP_Settings
             \check_admin_referer("update", "sbp_nonce")
         ) {
             try {
-                // Save all the settings.
-                foreach ($this->settings as $setting) {
-                    $setting->save();
-                }
+                $this->save_tab_settings($tab);
 
                 \add_settings_error(
                     $this->text_domain . "_messages",
@@ -862,6 +859,22 @@ $tab
     /**
      * Check if a tab has any actual settings (fields).
      *
+     * @param string $tab Tab slug.
+     * @return bool
+     */
+    protected function save_tab_settings(string $tab): void
+    {
+        foreach ($this->settings as $setting) {
+            if (
+                $setting->page === $tab ||
+                $setting->page === $this->text_domain . '_' . $tab
+            ) {
+                $setting->save();
+            }
+        }
+    }
+
+    /**
      * @param string $tab Tab slug.
      * @return bool
      */

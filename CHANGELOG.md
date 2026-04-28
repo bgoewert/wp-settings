@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.2] - 2026-04-28
+
+### Fixed
+
+- Fix `menu_page_callback()` saving all tabs on every submit — settings from other tabs were not in POST data, causing text fields to be overwritten with null and checkboxes forced to false; now only saves settings belonging to the active tab via new `save_tab_settings(string $tab): void` protected method (overridable by child classes)
+
 ## [2.22.1] - 2026-04-28
 
 ### Fixed
