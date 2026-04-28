@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.1] - 2026-04-28
+
+### Fixed
+
+- Fix fieldset children rendering twice — `init()` was passing `true` to `$child->init()`, causing each child to register as a standalone `add_settings_field()` row in addition to rendering inside the fieldset box; changed to `false` to match `advanced` behavior
+
 ## [2.22.0] - 2026-04-28
 
 ### Added

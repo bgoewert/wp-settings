@@ -533,7 +533,7 @@ class WP_Setting
 
         if (($this->type === 'fieldset' || $this->type === 'advanced') && !empty($this->children)) {
             foreach ($this->children as $child) {
-                $child->init($this->type !== 'advanced');
+                $child->init(false);
             }
         }
     }

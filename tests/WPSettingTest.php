@@ -1464,4 +1464,63 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringContainsString('margin-top: 20px', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Bug: fieldset children must not register as standalone settings fields
+    // -------------------------------------------------------------------------
+
+    public function test_fieldset_children_do_not_register_standalone_fields(): void
+    {
+        $child = new WP_Setting('child_option', 'Child', 'text', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'fieldset_option',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $setting->init();
+
+        $fields = $this->getRegisteredSettingsFields();
+
+        $this->assertArrayHasKey('my_plugin_fieldset_option_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_child_option_field', $fields);
+    }
+
+    public function test_fieldset_children_registered_once_not_duplicated(): void
+    {
+        $child1 = new WP_Setting('dup_child_a', 'Child A', 'text', 'general', 'main');
+        $child2 = new WP_Setting('dup_child_b', 'Child B', 'checkbox', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'dup_fieldset',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child1, $child2]]
+        );
+
+        $setting->init();
+
+        $fields = $this->getRegisteredSettingsFields();
+
+        // Parent registers; children must not appear as top-level rows
+        $this->assertArrayHasKey('my_plugin_dup_fieldset_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_dup_child_a_field', $fields);
+        $this->assertArrayNotHasKey('my_plugin_dup_child_b_field', $fields);
+    }
 }
