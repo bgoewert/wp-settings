@@ -1257,4 +1257,211 @@ class WPSettingTest extends WP_Settings_TestCase
         // Clean up
         unset($_POST['my_plugin_callback_test']);
     }
+
+    // -------------------------------------------------------------------------
+    // Fix 1: fieldset children saving
+    // -------------------------------------------------------------------------
+
+    public function test_fieldset_saves_checkbox_child(): void
+    {
+        $child = new WP_Setting('child_check', 'Child Check', 'checkbox', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'fieldset_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $_POST['my_plugin_child_check'] = 'on';
+        $setting->save();
+        unset($_POST['my_plugin_child_check']);
+
+        $this->assertTrue($this->getOption('my_plugin_child_check'));
+    }
+
+    public function test_fieldset_saves_textarea_child(): void
+    {
+        $child = new WP_Setting('child_text', 'Child Text', 'textarea', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'fieldset_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $_POST['my_plugin_child_text'] = 'hello world';
+        $setting->save();
+        unset($_POST['my_plugin_child_text']);
+
+        $this->assertSame('hello world', $this->getOption('my_plugin_child_text'));
+    }
+
+    public function test_fieldset_parent_slug_not_written(): void
+    {
+        $child = new WP_Setting('child_text', 'Child Text', 'text', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'fieldset_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        $_POST['my_plugin_child_text'] = 'value';
+        $setting->save();
+        unset($_POST['my_plugin_child_text']);
+
+        $this->assertFalse($this->getOption('my_plugin_fieldset_parent', false));
+    }
+
+    // -------------------------------------------------------------------------
+    // Fix 2: textarea args passthrough (rows, class, placeholder)
+    // -------------------------------------------------------------------------
+
+    public function test_textarea_renders_rows_from_args(): void
+    {
+        $setting = new WP_Setting(
+            'ta_rows',
+            'Textarea Rows',
+            'textarea',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['rows' => 8]
+        );
+
+        ob_start();
+        $setting->init_textarea();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('rows="8"', $output);
+    }
+
+    public function test_textarea_renders_class_from_args(): void
+    {
+        $setting = new WP_Setting(
+            'ta_class',
+            'Textarea Class',
+            'textarea',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['class' => 'large-text']
+        );
+
+        ob_start();
+        $setting->init_textarea();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('class="large-text"', $output);
+    }
+
+    public function test_textarea_renders_placeholder_from_args(): void
+    {
+        $setting = new WP_Setting(
+            'ta_placeholder',
+            'Textarea Placeholder',
+            'textarea',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['placeholder' => 'Enter text here']
+        );
+
+        ob_start();
+        $setting->init_textarea();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('placeholder="Enter text here"', $output);
+    }
+
+    // -------------------------------------------------------------------------
+    // Fix 3: init_advanced details style overridable via args['style']
+    // -------------------------------------------------------------------------
+
+    public function test_init_advanced_default_style_has_no_margin_when_overridden(): void
+    {
+        $child = new WP_Setting('adv_child', 'Child', 'text', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'adv_no_margin',
+            'Advanced',
+            'advanced',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child], 'style' => 'padding: 15px;']
+        );
+
+        ob_start();
+        $setting->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('style="padding: 15px;"', $output);
+        $this->assertStringNotContainsString('margin-top: 20px', $output);
+    }
+
+    public function test_init_advanced_default_style_includes_margin_top(): void
+    {
+        $child = new WP_Setting('adv_child2', 'Child', 'text', 'general', 'main');
+
+        $setting = new WP_Setting(
+            'adv_default_margin',
+            'Advanced',
+            'advanced',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        ob_start();
+        $setting->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('margin-top: 20px', $output);
+    }
 }

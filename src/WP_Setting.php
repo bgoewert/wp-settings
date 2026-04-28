@@ -719,6 +719,7 @@ class WP_Setting
                 break;
 
             case 'advanced':
+            case 'fieldset':
                 // Save all child settings
                 if (!empty($this->children)) {
                     foreach ($this->children as $child) {
@@ -1021,6 +1022,15 @@ class WP_Setting
         }
         if ($this->required) {
             $atts .= ' required';
+        }
+        if (isset($this->args['rows'])) {
+            $atts .= ' rows="' . (int) $this->args['rows'] . '"';
+        }
+        if (isset($this->args['class'])) {
+            $atts .= ' class="' . esc_attr($this->args['class']) . '"';
+        }
+        if (isset($this->args['placeholder'])) {
+            $atts .= ' placeholder="' . esc_attr($this->args['placeholder']) . '"';
         }
 
         echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $name, $id, $atts, $value), self::$allowed_html);
@@ -1341,7 +1351,8 @@ class WP_Setting
         $collapsed = $this->args['collapsed'] ?? true;
         $open_attr = $collapsed ? '' : ' open';
 
-        echo '<details style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;"' . $open_attr . '>';
+        $details_style = $this->args['style'] ?? 'margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;';
+        echo '<details style="' . esc_attr($details_style) . '"' . $open_attr . '>';
         echo '<summary style="cursor: pointer; font-weight: 600; font-size: 14px;">' . \esc_html($this->title) . ' (click to expand)</summary>';
         echo '<div style="margin-top: 15px; padding-left: 10px;">';
 

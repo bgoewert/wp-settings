@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.0] - 2026-04-28
+
+### Added
+
+- Add `rows`, `class`, and `placeholder` args passthrough to `render_textarea_value()` for standalone textarea fields, matching behavior already present in advanced/fieldset child renderers
+- Make `<details>` inline style in `init_advanced()` overridable via `args['style']`; defaults to previous style (removing the forced `margin-top: 20px` when inside a WordPress settings table `<td>`)
+
+### Fixed
+
+- Fix `WP_Setting::save()` missing `case 'fieldset'` branch — fieldset children were silently discarded; now mirrors the `case 'advanced'` behavior and iterates children recursively
+
 ## [2.21.1] - 2026-04-27
 
 ### Fixed
