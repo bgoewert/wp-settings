@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.21.1] - 2026-04-27
+
+### Fixed
+
+- Fix prefix mismatch: normalize `text_domain` in `WP_Setting` constructor so `$this->slug` matches the key used by `WP_Setting::get()`/`set()`. Settings with hyphenated text domains (e.g. `my-plugin`) were silently writing to a different option key than programmatic reads, making form-saved values invisible to `::get('short_name')` callers.
+- Add `WP_Setting::migrate_option_prefix()` to rename existing option rows from the old hyphenated prefix to the normalized underscore prefix on plugin upgrade.
+
 ## [2.21.0] - 2026-04-16
 
 ### Added
