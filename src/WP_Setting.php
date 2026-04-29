@@ -1767,7 +1767,12 @@ class WP_Setting
 
         $uid = 'wps_repeater_' . uniqid();
 
-        echo '<div class="wps-repeater" id="' . \esc_attr($uid) . '">';
+        $wrapper_class = 'wps-repeater';
+        if (!empty($this->args['numbered_rows'])) {
+            $wrapper_class .= ' wps-repeater-numbered';
+        }
+
+        echo '<div class="' . \esc_attr($wrapper_class) . '" id="' . \esc_attr($uid) . '">';
 
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);

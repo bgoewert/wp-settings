@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.0] - 2026-04-28
+
+### Added
+
+- Add `args['numbered_rows']` boolean (default `false`) to repeater fields — when `true`, each row gets a CSS counter badge (1, 2, 3…) via `wps-repeater-numbered` wrapper class; counters re-number automatically as rows are added or removed without any JS changes
+
 ## [2.22.3] - 2026-04-28
 
 ### Fixed

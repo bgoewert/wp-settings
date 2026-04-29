@@ -1523,4 +1523,59 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertArrayNotHasKey('my_plugin_dup_child_a_field', $fields);
         $this->assertArrayNotHasKey('my_plugin_dup_child_b_field', $fields);
     }
+
+    // -------------------------------------------------------------------------
+    // Feature: numbered_rows arg for repeater fields
+    // -------------------------------------------------------------------------
+
+    public function test_repeater_numbered_rows_adds_wrapper_class(): void
+    {
+        $setting = new WP_Setting(
+            'rep_numbered',
+            'Repeater',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'numbered_rows' => true,
+                'children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']],
+            ]
+        );
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('wps-repeater-numbered', $output);
+    }
+
+    public function test_repeater_numbered_rows_false_omits_wrapper_class(): void
+    {
+        $setting = new WP_Setting(
+            'rep_plain',
+            'Repeater',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']],
+            ]
+        );
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('wps-repeater-numbered', $output);
+    }
 }
