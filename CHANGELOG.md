@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.3] - 2026-04-28
+
+### Fixed
+
+- Fix Logging tab silently dropped when child class calls `parent::__construct()` before defining its own sections/settings — `append_logging_definitions()` now defers to `admin_init` at priority 0 (before `init()` at priority 10) via `_append_logging_definitions_once()`, so the child constructor always fully runs first; a guard prevents double-append if called explicitly
+
 ## [2.22.2] - 2026-04-28
 
 ### Fixed

@@ -90,6 +90,8 @@ class WPSettingsLoggerTest extends WP_Settings_TestCase
     public function test_logging_tab_fields_are_registered(): void
     {
         $settings = new Test_WP_Settings_With_Logging($this->plugin_dir_path);
+        // Simulate admin_init priority 0 (deferred logging append) firing before init().
+        $settings->_append_logging_definitions_once();
         $settings->init();
 
         $fields = $this->getRegisteredSettingsFields();
@@ -115,6 +117,9 @@ class WPSettingsLoggerTest extends WP_Settings_TestCase
         $logger->error('Viewer entry');
 
         $_GET['tab'] = 'logging';
+
+        // Simulate admin_init priority 0 firing before menu_page_callback().
+        $settings->_append_logging_definitions_once();
 
         ob_start();
         $settings->menu_page_callback();

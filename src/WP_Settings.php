@@ -86,6 +86,8 @@ class WP_Settings
 
     protected $uses_builtin_logging_tab = false;
 
+    private $logging_initialized = false;
+
     /**
      * Initialize plugin settings.
      *
@@ -609,13 +611,26 @@ $tab
 
         WP_Setting::set_logger($this->logger);
 
-        if (!$this->has_logging_tab_conflict()) {
-            $this->append_logging_definitions();
-        }
+        // Defer appending sections/settings until admin_init priority 0 so the
+        // child constructor has fully run and populated its own arrays first.
+        \add_action('admin_init', array($this, '_append_logging_definitions_once'), 0);
 
         \add_action('wp_ajax_' . $this->get_logging_ajax_action('view'), array($this, 'ajax_view_log'));
         \add_action('wp_ajax_' . $this->get_logging_ajax_action('tail'), array($this, 'ajax_tail_log'));
         \add_action('wp_ajax_' . $this->get_logging_ajax_action('clear'), array($this, 'ajax_clear_log'));
+    }
+
+    /** @internal Called via admin_init hook; not part of the public API. */
+    public function _append_logging_definitions_once(): void
+    {
+        if ($this->logging_initialized) {
+            return;
+        }
+        $this->logging_initialized = true;
+
+        if (!$this->has_logging_tab_conflict()) {
+            $this->append_logging_definitions();
+        }
     }
 
     protected function is_logging_feature_enabled(): bool
