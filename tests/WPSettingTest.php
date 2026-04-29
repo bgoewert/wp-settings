@@ -32,6 +32,86 @@ class WPSettingTest extends WP_Settings_TestCase
         WP_Setting::$text_domain = 'my-plugin';
     }
 
+    // -------------------------------------------------------------------------
+    // WP_Setting::make() named constructor
+    // -------------------------------------------------------------------------
+
+    public function test_make_returns_instance_with_correct_properties(): void
+    {
+        $setting = WP_Setting::make(
+            name:          'make_option',
+            title:         'Make Option',
+            type:          'text',
+            page:          'general',
+            section:       'main',
+            width:         '300px',
+            description:   'A description',
+            required:      true,
+            default_value: 'default',
+        );
+
+        $this->assertInstanceOf(WP_Setting::class, $setting);
+        $this->assertSame('make_option', $setting->name);
+        $this->assertSame('my_plugin_make_option', $setting->slug);
+        $this->assertSame('Make Option', $setting->title);
+        $this->assertSame('text', $setting->type);
+        $this->assertSame('general', $setting->page);
+        $this->assertSame('main', $setting->section);
+        $this->assertSame('300px', $setting->width);
+        $this->assertSame('A description', $setting->description);
+        $this->assertTrue($setting->required);
+        $this->assertSame('default', $setting->default_value);
+    }
+
+    public function test_make_passes_args_through(): void
+    {
+        $setting = WP_Setting::make(
+            name:    'select_option',
+            title:   'Select Option',
+            type:    'select',
+            page:    'general',
+            section: 'main',
+            args:    ['options' => ['a' => 'A', 'b' => 'B']],
+        );
+
+        $this->assertSame(['a' => 'A', 'b' => 'B'], $setting->args['options']);
+    }
+
+    public function test_make_sanitize_callback_injected_into_args(): void
+    {
+        $cb = fn($v) => strtoupper($v);
+
+        $setting = WP_Setting::make(
+            name:              'cb_option',
+            title:             'CB Option',
+            type:              'text',
+            page:              'general',
+            section:           'main',
+            sanitize_callback: $cb,
+        );
+
+        $this->assertSame($cb, $setting->args['sanitize_callback'] ?? null);
+    }
+
+    public function test_make_sanitize_callback_does_not_override_args_entry(): void
+    {
+        $from_args = fn($v) => strtolower($v);
+        $from_param = fn($v) => strtoupper($v);
+
+        $setting = WP_Setting::make(
+            name:              'cb_option2',
+            title:             'CB Option 2',
+            type:              'text',
+            page:              'general',
+            section:           'main',
+            args:              ['sanitize_callback' => $from_args],
+            sanitize_callback: $from_param,
+        );
+
+        // args entry wins — param is ignored when args already has one
+        $this->assertSame($from_args, $setting->args['sanitize_callback']);
+    }
+
     /**
      * Test that constructor sets properties correctly
      */

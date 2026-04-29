@@ -358,6 +358,48 @@ class WP_Setting
     }
 
     /**
+     * Named constructor — preferred over positional new WP_Setting(...) for readability.
+     *
+     * Accepts the same parameters as the constructor but with named-argument-friendly
+     * ordering: type-specific $args is promoted above the rarely-used display params,
+     * and $sanitize_callback is a first-class param instead of being buried in $args.
+     *
+     * @param string        $name              The name of the setting (shorthand slug, no prefix).
+     * @param string        $title             Display title.
+     * @param string        $type              Field type (text, select, checkbox, textarea, …).
+     * @param string        $page              Page/tab slug.
+     * @param string        $section           Section slug.
+     * @param array         $args              Type-specific args (options, children, rows, …).
+     * @param string|null   $width             Input width (e.g. '300px').
+     * @param string|null   $description       Help text shown below the field.
+     * @param bool          $required          Whether the field is required.
+     * @param mixed         $default_value     Default option value.
+     * @param callable|null $sanitize_callback Custom sanitization callback.
+     * @param bool|null     $autoload          Whether WordPress should autoload the option.
+     * @return static
+     */
+    public static function make(
+        string $name,
+        string $title,
+        string $type,
+        string $page,
+        string $section,
+        array $args = [],
+        ?string $width = null,
+        ?string $description = null,
+        bool $required = false,
+        mixed $default_value = null,
+        ?callable $sanitize_callback = null,
+        ?bool $autoload = null,
+    ): static {
+        if ($sanitize_callback !== null && !isset($args['sanitize_callback'])) {
+            $args['sanitize_callback'] = $sanitize_callback;
+        }
+
+        return new static($name, $title, $type, $page, $section, $width, $description, $required, $default_value, null, $args, $autoload);
+    }
+
+    /**
      * Creates an option/setting.
      *
      * Note: text_domain is no longer a parameter. Use WP_Setting::set_text_domain() or WP_Settings class to configure.

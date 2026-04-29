@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.24.0] - 2026-04-28
+
+### Added
+
+- Add `WP_Setting::make()` named static constructor as a readable alternative to the positional `new WP_Setting(...)` call; promotes `$args` before display params and surfaces `$sanitize_callback` as a first-class parameter instead of requiring it inside `$args`
+
 ## [2.23.0] - 2026-04-28
 
 ### Added
