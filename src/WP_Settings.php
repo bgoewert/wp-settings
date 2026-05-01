@@ -451,7 +451,25 @@ $tab
         }
 
         if ($this->has_password_settings()) {
-            \wp_enqueue_script("wp-auth");
+            \wp_register_script("wps-password-toggle", false, ["jquery"], false, true);
+            \wp_enqueue_script("wps-password-toggle");
+            \wp_add_inline_script(
+                "wps-password-toggle",
+                "jQuery(function($){" .
+                    "$('.wp-hide-pw').on('click',function(){" .
+                        "var btn=$(this),input=btn.prev('input');" .
+                        "if(input.attr('type')==='password'){" .
+                            "input.attr('type','text');" .
+                            "btn.find('.text').text('Hide');" .
+                            "btn.attr('data-toggle','1');" .
+                        "}else{" .
+                            "input.attr('type','password');" .
+                            "btn.find('.text').text('Show');" .
+                            "btn.attr('data-toggle','0');" .
+                        "}" .
+                    "});" .
+                "});",
+            );
         }
 
         if ($this->has_sortable_settings()) {

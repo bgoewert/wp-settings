@@ -22,7 +22,12 @@ global $wp_test_options,
     $wp_test_actions,
     $wp_test_filters,
     $wp_test_settings_fields,
-    $wp_test_settings_sections;
+    $wp_test_settings_sections,
+    $wp_test_enqueued_scripts,
+    $wp_test_registered_scripts,
+    $wp_test_enqueued_styles,
+    $wp_test_inline_scripts,
+    $wp_test_current_screen_id;
 
 function wp_settings_test_reset_stubs(): void
 {
@@ -30,13 +35,23 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_actions,
         $wp_test_filters,
         $wp_test_settings_fields,
-        $wp_test_settings_sections;
+        $wp_test_settings_sections,
+        $wp_test_enqueued_scripts,
+        $wp_test_registered_scripts,
+        $wp_test_enqueued_styles,
+        $wp_test_inline_scripts,
+        $wp_test_current_screen_id;
 
     $wp_test_options = [];
     $wp_test_actions = [];
     $wp_test_filters = [];
     $wp_test_settings_fields = [];
     $wp_test_settings_sections = [];
+    $wp_test_enqueued_scripts = [];
+    $wp_test_registered_scripts = [];
+    $wp_test_enqueued_styles = [];
+    $wp_test_inline_scripts = [];
+    $wp_test_current_screen_id = null;
 }
 
 wp_settings_test_reset_stubs();
@@ -452,6 +467,8 @@ if (!function_exists("wp_json_encode")) {
 if (!function_exists("wp_enqueue_style")) {
     function wp_enqueue_style($handle, $src = "", $deps = [], $ver = false, $media = "all")
     {
+        global $wp_test_enqueued_styles;
+        $wp_test_enqueued_styles[] = $handle;
         return true;
     }
 }
@@ -459,6 +476,17 @@ if (!function_exists("wp_enqueue_style")) {
 if (!function_exists("wp_enqueue_script")) {
     function wp_enqueue_script($handle, $src = "", $deps = [], $ver = false, $in_footer = false)
     {
+        global $wp_test_enqueued_scripts;
+        $wp_test_enqueued_scripts[] = $handle;
+        return true;
+    }
+}
+
+if (!function_exists("wp_register_script")) {
+    function wp_register_script($handle, $src = false, $deps = [], $ver = false, $in_footer = false)
+    {
+        global $wp_test_registered_scripts;
+        $wp_test_registered_scripts[] = $handle;
         return true;
     }
 }
@@ -466,6 +494,8 @@ if (!function_exists("wp_enqueue_script")) {
 if (!function_exists("wp_add_inline_script")) {
     function wp_add_inline_script($handle, $data, $position = "after")
     {
+        global $wp_test_inline_scripts;
+        $wp_test_inline_scripts[$handle][] = $data;
         return true;
     }
 }
@@ -480,7 +510,11 @@ if (!function_exists("plugin_dir_url")) {
 if (!function_exists("get_current_screen")) {
     function get_current_screen()
     {
-        return (object) ["id" => "settings_page_test-plugin"];
+        global $wp_test_current_screen_id;
+        if ($wp_test_current_screen_id === null) {
+            return null;
+        }
+        return (object) ["id" => $wp_test_current_screen_id];
     }
 }
 
@@ -597,5 +631,35 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
     {
         global $wp_test_options;
         return $wp_test_options[$option] ?? $default;
+    }
+
+    protected function getEnqueuedScripts(): array
+    {
+        global $wp_test_enqueued_scripts;
+        return $wp_test_enqueued_scripts ?? [];
+    }
+
+    protected function getRegisteredScripts(): array
+    {
+        global $wp_test_registered_scripts;
+        return $wp_test_registered_scripts ?? [];
+    }
+
+    protected function getEnqueuedStyles(): array
+    {
+        global $wp_test_enqueued_styles;
+        return $wp_test_enqueued_styles ?? [];
+    }
+
+    protected function getInlineScripts(): array
+    {
+        global $wp_test_inline_scripts;
+        return $wp_test_inline_scripts ?? [];
+    }
+
+    protected function setCurrentScreen(?string $id): void
+    {
+        global $wp_test_current_screen_id;
+        $wp_test_current_screen_id = $id;
     }
 }
