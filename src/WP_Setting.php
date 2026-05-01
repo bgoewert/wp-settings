@@ -1601,6 +1601,33 @@ class WP_Setting
     }
 
     /**
+     * Sanitize a string for storage while preserving percent-encoded sequences.
+     *
+     * WordPress's sanitize_text_field / sanitize_textarea_field strip any
+     * %XX (hex) sequence — a long-standing safety net against decoded-payload
+     * XSS, but data-destructive for fields that legitimately hold SOQL LIKE
+     * patterns ("DA2%"), URL-encoded values, MySQL collation names, etc.
+     *
+     * This sanitizer keeps percent sequences intact while still dropping HTML
+     * tags. Use only when the consuming code escapes the value at output and
+     * doesn't render it as HTML.
+     *
+     * @param string $raw            Input.
+     * @param bool   $keep_newlines  Preserve line breaks (textarea-style).
+     */
+    private function sanitize_keep_percent(string $raw, bool $keep_newlines): string
+    {
+        $filtered = \wp_check_invalid_utf8($raw);
+        $filtered = \wp_strip_all_tags($filtered, false);
+
+        if (!$keep_newlines) {
+            $filtered = preg_replace('/[\r\n\t ]+/', ' ', $filtered);
+        }
+
+        return trim((string) $filtered);
+    }
+
+    /**
      * Sanitize repeater field value.
      *
      * @param mixed $value Raw value (JSON string or array).
@@ -1636,6 +1663,8 @@ class WP_Setting
                 }
                 $raw = $row[$field_name] ?? '';
 
+                $preserve_percent = ! empty($child['preserve_percent_encoded']);
+
                 switch ($field_type) {
                     case 'email':
                         $clean_row[$field_name] = \sanitize_email($raw);
@@ -1644,14 +1673,18 @@ class WP_Setting
                         $clean_row[$field_name] = \esc_url_raw($raw);
                         break;
                     case 'textarea':
-                        $clean_row[$field_name] = \sanitize_textarea_field($raw);
+                        $clean_row[$field_name] = $preserve_percent
+                            ? $this->sanitize_keep_percent($raw, true)
+                            : \sanitize_textarea_field($raw);
                         break;
                     case 'select':
                         $allowed_options = array_keys($child['options'] ?? array());
                         $clean_row[$field_name] = in_array($raw, $allowed_options, true) ? $raw : '';
                         break;
                     default:
-                        $clean_row[$field_name] = \sanitize_text_field($raw);
+                        $clean_row[$field_name] = $preserve_percent
+                            ? $this->sanitize_keep_percent($raw, false)
+                            : \sanitize_text_field($raw);
                         break;
                 }
             }

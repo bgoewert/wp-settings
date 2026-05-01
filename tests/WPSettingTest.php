@@ -1634,6 +1634,107 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('wps-repeater-numbered', $output);
     }
 
+    /* =========================================================
+     * preserve_percent_encoded — opt-in to keep %XX sequences
+     *   Default (sanitize_text_field / sanitize_textarea_field) strips %XX,
+     *   destroying SOQL LIKE patterns, URL-encoded values, etc.
+     * ======================================================= */
+
+    public function test_repeater_strips_percent_encoded_by_default(): void
+    {
+        $setting = new WP_Setting(
+            'r_default',
+            'r',
+            'repeater',
+            'tab',
+            'sec',
+            null,
+            null,
+            false,
+            array(),
+            null,
+            array(
+                'children' => array(
+                    array('name' => 'field', 'type' => 'text'),
+                    array('name' => 'values', 'type' => 'textarea'),
+                ),
+            )
+        );
+
+        $out = $setting->sanitize_repeater(array(
+            array('field' => 'F', 'values' => '%DA2%'),
+        ));
+
+        // %DA matches /%[a-f0-9]{2}/i and gets stripped; '2%' is what's left.
+        $this->assertSame('2%', $out[0]['values']);
+    }
+
+    public function test_repeater_preserves_percent_encoded_when_opted_in(): void
+    {
+        $setting = new WP_Setting(
+            'r_keep',
+            'r',
+            'repeater',
+            'tab',
+            'sec',
+            null,
+            null,
+            false,
+            array(),
+            null,
+            array(
+                'children' => array(
+                    array('name' => 'field', 'type' => 'text'),
+                    array(
+                        'name' => 'values',
+                        'type' => 'textarea',
+                        'preserve_percent_encoded' => true,
+                    ),
+                ),
+            )
+        );
+
+        $out = $setting->sanitize_repeater(array(
+            array('field' => 'F', 'values' => "%DA2%\nGNSS%"),
+        ));
+
+        $this->assertSame("%DA2%\nGNSS%", $out[0]['values']);
+    }
+
+    public function test_repeater_preserve_percent_still_strips_html(): void
+    {
+        $setting = new WP_Setting(
+            'r_keep_html',
+            'r',
+            'repeater',
+            'tab',
+            'sec',
+            null,
+            null,
+            false,
+            array(),
+            null,
+            array(
+                'children' => array(
+                    array(
+                        'name' => 'values',
+                        'type' => 'text',
+                        'preserve_percent_encoded' => true,
+                    ),
+                ),
+            )
+        );
+
+        $out = $setting->sanitize_repeater(array(
+            array('values' => 'DA2%<script>alert(1)</script>'),
+        ));
+
+        // % preserved, tags + their content stripped.
+        $this->assertStringStartsWith('DA2%', $out[0]['values']);
+        $this->assertStringNotContainsString('<script', $out[0]['values']);
+        $this->assertStringNotContainsString('alert', $out[0]['values']);
+    }
+
     public function test_repeater_numbered_rows_false_omits_wrapper_class(): void
     {
         $setting = new WP_Setting(

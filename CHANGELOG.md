@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.25.0] - 2026-05-01
+
+### Added
+
+- Add `preserve_percent_encoded` (boolean, default `false`) flag to repeater child config. When `true`, the repeater bypasses WP's `sanitize_text_field` / `sanitize_textarea_field` for that child and uses an in-package sanitizer that strips HTML but preserves percent-encoded sequences (`%XX`). Required for fields that legitimately hold SOQL `LIKE` patterns, URL-encoded values, MySQL collation names, etc. — the WP defaults silently strip any `%[a-f0-9]{2}` pattern, which destroyed values like `%DA2%`. Flag is opt-in to avoid changing default sanitization behavior for existing consumers.
+
 ## [2.24.0] - 2026-04-28
 
 ### Added

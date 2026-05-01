@@ -246,7 +246,13 @@ if (!function_exists("sanitize_text_field")) {
         $value = (string) $value;
         $value = strip_tags($value);
         $value = preg_replace('/[\r\n\t\0\x0B]+/', " ", $value);
-        return trim($value);
+        $value = trim($value);
+        // Match WP core: strip percent-encoded sequences. Tests must reflect
+        // this so the preserve_percent_encoded opt-in is exercised correctly.
+        while (preg_match('/%[a-f0-9]{2}/i', $value, $m)) {
+            $value = str_replace($m[0], '', $value);
+        }
+        return $value;
     }
 }
 
@@ -258,6 +264,29 @@ if (!function_exists("sanitize_textarea_field")) {
         }
         $value = (string) $value;
         $value = strip_tags($value);
+        $value = trim($value);
+        while (preg_match('/%[a-f0-9]{2}/i', $value, $m)) {
+            $value = str_replace($m[0], '', $value);
+        }
+        return $value;
+    }
+}
+
+if (!function_exists("wp_check_invalid_utf8")) {
+    function wp_check_invalid_utf8($value)
+    {
+        return (string) $value;
+    }
+}
+
+if (!function_exists("wp_strip_all_tags")) {
+    function wp_strip_all_tags($value, $remove_breaks = false)
+    {
+        $value = preg_replace('@<(script|style)[^>]*?>.*?</\\1>@si', '', (string) $value);
+        $value = strip_tags($value);
+        if ($remove_breaks) {
+            $value = preg_replace('/[\r\n\t ]+/', ' ', $value);
+        }
         return trim($value);
     }
 }
