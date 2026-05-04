@@ -118,17 +118,16 @@ class WP_Settings_Logger
 
         if ($this->get_destination() === 'wordpress') {
             error_log('[' . $this->text_domain . '] ' . trim($entry));
-            return;
+        } else {
+            $dir = $this->get_log_dir();
+            if ($dir !== '') {
+                $this->ensure_log_dir();
+                $this->rotate_logs();
+                file_put_contents($this->get_log_file(), $entry, FILE_APPEND);
+            }
         }
 
-        $dir = $this->get_log_dir();
-        if ($dir === '') {
-            return;
-        }
-
-        $this->ensure_log_dir();
-        $this->rotate_logs();
-        file_put_contents($this->get_log_file(), $entry, FILE_APPEND);
+        $this->maybe_send_notification($level, $message, $entry);
     }
 
     public function debug(string $message, array $context = array()): void
@@ -264,6 +263,39 @@ class WP_Settings_Logger
             if ($modified !== false && $modified < $threshold) {
                 unlink($path);
             }
+        }
+    }
+
+    public function get_notify_emails(): array
+    {
+        $raw = (string) $this->get_setting('log_notify_emails', '');
+        if ($raw === '') {
+            return array();
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    protected function maybe_send_notification(string $level, string $message, string $entry): void
+    {
+        if ($level !== 'error') {
+            return;
+        }
+
+        if (!$this->get_bool_setting('log_notify_errors', false)) {
+            return;
+        }
+
+        $emails = $this->get_notify_emails();
+        if (empty($emails)) {
+            return;
+        }
+
+        $subject = sprintf('[%s] Error Alert — %s', $this->text_domain, substr(strip_tags($message), 0, 100));
+        $body    = trim($entry);
+
+        foreach ($emails as $email) {
+            \wp_mail($email, $subject, $body);
         }
     }
 

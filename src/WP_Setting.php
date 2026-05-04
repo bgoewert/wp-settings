@@ -1064,6 +1064,9 @@ class WP_Setting
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
+        if (!empty($this->args['merge_tags'])) {
+            $this->render_merge_tag_dropdown($id, false);
+        }
     }
 
     /**
@@ -1101,6 +1104,16 @@ class WP_Setting
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
+        if (!empty($this->args['merge_tags']) || (!empty($this->args['reset_button']) && $this->default_value !== null)) {
+            echo '<div style="margin-top:6px;">';
+            if (!empty($this->args['merge_tags'])) {
+                $this->render_merge_tag_dropdown($id, false);
+            }
+            if (!empty($this->args['reset_button']) && $this->default_value !== null) {
+                $this->render_reset_button($id, false);
+            }
+            echo '</div>';
+        }
     }
 
     /**
@@ -1131,6 +1144,156 @@ class WP_Setting
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
+        if (!empty($this->args['merge_tags']) || (!empty($this->args['reset_button']) && $this->default_value !== null)) {
+            echo '<div style="margin-top:6px;">';
+            if (!empty($this->args['merge_tags'])) {
+                $this->render_merge_tag_dropdown($id, true);
+            }
+            if (!empty($this->args['reset_button']) && $this->default_value !== null) {
+                $this->render_reset_button($id, true);
+            }
+            echo '</div>';
+        }
+    }
+
+    /**
+     * Render an "Insert Merge Tag" dropdown button scoped to a single field.
+     *
+     * @param string $field_id    The HTML id of the target input/textarea.
+     * @param bool   $is_richtext Whether the target is a TinyMCE (wp_editor) field.
+     * @return void
+     */
+    private function render_merge_tag_dropdown(string $field_id, bool $is_richtext): void
+    {
+        $tags      = $this->args['merge_tags'];
+        $toggle_id = 'wps-mtd-toggle-' . $field_id;
+        $list_id   = 'wps-mtd-list-' . $field_id;
+
+        printf(
+            '<div style="position:relative;display:inline-block;"><button type="button" id="%s" class="button" aria-haspopup="true" aria-expanded="false" aria-controls="%s">%s &#9660;</button>',
+            esc_attr($toggle_id),
+            esc_attr($list_id),
+            esc_html__('Insert Merge Tag', self::$text_domain)
+        );
+        printf(
+            '<ul id="%s" role="menu" style="display:none;position:absolute;z-index:999;background:#fff;border:1px solid #c3c4c7;box-shadow:0 2px 6px rgba(0,0,0,.15);margin:2px 0 0;padding:4px 0;list-style:none;min-width:260px;">',
+            esc_attr($list_id)
+        );
+        foreach ($tags as $tag => $label) {
+            printf(
+                '<li role="menuitem"><button type="button" class="wps-merge-tag" data-tag="%s" style="display:block;width:100%%;text-align:left;background:none;border:none;padding:6px 12px;cursor:pointer;font-size:13px;line-height:1.4;"><code style="font-size:12px;">%s</code> &mdash; %s</button></li>',
+                esc_attr($tag),
+                esc_html($tag),
+                esc_html($label)
+            );
+        }
+        echo '</ul></div>';
+        ?>
+        <script>
+        (function() {
+            var toggleId   = <?php echo wp_json_encode($toggle_id); ?>;
+            var listId     = <?php echo wp_json_encode($list_id); ?>;
+            var fieldId    = <?php echo wp_json_encode($field_id); ?>;
+            var isRichtext = <?php echo $is_richtext ? 'true' : 'false'; ?>;
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var toggle = document.getElementById(toggleId);
+                var list   = document.getElementById(listId);
+                if (!toggle || !list) return;
+
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var open = list.style.display !== 'none';
+                    list.style.display = open ? 'none' : 'block';
+                    toggle.setAttribute('aria-expanded', String(!open));
+                });
+
+                document.addEventListener('click', function() {
+                    list.style.display = 'none';
+                    toggle.setAttribute('aria-expanded', 'false');
+                });
+
+                list.addEventListener('click', function(e) { e.stopPropagation(); });
+
+                list.querySelectorAll('.wps-merge-tag').forEach(function(btn) {
+                    btn.addEventListener('mouseenter', function() { this.style.background = '#f0f0f1'; });
+                    btn.addEventListener('mouseleave', function() { this.style.background = 'none'; });
+                    btn.addEventListener('click', function() {
+                        var tag = this.dataset.tag;
+
+                        if (isRichtext && typeof tinymce !== 'undefined') {
+                            var editor = tinymce.get(fieldId);
+                            if (editor && !editor.isHidden()) {
+                                editor.insertContent(tag);
+                                list.style.display = 'none';
+                                toggle.setAttribute('aria-expanded', 'false');
+                                return;
+                            }
+                        }
+
+                        var textarea = document.getElementById(fieldId);
+                        if (!textarea) return;
+                        var start = textarea.selectionStart;
+                        var end   = textarea.selectionEnd;
+                        textarea.value = textarea.value.slice(0, start) + tag + textarea.value.slice(end);
+                        textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+                        textarea.focus();
+                        textarea.dispatchEvent(new Event('input'));
+                        list.style.display = 'none';
+                        toggle.setAttribute('aria-expanded', 'false');
+                    });
+                });
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * Render a "Reset to Default" button scoped to a single field.
+     *
+     * @param string $field_id    The HTML id of the target input/textarea.
+     * @param bool   $is_richtext Whether the target is a TinyMCE (wp_editor) field.
+     * @return void
+     */
+    private function render_reset_button(string $field_id, bool $is_richtext): void
+    {
+        $btn_id = 'wps-rb-' . $field_id;
+        printf(
+            '<button type="button" id="%s" class="button" style="margin-left:6px;">%s</button>',
+            esc_attr($btn_id),
+            esc_html__('Reset to Default', self::$text_domain)
+        );
+        ?>
+        <script>
+        (function() {
+            var btnId        = <?php echo wp_json_encode($btn_id); ?>;
+            var fieldId      = <?php echo wp_json_encode($field_id); ?>;
+            var isRichtext   = <?php echo $is_richtext ? 'true' : 'false'; ?>;
+            var defaultValue = <?php echo wp_json_encode($this->default_value ?? ''); ?>;
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var btn = document.getElementById(btnId);
+                if (!btn) return;
+
+                btn.addEventListener('click', function() {
+                    if (isRichtext && typeof tinymce !== 'undefined') {
+                        var editor = tinymce.get(fieldId);
+                        if (editor && !editor.isHidden()) {
+                            editor.setContent(defaultValue);
+                            return;
+                        }
+                    }
+                    var textarea = document.getElementById(fieldId);
+                    if (textarea) {
+                        textarea.value = defaultValue;
+                        textarea.dispatchEvent(new Event('input'));
+                    }
+                });
+            });
+        })();
+        </script>
+        <?php
     }
 
     /**

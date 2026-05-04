@@ -4,6 +4,14 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.0] - 2026-05-04
+
+### Added
+
+- Add `merge_tags` arg (associative array of `'{placeholder}' => 'Label'`) to `text`, `textarea`, and `richtext` fields. Renders a scoped "Insert Merge Tag ▼" dropdown button after the field that inserts the selected tag at the cursor. For `richtext`, uses `tinymce.get(id).insertContent()` when the visual editor is active, with a textarea cursor-insertion fallback. Each dropdown is self-contained with no shared state between fields.
+- Add `reset_button` arg (boolean) to `textarea` and `richtext` fields. When `true` and `default_value` is set, renders a "Reset to Default" button that restores the field to its default value. For `richtext`, uses `tinymce.get(id).setContent()` when the visual editor is active, with a direct `textarea.value` fallback.
+- Add error alert email notifications to the built-in logging tab. Two new settings — **Notify on Errors** (checkbox) and **Alert Email Addresses** (comma-separated text, shown when the checkbox is enabled) — appear automatically when the logging feature is enabled. When an error-level entry is logged, `wp_mail()` fires for each configured address.
+
 ## [2.26.1] - 2026-05-01
 
 ### Fixed

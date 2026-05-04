@@ -722,6 +722,8 @@ $tab
             'log_level' => new WP_Setting('log_level', 'Log Level', 'select', $tab_slug, $section_slug, '220px', 'Only messages at or above this level are written.', false, $this->logging_config['default_level'] ?? 'error', null, array('options' => array('error' => 'Error', 'warning' => 'Warning', 'info' => 'Info', 'debug' => 'Debug'))),
             'log_retention_days' => new WP_Setting('log_retention_days', 'Retention Days', 'number', $tab_slug, $section_slug, '120px', 'Delete plugin log files older than this many days.', false, (string) ($this->logging_config['retention_days_default'] ?? 14)),
             'log_auto_refresh' => new WP_Setting('log_auto_refresh', 'Auto Refresh', 'select', $tab_slug, $section_slug, '220px', 'Automatically refresh the log viewer on this interval.', false, (string) ($this->logging_config['auto_refresh_default'] ?? 0), null, array('options' => array('0' => 'Disabled', '2' => '2 seconds', '5' => '5 seconds', '10' => '10 seconds', '30' => '30 seconds'))),
+            'log_notify_errors' => new WP_Setting('log_notify_errors', 'Notify on Errors', 'checkbox', $tab_slug, $section_slug, null, 'Send an email when an error-level log entry is written.', false, ''),
+            'log_notify_emails' => new WP_Setting('log_notify_emails', 'Alert Email Addresses', 'text', $tab_slug, $section_slug, '400px', 'Comma-separated list of email addresses to notify.', false, '', null, array('conditions' => array(array('field' => 'log_notify_errors', 'operator' => 'not_empty')))),
         );
 
         foreach ($settings as $key => $setting) {
