@@ -1118,9 +1118,11 @@ class WP_Setting
         }
         $settings = [
             'textarea_name' => $name,
-            'editor_height' => 300,
-            'teeny'         => true,
             'media_buttons' => false,
+            'tinymce'       => [
+                'wp_autoresize_on'    => true,
+                'add_unload_trigger'  => false,
+            ],
         ];
         if ($this->width) {
             $settings['editor_css'] = '<style>#wp-' . $id . '-editor-container{width:' . $this->width . ';}</style>';

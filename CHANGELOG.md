@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.26.1] - 2026-05-01
+
+### Fixed
+
+- Fix `richtext` editor height not auto-expanding to fit content. Removed `teeny` mode (which excluded the `wpautoresize` plugin) and enabled `wp_autoresize_on` with `add_unload_trigger: false` so the editor grows to fit its content without clipping.
+
 ## [2.26.0] - 2026-05-01
 
 ### Added
