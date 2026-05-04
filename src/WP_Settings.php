@@ -487,6 +487,10 @@ $tab
                 true,
             );
         }
+
+        if ($this->has_richtext_settings()) {
+            \wp_enqueue_editor();
+        }
     }
 
     /**
@@ -989,6 +993,26 @@ $tab
             }
         }
 
+        return false;
+    }
+
+    protected function has_richtext_settings()
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+            if ($setting->type === "richtext") {
+                return true;
+            }
+            if ($setting->type === "advanced" && !empty($setting->children)) {
+                foreach ($setting->children as $child) {
+                    if ($child instanceof WP_Setting && $child->type === "richtext") {
+                        return true;
+                    }
+                }
+            }
+        }
         return false;
     }
 

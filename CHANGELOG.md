@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.26.0] - 2026-05-01
+
+### Added
+
+- Add `richtext` field type backed by `wp_editor()`. Sanitizes with `wp_kses_post()` so HTML tags are preserved. Useful for formatted text fields such as email body templates.
+
 ## [2.25.0] - 2026-05-01
 
 ### Added

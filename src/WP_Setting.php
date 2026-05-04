@@ -507,6 +507,10 @@ class WP_Setting
                     $this->sanitize_callback = array(__CLASS__, 'sanitize_textarea');
                     break;
 
+                case 'richtext':
+                    $this->sanitize_callback = 'wp_kses_post';
+                    break;
+
                 case 'repeater':
                     $this->sanitize_callback = array($this, 'sanitize_repeater');
                     break;
@@ -524,6 +528,10 @@ class WP_Setting
 
                 case 'textarea':
                     $this->callback = array($this, 'init_textarea');
+                    break;
+
+                case 'richtext':
+                    $this->callback = array($this, 'init_richtext');
                     break;
 
                 /* case 'password':
@@ -802,6 +810,17 @@ class WP_Setting
     }
 
     /**
+     * Create a richtext (wp_editor) field.
+     *
+     * @return void
+     */
+    public function init_richtext(): void
+    {
+        $value = self::get($this->slug);
+        $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
      * Create a checkbox input.
      *
      * @return void
@@ -990,6 +1009,9 @@ class WP_Setting
             case 'repeater':
                 $this->render_repeater($value, $name, $id);
                 break;
+            case 'richtext':
+                $this->render_richtext_value($name, $id, $value);
+                break;
             default:
                 $this->render_text_value($name, $id, $value);
                 break;
@@ -1076,6 +1098,34 @@ class WP_Setting
         }
 
         echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $name, $id, $atts, $value), self::$allowed_html);
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+    }
+
+    /**
+     * Render a richtext (wp_editor) field.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_richtext_value($name, $id, $value): void
+    {
+        if (!$value) {
+            $value = $this->default_value ?? '';
+        }
+        $settings = [
+            'textarea_name' => $name,
+            'editor_height' => 300,
+            'teeny'         => true,
+            'media_buttons' => false,
+        ];
+        if ($this->width) {
+            $settings['editor_css'] = '<style>#wp-' . $id . '-editor-container{width:' . $this->width . ';}</style>';
+        }
+        \wp_editor(\wp_kses_post($value), $id, $settings);
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
