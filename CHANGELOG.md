@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.1] - 2026-05-04
+
+### Fixed
+
+- Extend `reset_button` arg support to `text` fields (e.g. subject line inputs). The underlying JS sets `.value` on the element by ID, which works identically for `<input>` and `<textarea>`.
+
 ## [2.27.0] - 2026-05-04
 
 ### Added

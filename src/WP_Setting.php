@@ -1064,8 +1064,15 @@ class WP_Setting
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
-        if (!empty($this->args['merge_tags'])) {
-            $this->render_merge_tag_dropdown($id, false);
+        if (!empty($this->args['merge_tags']) || (!empty($this->args['reset_button']) && $this->default_value !== null)) {
+            echo '<div style="margin-top:6px;">';
+            if (!empty($this->args['merge_tags'])) {
+                $this->render_merge_tag_dropdown($id, false);
+            }
+            if (!empty($this->args['reset_button']) && $this->default_value !== null) {
+                $this->render_reset_button($id, false);
+            }
+            echo '</div>';
         }
     }
 
