@@ -1632,6 +1632,34 @@ class WPSettingTest extends WP_Settings_TestCase
         $output = ob_get_clean();
 
         $this->assertStringContainsString('wps-repeater-numbered', $output);
+        $this->assertStringContainsString('wps-repeater-number-header', $output);
+        $this->assertStringContainsString('wps-repeater-row-number', $output);
+    }
+
+    public function test_repeater_numbered_rows_no_number_cells_when_disabled(): void
+    {
+        $setting = new WP_Setting(
+            'rep_plain2',
+            'Repeater',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']],
+            ]
+        );
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('wps-repeater-row-number', $output);
+        $this->assertStringNotContainsString('wps-repeater-number-header', $output);
     }
 
     /* =========================================================

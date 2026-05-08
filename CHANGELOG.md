@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.2] - 2026-05-08
+
+### Fixed
+
+- Fix `numbered_rows` repeater row number circles overlapping the first cell. Replaced unreliable `position: absolute` on `<tr>::before` (CSS spec does not guarantee `<tr>` establishes a containing block) with an explicit `<td class="wps-repeater-row-number">` cell and a matching empty `<th>` in the header row. CSS counters now render via `td::before`, which is a proper table layout participant and behaves consistently across all browsers.
+
 ## [2.27.1] - 2026-05-04
 
 ### Fixed

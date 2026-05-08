@@ -1935,6 +1935,10 @@ class WP_Setting
     {
         echo '<tr class="wps-repeater-row" data-index="' . \esc_attr($index) . '">';
 
+        if (!empty($this->args['numbered_rows'])) {
+            echo '<td class="wps-repeater-row-number"></td>';
+        }
+
         foreach ($children as $child) {
             $field_name = $child['name'] ?? '';
             $field_type = $child['type'] ?? 'text';
@@ -2077,6 +2081,9 @@ class WP_Setting
 
         echo '<table class="wps-repeater-table" style="width: 100%; margin-bottom: 10px;">';
         echo '<thead><tr>';
+        if (!empty($this->args['numbered_rows'])) {
+            echo '<th class="wps-repeater-number-header" style="width: 2.5em; border-bottom: 1px solid #ddd;"></th>';
+        }
         foreach ($children as $child) {
             $th_style = 'text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd;';
             if (!empty($child['width'])) {

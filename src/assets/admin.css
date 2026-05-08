@@ -133,17 +133,21 @@
 .wps-repeater-add { margin-top: 4px; }
 
 /* Numbered rows — opt-in via args['numbered_rows'] */
-.wps-repeater-numbered { counter-reset: wps-row; padding-left: 2.75em; }
-.wps-repeater-numbered .wps-repeater-row { counter-increment: wps-row; position: relative; }
-.wps-repeater-numbered .wps-repeater-row::before {
+.wps-repeater-numbered { counter-reset: wps-row; }
+.wps-repeater-numbered .wps-repeater-row { counter-increment: wps-row; }
+.wps-repeater-row-number {
+    width: 2.5em;
+    text-align: center;
+    padding: 6px;
+    vertical-align: middle;
+}
+.wps-repeater-row-number::before {
     content: counter(wps-row);
-    position: absolute;
-    left: -2.5em;
-    top: 0.5em;
+    display: inline-flex;
     width: 1.75em;
     height: 1.75em;
-    line-height: 1.75em;
-    text-align: center;
+    align-items: center;
+    justify-content: center;
     background: #f0f0f1;
     border: 1px solid #c3c4c7;
     border-radius: 50%;
