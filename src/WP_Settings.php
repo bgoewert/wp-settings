@@ -426,13 +426,13 @@ $tab
                 "wp-settings-admin",
                 \plugin_dir_url(__FILE__) . "assets/admin.css",
                 [],
-                "1.0.0",
+                $this->version ?? false,
             );
             \wp_enqueue_script(
                 "wp-settings-admin",
                 \plugin_dir_url(__FILE__) . "assets/admin.js",
                 ["jquery"],
-                "1.0.0",
+                $this->version ?? false,
                 true,
             );
 
@@ -477,13 +477,13 @@ $tab
                 "wp-settings-admin-sortable",
                 \plugin_dir_url(__FILE__) . "assets/admin-sortable.css",
                 [],
-                "1.0.0",
+                $this->version ?? false,
             );
             \wp_enqueue_script(
                 "wp-settings-admin-sortable",
                 \plugin_dir_url(__FILE__) . "assets/admin-sortable.js",
                 ["jquery", "jquery-ui-sortable"],
-                "1.0.0",
+                $this->version ?? false,
                 true,
             );
         }

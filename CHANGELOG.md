@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.3] - 2026-05-26
+
+### Fixed
+
+- Use plugin version for admin asset cache busting instead of hardcoded `1.0.0`.
+
 ## [2.27.2] - 2026-05-08
 
 ### Fixed
