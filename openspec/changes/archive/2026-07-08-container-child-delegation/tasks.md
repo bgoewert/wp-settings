@@ -25,6 +25,11 @@
 - [x] 4.3 Add a test asserting a nested repeater's saved value renders back into the container.
 - [x] 4.4 Run the existing suite; confirm no regressions in current `advanced`/`fieldset` behavior. (135 tests pass)
 
+## 4b. Custom-callback child fix (post-archive, found by downstream smoke test)
+
+- [x] 4b.1 Invoke child callbacks with `$child->args` in both `init_advanced()` and `init_fieldset()` (`call_user_func($child->callback, $child->args)`), mirroring WP's field-callback contract. Fixes `ArgumentCountError` WSOD for children whose custom callback requires `$args`.
+- [x] 4b.2 Add tests: a child with a custom callback that requires `$args` renders inside an `advanced` and a `fieldset` without error (`test_advanced_child_custom_callback_receives_args`, `test_fieldset_child_custom_callback_receives_args`).
+
 ## 5. Release
 
 - [ ] 5.1 Update CHANGELOG per Common Changelog (feat: containers render any child type) at release time.

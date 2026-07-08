@@ -1638,7 +1638,10 @@ class WP_Setting
             if ($child->title) {
                 echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
             }
-            \call_user_func($child->callback);
+            // Pass $child->args, mirroring WP's field-callback contract
+            // (add_settings_field hands $args to the callback). Built-in
+            // callbacks ignore it; custom callbacks may require it.
+            \call_user_func($child->callback, $child->args);
             echo '</div>';
         }
 
@@ -1680,7 +1683,10 @@ class WP_Setting
             echo '<tr>';
             echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
             echo '<td>';
-            \call_user_func($child->callback);
+            // Pass $child->args, mirroring WP's field-callback contract
+            // (add_settings_field hands $args to the callback). Built-in
+            // callbacks ignore it; custom callbacks may require it.
+            \call_user_func($child->callback, $child->args);
             echo '</td>';
             echo '</tr>';
         }

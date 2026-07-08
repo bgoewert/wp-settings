@@ -7,6 +7,14 @@ TBD - created by archiving change container-child-delegation. Update Purpose aft
 
 The `advanced` and `fieldset` container field types SHALL render each child field by delegating to that child's own field renderer (the same rendering path used for a top-level field of that type), rather than a fixed set of hardcoded child types. As a result, a container SHALL be able to nest any supported field type as a child, including `repeater`, `field_map`, `radio`, `richtext`, `sortable`, and a nested `advanced` or `fieldset`. A child of a type the container cannot render SHALL NOT occur — every registered field type is renderable as a child.
 
+When delegating, a container SHALL invoke each child's render callback with the child's `args`, mirroring WordPress's field-callback contract (`add_settings_field` passes `$args` to the callback). A child with a custom callback that requires an `$args` parameter SHALL therefore render inside a container exactly as it does at top level, without error.
+
+#### Scenario: Child with a custom callback renders in a container
+
+- **WHEN** a container has a child whose custom render callback declares a required `$args` parameter
+- **THEN** the child renders inside the container without a fatal error
+- **AND** the callback receives the child's `args`
+
 #### Scenario: Repeater nested in a container renders
 
 - **WHEN** an `advanced` (or `fieldset`) field has a `repeater` child

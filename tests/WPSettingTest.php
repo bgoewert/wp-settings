@@ -1618,6 +1618,72 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('<input type="hidden" name="my_plugin_cb_child" value="0">', $output);
     }
 
+    public function test_advanced_child_custom_callback_receives_args(): void
+    {
+        // A custom callback that *requires* $args — mirrors WP's field-callback
+        // contract. Before the fix this threw ArgumentCountError (WSOD).
+        $child = new WP_Setting(
+            'cb_child_adv',
+            'Custom CB Child',
+            'text',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            function (array $args): void {
+                echo '<span class="custom-cb">' . \esc_html($args['marker'] ?? '') . '</span>';
+            },
+            ['marker' => 'ADV_CUSTOM_OK']
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('ADV_CUSTOM_OK', $output);
+    }
+
+    public function test_fieldset_child_custom_callback_receives_args(): void
+    {
+        $child = new WP_Setting(
+            'cb_child_fs',
+            'Custom CB Child',
+            'text',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            function (array $args): void {
+                echo '<span class="custom-cb">' . \esc_html($args['marker'] ?? '') . '</span>';
+            },
+            ['marker' => 'FS_CUSTOM_OK']
+        );
+
+        $setting = new WP_Setting(
+            'fs_cb_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        ob_start();
+        $setting->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('FS_CUSTOM_OK', $output);
+    }
+
     public function test_advanced_repeater_child_round_trips_saved_value(): void
     {
         $this->setOption('my_plugin_rt_rep', json_encode([['label' => 'SavedRowValue']]));
