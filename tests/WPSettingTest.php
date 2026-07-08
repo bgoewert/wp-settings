@@ -706,7 +706,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('Child Checkbox', $output);
     }
 
-    public function test_init_advanced_text_child_supports_enter_submit(): void
+    public function test_init_advanced_text_child_renders_input(): void
     {
         $child = new WP_Setting(
             'child_text',
@@ -734,6 +734,12 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init_advanced();
         $output = ob_get_clean();
 
+        // The text child now renders through the shared field renderer
+        // (init_type → render_unbound), same as a top-level text field.
+        $this->assertStringContainsString('type="text"', $output);
+        $this->assertStringContainsString('name="my_plugin_child_text"', $output);
+        $this->assertStringContainsString('Child Text', $output);
+        // Enter-submit is preserved via the shared renderer.
         $this->assertStringContainsString("event.key==='Enter'", $output);
         $this->assertStringContainsString('requestSubmit', $output);
     }
@@ -1415,6 +1421,227 @@ class WPSettingTest extends WP_Settings_TestCase
         unset($_POST['my_plugin_child_text']);
 
         $this->assertFalse($this->getOption('my_plugin_fieldset_parent', false));
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature: containers delegate rendering to each child's own renderer,
+    // so any field type (repeater, field_map, radio, richtext, nested
+    // advanced/fieldset) works as a child — not just the old hardcoded set.
+    // -------------------------------------------------------------------------
+
+    /** Build an advanced container around one child. */
+    private function makeAdvancedWith(WP_Setting $child): WP_Setting
+    {
+        return new WP_Setting(
+            'adv_parent',
+            'Advanced',
+            'advanced',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+    }
+
+    public function test_advanced_renders_repeater_child(): void
+    {
+        $child = new WP_Setting(
+            'rep_child',
+            'Repeater Child',
+            'repeater',
+            'general',
+            'main',
+            null,
+            'Repeater description',
+            false,
+            null,
+            null,
+            ['children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']]]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('wps-repeater', $output);
+        $this->assertStringContainsString('Add Row', $output);
+        $this->assertStringContainsString('Repeater Child', $output);        // heading
+        $this->assertStringContainsString('Repeater description', $output);   // child description
+    }
+
+    public function test_fieldset_renders_repeater_child(): void
+    {
+        $child = new WP_Setting(
+            'rep_child_fs',
+            'Repeater Child',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']]]
+        );
+
+        $setting = new WP_Setting(
+            'fs_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        ob_start();
+        $setting->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('wps-repeater', $output);
+        $this->assertStringContainsString('Add Row', $output);
+    }
+
+    public function test_advanced_renders_field_map_child(): void
+    {
+        $child = new WP_Setting(
+            'map_child',
+            'Map Child',
+            'field_map',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['src' => 'Source']]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('wps-field-map-data', $output);
+        $this->assertStringContainsString('Map Child', $output);
+    }
+
+    public function test_advanced_renders_radio_child(): void
+    {
+        $child = new WP_Setting(
+            'radio_child',
+            'Radio Child',
+            'radio',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['a' => 'Alpha', 'b' => 'Beta']]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        // radio children previously produced no output at all
+        $this->assertStringContainsString('type="radio"', $output);
+        $this->assertStringContainsString('name="my_plugin_radio_child"', $output);
+    }
+
+    public function test_advanced_renders_richtext_child(): void
+    {
+        $child = new WP_Setting(
+            'rich_child',
+            'Rich Child',
+            'richtext',
+            'general',
+            'main'
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        // richtext children previously produced no output at all
+        $this->assertStringContainsString('wp-editor-area', $output);
+        $this->assertStringContainsString('my_plugin_rich_child', $output);
+    }
+
+    public function test_advanced_renders_nested_advanced_child(): void
+    {
+        $grandchild = new WP_Setting('gc_text', 'Grandchild Text', 'text', 'general', 'main');
+
+        $child = new WP_Setting(
+            'nested_adv',
+            'Nested Advanced',
+            'advanced',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$grandchild]]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        // Nested container and its own child both render.
+        $this->assertStringContainsString('Nested Advanced', $output);
+        $this->assertStringContainsString('name="my_plugin_gc_text"', $output);
+    }
+
+    public function test_advanced_unchecked_checkbox_child_submits_zero(): void
+    {
+        $child = new WP_Setting('cb_child', 'Checkbox Child', 'checkbox', 'general', 'main');
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        // Hidden companion input guarantees an unchecked box still submits 0.
+        $this->assertStringContainsString('<input type="hidden" name="my_plugin_cb_child" value="0">', $output);
+    }
+
+    public function test_advanced_repeater_child_round_trips_saved_value(): void
+    {
+        $this->setOption('my_plugin_rt_rep', json_encode([['label' => 'SavedRowValue']]));
+
+        $child = new WP_Setting(
+            'rt_rep',
+            'Round Trip Repeater',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']]]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        // The previously-saved row value renders back into the container.
+        $this->assertStringContainsString('SavedRowValue', $output);
     }
 
     // -------------------------------------------------------------------------

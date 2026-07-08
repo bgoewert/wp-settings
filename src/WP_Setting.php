@@ -1056,6 +1056,8 @@ class WP_Setting
         if ($placeholder) {
             $atts .= ' ' . $placeholder;
         }
+        // Pressing Enter in a single-line input submits the containing form.
+        $atts .= $this->get_enter_submit_attribute();
 
         echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $this->type, $name, $id, $value, $atts), self::$allowed_html);
         if ('password' === $this->type) {
@@ -1624,88 +1626,31 @@ class WP_Setting
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
 
-        // Render each child setting as a visible control
+        // Render each child by delegating to its own field callback — the exact
+        // path a top-level field of that type uses (init_<type> → render_unbound
+        // → render_with_value). This supports every field type as a child
+        // (checkbox, text, select, repeater, field_map, radio, richtext, and a
+        // nested advanced/fieldset), instead of a hardcoded per-type switch. The
+        // container supplies the child's title heading; the child renderer
+        // supplies the control and its own description.
         foreach ($this->children as $child) {
-            echo '<p>';
-
-            // Render based on child type
-            switch ($child->type) {
-                case 'checkbox':
-                    // Use child's get method
-                    $value = boolval($child::get($child->slug));
-                    // Hidden field ensures unchecked boxes send a value (0)
-                    echo sprintf('<input type="hidden" name="%s" value="0">', \esc_attr($child->slug));
-                    echo sprintf(
-                        '<label><input type="checkbox" name="%s" id="%s" value="on" %s /> <strong>%s</strong></label>',
-                        \esc_attr($child->slug),
-                        \esc_attr($child->slug),
-                        \checked($value, true, false),
-                        \esc_html($child->title)
-                    );
-                    if ($child->description) {
-                        echo sprintf('<p class="description" style="margin: 0 0 15px 25px;">%s</p>', \esc_html($child->description));
-                    }
-                    break;
-
-                case 'text':
-                case 'email':
-                case 'url':
-                case 'number':
-                    $value = self::get($child->slug, $child->default_value);
-                    $enter_submit = $this->get_enter_submit_attribute();
-                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
-                    $atts = '';
-                    if ($child->width) {
-                        $atts .= ' style="width:' . $child->width . ';"';
-                    }
-                    if ($child->required) {
-                        $atts .= ' required';
-                    }
-                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts, $enter_submit), self::$allowed_html);
-                    if ($child->description) {
-                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
-                    }
-                    break;
-
-                case 'textarea':
-                    $value = self::get($child->slug, $child->default_value);
-                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
-                    $atts = '';
-                    if ($child->width) {
-                        $atts .= ' style="width:' . $child->width . ';"';
-                    }
-                    if ($child->required) {
-                        $atts .= ' required';
-                    }
-                    if (isset($child->args['rows'])) {
-                        $atts .= ' rows="' . $child->args['rows'] . '"';
-                    }
-                    echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, \esc_textarea($value)), self::$allowed_html);
-                    if ($child->description) {
-                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
-                    }
-                    break;
-
-                case 'select':
-                    $value = self::get($child->slug, $child->default_value);
-                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
-                    echo sprintf('<select name="%s" id="%s">', $child->slug, $child->slug);
-                    foreach ($child->args['options'] as $option => $label) {
-                        echo sprintf('<option value="%s"%s>%s</option>', \esc_attr($option), \selected($value, $option, false), \esc_html($label));
-                    }
-                    echo '</select>';
-                    if ($child->description) {
-                        echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
-                    }
-                    break;
+            echo '<div class="wps-advanced-child" style="margin-bottom: 15px;">';
+            if ($child->title) {
+                echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
             }
-
-            echo '</p>';
+            \call_user_func($child->callback);
+            echo '</div>';
         }
 
         echo '</div></details>';
     }
 
+    /**
+     * Build the onkeydown attribute that submits the containing form when Enter
+     * is pressed in a single-line input (Shift+Enter is ignored).
+     *
+     * @return string Leading-space-prefixed attribute, or '' if not applicable.
+     */
     protected function get_enter_submit_attribute(): string
     {
         return ' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();if(this.form&&this.form.requestSubmit){this.form.requestSubmit();}else if(this.form){this.form.submit();}}"';
@@ -1726,63 +1671,16 @@ class WP_Setting
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }
 
-        // Render each child setting as a table row
+        // Render each child as a table row, delegating the control to the
+        // child's own field callback (the same path top-level fields use) so any
+        // field type is supported as a child. The <th> supplies the child's
+        // title; the child renderer supplies the control and its description.
         echo '<table class="form-table" role="presentation">';
         foreach ($this->children as $child) {
             echo '<tr>';
             echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
             echo '<td>';
-
-            // Render the child field input
-            $value = self::get($child->slug, $child->default_value);
-
-            switch ($child->type) {
-                case 'checkbox':
-                    echo sprintf('<input type="hidden" name="%s" value="0">', \esc_attr($child->slug));
-                    echo sprintf(
-                        '<label><input type="checkbox" name="%s" id="%s" value="on" %s /> %s</label>',
-                        \esc_attr($child->slug),
-                        \esc_attr($child->slug),
-                        \checked($value, true, false),
-                        \esc_html($child->title)
-                    );
-                    break;
-
-                case 'text':
-                case 'email':
-                case 'url':
-                case 'number':
-                    $atts = ' style="width:' . ($child->width ?: '400px') . ';"';
-                    if ($child->required) {
-                        $atts .= ' required';
-                    }
-                    echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $child->type, $child->slug, $child->slug, \esc_attr($value), $atts), self::$allowed_html);
-                    break;
-
-                case 'textarea':
-                    $atts = ' style="width:' . ($child->width ?: '400px') . ';"';
-                    if ($child->required) {
-                        $atts .= ' required';
-                    }
-                    if (isset($child->args['rows'])) {
-                        $atts .= ' rows="' . $child->args['rows'] . '"';
-                    }
-                    echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $child->slug, $child->slug, $atts, \esc_textarea($value)), self::$allowed_html);
-                    break;
-
-                case 'select':
-                    echo sprintf('<select name="%s" id="%s">', $child->slug, $child->slug);
-                    foreach ($child->args['options'] as $option => $label) {
-                        echo sprintf('<option value="%s"%s>%s</option>', \esc_attr($option), \selected($value, $option, false), \esc_html($label));
-                    }
-                    echo '</select>';
-                    break;
-            }
-
-            if ($child->description) {
-                echo \wp_kses(sprintf('<p class="description">%s</p>', $child->description), self::$allowed_html);
-            }
-
+            \call_user_func($child->callback);
             echo '</td>';
             echo '</tr>';
         }

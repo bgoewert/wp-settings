@@ -180,6 +180,28 @@ if (!function_exists("wp_kses")) {
     }
 }
 
+if (!function_exists("wp_kses_post")) {
+    function wp_kses_post($string)
+    {
+        return $string;
+    }
+}
+
+if (!function_exists("wp_editor")) {
+    function wp_editor($content, $editor_id, $settings = [])
+    {
+        // Minimal stand-in for the WP rich text editor: emit a textarea so tests
+        // can assert the richtext child rendered.
+        $name = $settings["textarea_name"] ?? $editor_id;
+        echo sprintf(
+            '<textarea class="wp-editor-area" id="%s" name="%s">%s</textarea>',
+            esc_attr($editor_id),
+            esc_attr($name),
+            esc_textarea($content)
+        );
+    }
+}
+
 if (!function_exists("esc_html")) {
     function esc_html($text)
     {
