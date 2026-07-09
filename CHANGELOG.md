@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.2] - 2026-07-09
+
+### Fixed
+
+- `normalize_text_domain()` no longer emits a `str_replace(): Passing null to parameter #3 ($subject) is deprecated` warning on PHP 8.1+. The text domain is now cast to a string before replacement, so calls made before a consumer sets the static `$text_domain` degrade to an empty prefix instead of tripping the deprecation.
+
 ## [2.28.1] - 2026-07-09
 
 ### Fixed
