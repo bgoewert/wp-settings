@@ -146,6 +146,17 @@ class WP_Setting
     public $conditions;
 
     /**
+     * Whether this field was registered as a top-level WordPress settings row
+     * (via add_settings_field). Only true for advanced/fieldset containers that
+     * render their own settings row; nested container children (rendered by
+     * delegation) leave this false. Used to scope the full-width row fix-up to
+     * top-level containers so nested ones don't retarget the wrong <tr>.
+     *
+     * @var bool
+     */
+    protected $renders_as_settings_row = false;
+
+    /**
      * Whether to autoload this option when WordPress loads.
      *
      * Pass true for options needed on every page load (e.g. license keys, global feature flags).
@@ -620,6 +631,7 @@ class WP_Setting
         } elseif ($this->type === 'advanced' || $this->type === 'fieldset') {
             // For advanced/fieldset fields, only register the parent field (not children)
             // Children will be registered separately when their init() is called
+            $this->renders_as_settings_row = true;
             \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
     }
@@ -1646,6 +1658,34 @@ class WP_Setting
         }
 
         echo '</div></details>';
+
+        $this->render_container_fullwidth_fix();
+    }
+
+    /**
+     * Let a top-level container field span the full width of the settings table
+     * by reclaiming the empty label column.
+     *
+     * WordPress's do_settings_fields() renders every field as a two-column
+     * `<tr><th>label</th><td>field</td></tr>`. Container fields register with an
+     * empty title, so the label `<th>` is blank yet still holds ~200px of the
+     * row, leaving the container indented and narrower than the page. This hides
+     * that empty `<th>` and spans the field `<td>` across both columns. The
+     * colspan is an attribute WordPress won't emit for us, so it is set
+     * client-side. Only emitted for top-level containers (not nested ones, whose
+     * `<tr>`/`<td>` belong to an enclosing container).
+     *
+     * @return void
+     */
+    private function render_container_fullwidth_fix(): void
+    {
+        if (!$this->renders_as_settings_row) {
+            return;
+        }
+        echo '<script>(function(){var s=document.currentScript;if(!s)return;'
+            . 'var tr=s.closest("tr"),td=s.closest("td");if(!tr||!td)return;'
+            . 'var th=tr.querySelector(":scope > th");if(th)th.style.display="none";'
+            . 'td.setAttribute("colspan","2");td.style.paddingLeft="0";})();</script>';
     }
 
     /**
@@ -1678,11 +1718,21 @@ class WP_Setting
         // child's own field callback (the same path top-level fields use) so any
         // field type is supported as a child. The <th> supplies the child's
         // title; the child renderer supplies the control and its description.
+        //
+        // With hide_child_labels, the per-child <th> label is dropped and the
+        // control spans the full width — useful when a child's title merely
+        // repeats the fieldset legend (e.g. a lone repeater); the legend then
+        // provides the group's accessible label.
+        $hide_child_labels = !empty($this->args['hide_child_labels']);
         echo '<table class="form-table" role="presentation">';
         foreach ($this->children as $child) {
             echo '<tr>';
-            echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
-            echo '<td>';
+            if ($hide_child_labels) {
+                echo '<td colspan="2">';
+            } else {
+                echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
+                echo '<td>';
+            }
             // Pass $child->args, mirroring WP's field-callback contract
             // (add_settings_field hands $args to the callback). Built-in
             // callbacks ignore it; custom callbacks may require it.
@@ -1693,6 +1743,8 @@ class WP_Setting
         echo '</table>';
 
         echo '</fieldset>';
+
+        $this->render_container_fullwidth_fix();
     }
 
     /**

@@ -1684,6 +1684,139 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('FS_CUSTOM_OK', $output);
     }
 
+    public function test_top_level_advanced_spans_full_width(): void
+    {
+        $child = new WP_Setting('fw_adv_child', 'Child', 'text', 'general', 'main');
+        $setting = $this->makeAdvancedWith($child);
+        $setting->init(); // registers as a settings row -> full-width fix applies
+
+        ob_start();
+        $setting->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('colspan', $output);
+        $this->assertStringContainsString('document.currentScript', $output);
+    }
+
+    public function test_top_level_fieldset_spans_full_width(): void
+    {
+        $child = new WP_Setting('fw_fs_child', 'Child', 'text', 'general', 'main');
+        $setting = new WP_Setting(
+            'fw_fs_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+        $setting->init();
+
+        ob_start();
+        $setting->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('colspan', $output);
+    }
+
+    public function test_fieldset_hide_child_labels_omits_th_label(): void
+    {
+        $child = new WP_Setting('hcl_child', 'Duplicate Label', 'text', 'general', 'main');
+        $setting = new WP_Setting(
+            'hcl_parent',
+            'Group Legend',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child], 'hide_child_labels' => true]
+        );
+
+        ob_start();
+        $setting->init_fieldset();
+        $output = ob_get_clean();
+
+        // Child label suppressed; fieldset legend remains as the group label.
+        $this->assertStringNotContainsString('Duplicate Label', $output);
+        $this->assertStringContainsString('Group Legend', $output);
+        $this->assertStringContainsString('colspan="2"', $output);
+        $this->assertStringNotContainsString('<th scope="row"', $output);
+    }
+
+    public function test_fieldset_keeps_child_labels_by_default(): void
+    {
+        $child = new WP_Setting('kcl_child', 'Kept Label', 'text', 'general', 'main');
+        $setting = new WP_Setting(
+            'kcl_parent',
+            'Legend',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+
+        ob_start();
+        $setting->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Kept Label', $output);
+        $this->assertStringContainsString('<th scope="row"', $output);
+    }
+
+    public function test_nested_container_does_not_emit_extra_fullwidth_fix(): void
+    {
+        // A nested advanced child must not retarget the parent's <tr>: only the
+        // top-level container emits the full-width fix (exactly once).
+        $grandchild = new WP_Setting('nest_gc', 'GC', 'text', 'general', 'main');
+        $nested = new WP_Setting(
+            'nest_adv',
+            'Nested',
+            'advanced',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$grandchild]]
+        );
+        $setting = $this->makeAdvancedWith($nested);
+        $setting->init(); // parent registered; children init(false), flag stays false
+
+        ob_start();
+        $setting->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertSame(1, substr_count($output, 'document.currentScript'));
+    }
+
+    public function test_advanced_not_registered_omits_fullwidth_fix(): void
+    {
+        // Rendering the callback without registration (e.g. as a nested child)
+        // must not emit the row fix-up.
+        $child = new WP_Setting('nofix_child', 'Child', 'text', 'general', 'main');
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced(); // no init() -> flag false
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('document.currentScript', $output);
+    }
+
     public function test_advanced_repeater_child_round_trips_saved_value(): void
     {
         $this->setOption('my_plugin_rt_rep', json_encode([['label' => 'SavedRowValue']]));

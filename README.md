@@ -147,6 +147,8 @@ Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `r
 
 **Fieldset**: Visual grouping of child settings with `<fieldset>` element.
 
+Both container types (`advanced` and `fieldset`) render each child through that child's own field renderer — the same path a top-level field uses — so a child can be **any** supported type, including `repeater`, `field_map`, `radio`, `richtext`, `sortable`, or a nested `advanced`/`fieldset`. A child's custom `callback` (if provided) is invoked with its `args`, exactly as at top level. Top-level containers span the full width of the settings table.
+
 **Table**: Embeds a `WP_Settings_Table` instance within a section alongside other settings.
 
 **Field Map**: Dynamic add/remove rows for mapping source fields to destination fields.
@@ -173,6 +175,33 @@ $expanded = new WP_Setting(
 ```
 
 Renders as collapsible `<details>` section. Set `'collapsed' => false` to expand by default (defaults to `true` if not specified).
+
+### Fieldset Field Example
+
+```php
+use BGoewert\WP_Settings\WP_Setting;
+
+// A repeater grouped under a fieldset legend.
+$filters = new WP_Setting(
+    'sync_filters', 'Sync Filters', 'repeater', 'settings', 'section',
+    null, 'One condition per row.', false, null, null,
+    array('children' => array(
+        array('name' => 'field', 'label' => 'Salesforce Field', 'type' => 'text'),
+        array('name' => 'values', 'label' => 'Values', 'type' => 'textarea'),
+    ))
+);
+
+$fieldset = new WP_Setting(
+    'filter_group', 'Sync Filters', 'fieldset', 'settings', 'section',
+    null, 'Filter which products sync.', false, null, null,
+    array(
+        'children'          => array($filters),
+        'hide_child_labels' => true,
+    )
+);
+```
+
+Set `'hide_child_labels' => true` to drop each child's label column and let the control span the full width — useful when a child's title merely repeats the fieldset legend (e.g. a lone repeater). The `<legend>` then serves as the group's label. Omit it (the default) to keep per-child labels.
 
 **Hidden fields**: Store values without rendering table rows.
 
