@@ -177,8 +177,8 @@ Other valid suffixes: `-beta.N`, `-rc.N`
 1. Update `composer.json` version to match the pre-release tag (e.g., `2.19.0-alpha.1`)
 2. Add a CHANGELOG entry under `## [2.19.0-alpha.1] - YYYY-MM-DD` with the same category heading format as stable releases
 3. Commit: `chore: release version 2.19.0-alpha.1`
-4. Tag: `git tag v2.19.0-alpha.1`
-5. Push tag: `git push origin v2.19.0-alpha.1`
+4. Tag (annotated): `git tag -a v2.19.0-alpha.1 -m "Release v2.19.0-alpha.1"` — must be annotated so `--follow-tags` will push it
+5. Push commit + tag: `git push origin main --follow-tags`
 6. GitHub Actions creates the release; GitHub automatically marks it as a pre-release when the tag contains a pre-release suffix
 
 **Note:** Pre-release versions in Composer (`2.19.0-alpha.1`) are treated as unstable — consumers pinned to `^2.18` will not receive them unless they explicitly require the pre-release version or use `minimum-stability: alpha`.
