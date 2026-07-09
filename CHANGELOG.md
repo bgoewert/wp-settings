@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.0] - 2026-07-09
+
+### Changed
+
+- Container fields (`advanced` and `fieldset`) now render each child through the child's own field renderer — the same path a top-level field uses — instead of a fixed set of hardcoded types. Any field type can now be nested as a child, including `repeater`, `field_map`, `radio`, `richtext`, `sortable`, and a nested `advanced`/`fieldset`; previously only `checkbox`, `text`/`email`/`url`/`number`, `textarea`, and `select` rendered and other types produced no output. A child's custom `callback` is now invoked with its `args`, matching top-level fields — this activates callbacks that were previously ignored on container children and may surface latent consumer bugs.
+- Enter-to-submit now applies to all single-line text fields (`text`, `email`, `url`, `number`, `password`) at both the top level and as container children, rather than only text children of `advanced` containers.
+- Top-level `advanced`/`fieldset` containers now span the full width of the settings table by reclaiming the empty label column.
+
+### Added
+
+- Add `hide_child_labels` arg for `fieldset` fields. When `true`, each child's label column is dropped and the control spans the full width, letting the `<legend>` serve as the group label — useful when a child's title merely repeats the legend (e.g. a lone repeater). Defaults off; existing fieldsets are unchanged.
+
 ## [2.27.3] - 2026-05-26
 
 ### Fixed
