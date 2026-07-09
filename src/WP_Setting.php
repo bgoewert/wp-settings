@@ -365,7 +365,7 @@ class WP_Setting
      */
     public static function normalize_text_domain($text_domain): string
     {
-        return \str_replace('-', '_', $text_domain);
+        return \str_replace('-', '_', (string) $text_domain);
     }
 
     /**
