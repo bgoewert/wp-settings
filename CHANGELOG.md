@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.1] - 2026-07-09
+
+### Fixed
+
+- Composer dist archives no longer ship development-only files. `tests/`, `openspec/`, `.github/`, `phpunit.xml.dist`, `composer.lock`, and internal docs (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`) are excluded via `.gitattributes` `export-ignore`, so production consumers pulling the release get a lean `vendor/` dir. `src/`, `CHANGELOG.md`, `README.md`, `LICENSE`, and `composer.json` still ship.
+
 ## [2.28.0] - 2026-07-09
 
 ### Changed
