@@ -1,0 +1,14 @@
+# Keep dev-only files out of the Composer dist archive (`--prefer-dist`
+# installs). Production consumers still receive src/, CHANGELOG.md, README.md,
+# LICENSE, and composer.json. export-ignore only affects generated archives and
+# takes effect on the next tagged release.
+/.github          export-ignore
+/openspec         export-ignore
+/tests            export-ignore
+/phpunit.xml.dist export-ignore
+/composer.lock    export-ignore
+/AGENTS.md        export-ignore
+/CLAUDE.md        export-ignore
+/CONTRIBUTING.md  export-ignore
+/.gitignore       export-ignore
+/.gitattributes   export-ignore
