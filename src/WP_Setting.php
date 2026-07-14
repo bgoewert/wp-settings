@@ -649,6 +649,7 @@ class WP_Setting
         $default_value = \false,
         $decrypt = \false,
     ): mixed {
+        $setting = (string) $setting;
         $normalized_domain = self::normalize_text_domain(self::$text_domain);
         if (
             self::$text_domain &&
@@ -675,6 +676,7 @@ class WP_Setting
      */
     public static function set($setting, $value, $encrypt = \false, $autoload = \null): bool
     {
+        $setting = (string) $setting;
         if ($encrypt) {
             $value = self::encrypt($value);
         }
@@ -701,6 +703,7 @@ class WP_Setting
      */
     public static function delete($setting): bool
     {
+        $setting = (string) $setting;
         $normalized_domain = self::normalize_text_domain(self::$text_domain);
         if (
             self::$text_domain &&

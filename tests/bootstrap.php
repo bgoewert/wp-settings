@@ -75,6 +75,18 @@ if (!function_exists("update_option")) {
     }
 }
 
+if (!function_exists("delete_option")) {
+    function delete_option($option)
+    {
+        global $wp_test_options;
+        if (!array_key_exists($option, $wp_test_options)) {
+            return false;
+        }
+        unset($wp_test_options[$option]);
+        return true;
+    }
+}
+
 if (!function_exists("add_option")) {
     function add_option($option, $value = "")
     {

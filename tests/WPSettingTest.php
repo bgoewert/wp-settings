@@ -431,6 +431,20 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * Test static get/set/delete tolerate a null setting name without triggering
+     * a str_replace()/strpos() null-subject deprecation warning on PHP 8.1+.
+     */
+    public function test_static_methods_handle_null_setting_without_deprecation(): void
+    {
+        // Create a setting first to set the text_domain
+        new WP_Setting('my-plugin', 'dummy', 'Dummy', 'text', 'general', 'main');
+
+        $this->assertFalse(WP_Setting::get(null));
+        $this->assertIsBool(WP_Setting::set(null, 'value'));
+        $this->assertIsBool(WP_Setting::delete(null));
+    }
+
+    /**
      * Test init_type renders text input
      */
     public function test_init_type_renders_text_input(): void
