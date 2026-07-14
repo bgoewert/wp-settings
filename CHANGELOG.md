@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.3] - 2026-07-14
+
+### Fixed
+
+- `WP_Setting::get()`, `set()`, and `delete()` no longer emit a `str_replace()`/`strpos(): Passing null to parameter #1/#3` deprecation warning on PHP 8.1+ when called with a `null` setting name (e.g. from an unset field slug). The setting name is now cast to a string on entry, matching the fix already applied to `normalize_text_domain()` in 2.28.2.
+
 ## [2.28.2] - 2026-07-09
 
 ### Fixed
