@@ -4,6 +4,14 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.4] - 2026-07-15
+
+### Fixed
+
+- `WP_Setting_Encryption::get_default_key()` and `get_default_nonce()` no longer emit an `mb_strlen(): Passing null to parameter #1 ($string) of type string is deprecated` warning on PHP 8.1+ when the key/nonce constant is defined with a `null` value (e.g. `define('X_KEY', getenv('X_KEY') ?: null)`, a common "not configured yet" pattern). The constant's value is now cast to a string before being base64-decoded and length-checked.
+- `WP_Settings::init()` no longer emits an `Undefined array key "name"` warning when a registered settings section omits the `name` key. It now falls back to an empty string, matching the existing `?? $key` fallback already used for `slug` on the same line.
+- Added regression coverage confirming `WP_Setting::set()`/`delete()`'s existing `(string)` cast keeps the text-domain-normalization `str_replace()` call from ever receiving a `null` subject, closing out the last of the three overlapping null/undefined-index bugs reported across the 2.27.3 and 2.28.2 vendored versions in downstream consumers.
+
 ## [2.28.3] - 2026-07-14
 
 ### Fixed
