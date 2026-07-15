@@ -153,7 +153,7 @@ class WP_Setting_Encryption
             if (!defined($this->key_constant)) {
                 return $this->check_key_len(self::safe_base64_decode(preg_match("/define\('{$this->key_constant}',\s?'([^']+)'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
-            return $this->check_key_len(self::safe_base64_decode(constant($this->key_constant)));
+            return $this->check_key_len(self::safe_base64_decode((string) constant($this->key_constant)));
         } else if (is_writable($config_file)) {
             $key = self::random_bytes($this->key_length);
             $key_constant = "define('" . $this->key_constant . "', '" . base64_encode($key) . "');\n";
@@ -183,7 +183,7 @@ class WP_Setting_Encryption
             if (!defined($this->nonce_constant)) {
                 return $this->check_nonce_len(self::safe_base64_decode(preg_match("/define\('{$this->nonce_constant}',\s?'([^']+)'\);/", file_get_contents($config_file), $matches) ? $matches[1] : ''));
             }
-            return $this->check_nonce_len(self::safe_base64_decode(constant($this->nonce_constant)));
+            return $this->check_nonce_len(self::safe_base64_decode((string) constant($this->nonce_constant)));
         } else if (is_writable($config_file)) {
             $nonce = self::random_bytes($this->nonce_length);
             $nonce_constant = "define('" . $this->nonce_constant . "', '" . base64_encode($nonce) . "');\n";

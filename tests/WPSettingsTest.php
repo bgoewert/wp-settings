@@ -568,4 +568,41 @@ class WPSettingsTest extends WP_Settings_TestCase
 
         $this->assertSame('value', $this->getOption('my_plugin_prefixed_field'));
     }
+
+    /**
+     * Regression test: init() reads $section["slug"] with a `?? $key` fallback one
+     * line above $section["name"], but historically read "name" without the same
+     * fallback, raising an "Undefined array key" warning for sections registered
+     * without a name.
+     */
+    public function test_init_does_not_warn_for_section_missing_name_key(): void
+    {
+        $sections = [
+            'general' => [
+                'tab'      => 'general',
+                'callback' => '__return_false',
+                // Intentionally no 'name' key.
+            ],
+        ];
+        $page = new Test_WP_Settings_Exposer([], $sections);
+
+        $warnings = [];
+        set_error_handler(function (int $errno, string $errstr) use (&$warnings): bool {
+            $warnings[] = $errstr;
+            return true;
+        }, E_WARNING);
+
+        try {
+            $page->init();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $warnings,
+            'A settings section without a "name" key must not raise an "Undefined array key" warning.');
+
+        $registered = $this->getRegisteredSettingsSections();
+        $this->assertArrayHasKey('test_plugin_section_general', $registered);
+        $this->assertSame('', $registered['test_plugin_section_general']['title']);
+    }
 }

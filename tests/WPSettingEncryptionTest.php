@@ -326,4 +326,94 @@ PHP;
         $this->assertInstanceOf(\Error::class, $result,
             'Decryption should return Error for tampered ciphertext');
     }
+
+    /**
+     * Run $callback with a PHP-level error handler that records every E_DEPRECATED/E_WARNING
+     * raised during its execution, instead of letting them pass through silently.
+     *
+     * @return array{0: mixed, 1: string[]} The callback's return value and any captured notices.
+     */
+    private function captureDeprecations(callable $callback): array
+    {
+        $notices = [];
+        set_error_handler(function (int $errno, string $errstr) use (&$notices): bool {
+            $notices[] = $errstr;
+            return true;
+        }, E_DEPRECATED | E_WARNING);
+
+        try {
+            $result = $callback();
+        } finally {
+            restore_error_handler();
+        }
+
+        return [$result, $notices];
+    }
+
+    /**
+     * Regression test for the mb_strlen(null) deprecation (2.28.2 regression).
+     *
+     * A key/nonce constant defined as `null` (e.g. `define('X_KEY', getenv('X_KEY') ?: null);`,
+     * a common pattern for "not configured yet") used to flow unmodified through
+     * safe_base64_decode() into check_key_len()/check_nonce_len(), reaching mb_strlen() as
+     * null and emitting a PHP deprecation notice.
+     */
+    public function test_get_default_key_and_nonce_are_strings_when_constant_defined_as_null(): void
+    {
+        if (!defined('TEST_ENC_KEY_NULLVAL')) {
+            define('TEST_ENC_KEY_NULLVAL', null);
+        }
+        if (!defined('TEST_ENC_NONCE_NULLVAL')) {
+            define('TEST_ENC_NONCE_NULLVAL', null);
+        }
+
+        [$crypt, $notices] = $this->captureDeprecations(
+            fn() => new WP_Setting_Encryption('TEST_ENC_KEY_NULLVAL', 'TEST_ENC_NONCE_NULLVAL')
+        );
+
+        $this->assertSame([], $notices,
+            'Instantiating with a null-valued key/nonce constant must not raise a PHP deprecation notice.');
+
+        $reflection = new ReflectionClass($crypt);
+        $key_property = $reflection->getProperty('key');
+        $key_property->setAccessible(true);
+        $nonce_property = $reflection->getProperty('nonce');
+        $nonce_property->setAccessible(true);
+
+        $this->assertIsString($key_property->getValue($crypt),
+            'get_default_key() must return a string, never null.');
+        $this->assertIsString($nonce_property->getValue($crypt),
+            'get_default_nonce() must return a string, never null.');
+    }
+
+    /**
+     * Regression test: no key/nonce constant, no wp-config.php stored fallback option
+     * available (config file missing entirely). Documents that get_default_key()/
+     * get_default_nonce() still resolve to a string via the LOGGED_IN_KEY/hardcoded
+     * fallback paths, with no deprecation notice.
+     */
+    public function test_get_default_key_and_nonce_are_strings_when_nothing_is_configured(): void
+    {
+        if (file_exists($this->config_file)) {
+            unlink($this->config_file);
+        }
+
+        [$crypt, $notices] = $this->captureDeprecations(
+            fn() => new WP_Setting_Encryption('TEST_ENC_KEY_MISSING', 'TEST_ENC_NONCE_MISSING')
+        );
+
+        $this->assertSame([], $notices,
+            'Instantiating with no config file and no key/nonce constants defined must not raise a PHP deprecation notice.');
+
+        $reflection = new ReflectionClass($crypt);
+        $key_property = $reflection->getProperty('key');
+        $key_property->setAccessible(true);
+        $nonce_property = $reflection->getProperty('nonce');
+        $nonce_property->setAccessible(true);
+
+        $this->assertIsString($key_property->getValue($crypt),
+            'get_default_key() must return a string even when nothing is configured.');
+        $this->assertIsString($nonce_property->getValue($crypt),
+            'get_default_nonce() must return a string even when nothing is configured.');
+    }
 }

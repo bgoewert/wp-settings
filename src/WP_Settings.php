@@ -201,7 +201,7 @@ class WP_Settings
             // translators: Placeholder is for the settings section name. This should have already been defined. This can be ignored.
             \add_settings_section(
                 $this->text_domain . "_section_" . $slug,
-                $section["name"],
+                $section["name"] ?? "",
                 $section["callback"],
                 $this->text_domain . "_" . $section["tab"],
             );

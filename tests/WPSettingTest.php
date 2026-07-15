@@ -445,6 +445,52 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * Regression test locking in the str_replace()/strpos() null-subject fix already
+     * present on `main` (WP_Setting::set()/delete() cast the setting name to string
+     * before use). Exercises the text-domain-normalization branch specifically, since
+     * that's the code path that calls str_replace() when the registered text domain
+     * contains a hyphen — the same class of bug reported (and previously fixed) against
+     * `str_replace()` in this file at v2.27.3.
+     */
+    public function test_set_and_delete_normalize_hyphenated_domain_without_deprecation(): void
+    {
+        WP_Setting::$text_domain = 'my-plugin';
+
+        $warnings = [];
+        set_error_handler(function (int $errno, string $errstr) use (&$warnings): bool {
+            $warnings[] = $errstr;
+            return true;
+        }, E_DEPRECATED | E_WARNING);
+
+        $stored_value = null;
+        $value_after_delete = null;
+
+        try {
+            // Setting name already carrying the hyphenated prefix triggers the
+            // str_replace('my-plugin_', 'my_plugin_', $setting) normalization.
+            WP_Setting::set('my-plugin_hyphen_option', 'value-one');
+            $stored_value = $this->getOption('my_plugin_hyphen_option');
+
+            WP_Setting::delete('my-plugin_hyphen_option');
+            $value_after_delete = $this->getOption('my_plugin_hyphen_option', 'not-found');
+
+            // A null setting name (the historical trigger for the str_replace()/strpos()
+            // deprecation) must also flow through the same normalization safely.
+            WP_Setting::set(null, 'value-two');
+            WP_Setting::delete(null);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $warnings,
+            'Normalizing a hyphenated text domain must not raise a str_replace()/strpos() deprecation notice.');
+        $this->assertSame('value-one', $stored_value,
+            'The hyphenated prefix must be normalized to underscores when storing the option.');
+        $this->assertSame('not-found', $value_after_delete,
+            'The normalized option key must be deleted.');
+    }
+
+    /**
      * Test init_type renders text input
      */
     public function test_init_type_renders_text_input(): void
