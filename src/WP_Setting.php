@@ -168,7 +168,7 @@ class WP_Setting
     public $autoload;
 
     /**
-     * Plugin text domain. Set by WP_Settings during initialization or manually via $text_domain assignment.
+     * Plugin text domain. Set by WP_Settings during initialization or via WP_Setting::set_text_domain().
      *
      * @var string
      */
@@ -366,6 +366,45 @@ class WP_Setting
     public static function normalize_text_domain($text_domain): string
     {
         return \str_replace('-', '_', (string) $text_domain);
+    }
+
+    /**
+     * Set WP_Setting::$text_domain directly, without constructing a WP_Settings subclass.
+     *
+     * Equivalent to the normalization WP_Settings::__construct() performs. Use this when
+     * WP_Setting::get()/set() need to work outside of admin-page construction — e.g. a
+     * frontend/REST/WP-CLI request, or a WP_Settings subclass with non-admin-safe side
+     * effects in its constructor.
+     *
+     * @param string $domain The plugin text domain (hyphens are normalized to underscores).
+     * @return void
+     */
+    public static function set_text_domain(string $domain): void
+    {
+        self::$text_domain = self::normalize_text_domain($domain);
+    }
+
+    /**
+     * Signal that WP_Setting::$text_domain is unset when get()/set() is called.
+     *
+     * Most commonly caused by constructing a WP_Settings subclass only inside
+     * `if ( is_admin() )` — its own admin_init hook is already inert outside wp-admin,
+     * but that construction is also the only place $text_domain gets set, so gating it
+     * silently breaks WP_Setting::get()/set() everywhere else (frontend, REST, WP-CLI).
+     *
+     * @param string $function_name The calling method, for the _doing_it_wrong() message.
+     * @return void
+     */
+    private static function warn_text_domain_unset(string $function_name): void
+    {
+        \_doing_it_wrong(
+            $function_name,
+            'WP_Setting::$text_domain is not set, so this call is reading/writing an unprefixed option key ' .
+            'instead of the plugin-prefixed one — this usually means your WP_Settings subclass is only ' .
+            'constructed inside `if ( is_admin() )`. Construct it unconditionally, or call ' .
+            'WP_Setting::set_text_domain( $domain ) before this call.',
+            '2.29.0'
+        );
     }
 
     /**
@@ -650,6 +689,9 @@ class WP_Setting
         $decrypt = \false,
     ): mixed {
         $setting = (string) $setting;
+        if (empty(self::$text_domain)) {
+            self::warn_text_domain_unset('WP_Setting::get');
+        }
         $normalized_domain = self::normalize_text_domain(self::$text_domain);
         if (
             self::$text_domain &&
@@ -677,6 +719,9 @@ class WP_Setting
     public static function set($setting, $value, $encrypt = \false, $autoload = \null): bool
     {
         $setting = (string) $setting;
+        if (empty(self::$text_domain)) {
+            self::warn_text_domain_unset('WP_Setting::set');
+        }
         if ($encrypt) {
             $value = self::encrypt($value);
         }

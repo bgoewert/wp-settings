@@ -27,7 +27,8 @@ global $wp_test_options,
     $wp_test_registered_scripts,
     $wp_test_enqueued_styles,
     $wp_test_inline_scripts,
-    $wp_test_current_screen_id;
+    $wp_test_current_screen_id,
+    $wp_test_doing_it_wrong_calls;
 
 function wp_settings_test_reset_stubs(): void
 {
@@ -40,7 +41,8 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_registered_scripts,
         $wp_test_enqueued_styles,
         $wp_test_inline_scripts,
-        $wp_test_current_screen_id;
+        $wp_test_current_screen_id,
+        $wp_test_doing_it_wrong_calls;
 
     $wp_test_options = [];
     $wp_test_actions = [];
@@ -52,6 +54,7 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_enqueued_styles = [];
     $wp_test_inline_scripts = [];
     $wp_test_current_screen_id = null;
+    $wp_test_doing_it_wrong_calls = [];
 }
 
 wp_settings_test_reset_stubs();
@@ -591,6 +594,18 @@ if (!function_exists("wp_safe_redirect")) {
     }
 }
 
+if (!function_exists("_doing_it_wrong")) {
+    function _doing_it_wrong($function_name, $message, $version)
+    {
+        global $wp_test_doing_it_wrong_calls;
+        $wp_test_doing_it_wrong_calls[] = compact(
+            "function_name",
+            "message",
+            "version",
+        );
+    }
+}
+
 if (!function_exists("get_plugin_data")) {
     function get_plugin_data($file, $data = false, $markup = false)
     {
@@ -627,6 +642,17 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
     {
         global $wp_test_filters;
         return $wp_test_filters[$hook] ?? [];
+    }
+
+    /**
+     * Retrieve every _doing_it_wrong() call recorded since the last reset.
+     *
+     * @return array
+     */
+    protected function getDoingItWrongCalls(): array
+    {
+        global $wp_test_doing_it_wrong_calls;
+        return $wp_test_doing_it_wrong_calls ?? [];
     }
 
     protected function getRegisteredSettingsFields(): array

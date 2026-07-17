@@ -431,6 +431,83 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * WP_Setting::set_text_domain() normalizes hyphens to underscores, matching
+     * WP_Settings::__construct()'s normalization, and makes get()/set() usable
+     * without constructing a WP_Settings subclass.
+     */
+    public function test_set_text_domain_normalizes_and_enables_prefixing(): void
+    {
+        WP_Setting::$text_domain = null;
+
+        WP_Setting::set_text_domain('my-plugin');
+
+        $this->assertSame('my_plugin', WP_Setting::$text_domain);
+
+        WP_Setting::set('some_setting', 'a_value');
+        $this->assertSame('a_value', $this->getOption('my_plugin_some_setting'));
+    }
+
+    /**
+     * WP_Setting::get() should warn (via _doing_it_wrong) when $text_domain is unset,
+     * while still returning the caller's default value unchanged.
+     */
+    public function test_get_triggers_doing_it_wrong_when_text_domain_unset(): void
+    {
+        WP_Setting::$text_domain = null;
+
+        $value = WP_Setting::get('some_setting', 'default_value');
+
+        $this->assertSame('default_value', $value);
+        $calls = $this->getDoingItWrongCalls();
+        $this->assertCount(1, $calls);
+        $this->assertSame('WP_Setting::get', $calls[0]['function_name']);
+    }
+
+    /**
+     * WP_Setting::set() should warn (via _doing_it_wrong) when $text_domain is unset,
+     * while still performing the (unprefixed) write unchanged.
+     */
+    public function test_set_triggers_doing_it_wrong_when_text_domain_unset(): void
+    {
+        WP_Setting::$text_domain = null;
+
+        $result = WP_Setting::set('some_setting', 'a_value');
+
+        $this->assertTrue($result);
+        $this->assertSame('a_value', $this->getOption('some_setting'));
+        $calls = $this->getDoingItWrongCalls();
+        $this->assertCount(1, $calls);
+        $this->assertSame('WP_Setting::set', $calls[0]['function_name']);
+    }
+
+    /**
+     * No notice once WP_Setting::set_text_domain() has established the domain.
+     */
+    public function test_get_and_set_do_not_trigger_doing_it_wrong_once_domain_set_via_setter(): void
+    {
+        WP_Setting::set_text_domain('my-plugin');
+
+        WP_Setting::get('some_setting', 'default_value');
+        WP_Setting::set('some_setting', 'a_value');
+
+        $this->assertSame([], $this->getDoingItWrongCalls());
+    }
+
+    /**
+     * No notice once a WP_Settings subclass construction has established the domain
+     * (the original, already-working mechanism).
+     */
+    public function test_get_and_set_do_not_trigger_doing_it_wrong_once_domain_set_via_construction(): void
+    {
+        new WP_Setting('dummy', 'Dummy', 'text', 'general', 'main');
+
+        WP_Setting::get('some_setting', 'default_value');
+        WP_Setting::set('some_setting', 'a_value');
+
+        $this->assertSame([], $this->getDoingItWrongCalls());
+    }
+
+    /**
      * Test static get/set/delete tolerate a null setting name without triggering
      * a str_replace()/strpos() null-subject deprecation warning on PHP 8.1+.
      */

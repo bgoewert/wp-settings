@@ -87,6 +87,26 @@ new My_Settings();
 
 Tab labels default to `ucwords(tab)` but you can override the display label per tab with `tab_name`.
 
+### Construct Unconditionally — Do Not Gate Behind `is_admin()`
+
+Always construct your `WP_Settings` subclass unconditionally, as in the example above (`new My_Settings();` at file scope) — never gate it behind `if ( is_admin() )`. The class's own `admin_init` hook is already inert outside wp-admin regardless of when it's registered, so gating construction yourself buys nothing there. What it *does* break: `WP_Setting::$text_domain` is only ever set as a side effect of that construction, and `WP_Setting::get()`/`::set()` need it set on **every** request — frontend, REST, WP-CLI — not just admin ones. Gate the construction and those calls silently fall through to reading/writing an unprefixed, nonexistent option key, always returning your hardcoded default instead of the admin-configured value, with no error or warning to indicate why.
+
+If you have a genuine reason to avoid constructing the full `WP_Settings` object outside of wp-admin (e.g. a subclass constructor with its own non-admin-safe side effects), call `WP_Setting::set_text_domain( $domain )` instead — see below.
+
+### `WP_Setting::set_text_domain()`
+
+`WP_Setting::set_text_domain( string $domain ): void` sets `WP_Setting::$text_domain` directly, normalizing hyphens to underscores exactly as `WP_Settings::__construct()` does — without requiring a `WP_Settings` subclass at all:
+
+```php
+use BGoewert\WP_Settings\WP_Setting;
+
+WP_Setting::set_text_domain('my-plugin');
+
+$value = WP_Setting::get('my_option', 'default');
+```
+
+Calling `WP_Setting::get()` or `::set()` while `$text_domain` is still unset triggers a `_doing_it_wrong()` notice (visible under `WP_DEBUG`, silent in production) naming the likely cause and fix; the call still returns its existing fallback value either way.
+
 ## Built-In Logging
 
 You can opt into a built-in `Logging` tab with plugin log files, retention settings, and an admin log viewer.
