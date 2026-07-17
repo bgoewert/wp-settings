@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.29.0] - 2026-07-17
+
+### Added
+
+- `WP_Setting::set_text_domain( string $domain )`, a documented way to set the static `WP_Setting::$text_domain` (with the same hyphen-to-underscore normalization `WP_Settings::__construct()` applies) without constructing a full `WP_Settings` subclass.
+- `WP_Setting::get()` and `WP_Setting::set()` now trigger `_doing_it_wrong()` when called while `$text_domain` is still unset, naming the likely cause (a `WP_Settings` subclass constructed only inside `if ( is_admin() )`) and the fix. Visible under `WP_DEBUG`, silent in production; the existing fallback return value is unchanged either way. This surfaces a previously-silent bug: without a set text domain, both methods read/write an unprefixed, nonexistent option key on every request outside wp-admin (frontend, REST, WP-CLI), always returning the caller's hardcoded default instead of the admin-configured value.
+
 ## [2.28.4] - 2026-07-15
 
 ### Fixed
