@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.29.1] - 2026-07-24
+
+### Fixed
+
+- `WP_Setting_Encryption` no longer emits the PHP 8.1+ `mb_strlen(): Passing null to parameter #1` deprecation. `check_key_len()`, `check_nonce_len()` and `safe_base64_decode()` now coerce their argument to a string at the point of use, so a null from an unset key/nonce constant or an empty stored option can no longer reach `mb_strlen()`/`base64_decode()`. Guarding the leaf helpers closes the paths that the v2.28.4 constant-cast fix did not cover.
+
 ## [2.29.0] - 2026-07-17
 
 ### Added
