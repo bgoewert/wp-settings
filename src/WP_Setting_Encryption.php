@@ -83,6 +83,11 @@ class WP_Setting_Encryption
      */
     private static function safe_base64_decode($value)
     {
+        // Guard null: PHP 8.1+ deprecates passing null to base64_decode()/mb_strlen().
+        // An unset/empty encrypted option arrives here as null; coerce to '' so it
+        // round-trips cleanly instead of propagating null into decrypt().
+        $value = (string) $value;
+
         // Try to decode
         $decoded = base64_decode($value, true);
 
@@ -103,6 +108,9 @@ class WP_Setting_Encryption
 
     private function check_key_len($key)
     {
+        // Guard null: PHP 8.1+ deprecates passing null to mb_strlen(). A key/salt
+        // that hasn't been resolved yet can arrive here as null.
+        $key = (string) $key;
         if (mb_strlen($key, '8bit') > $this->key_length) {
             $key = mb_substr($key, 0, $this->key_length, '8bit');
         }
@@ -111,6 +119,8 @@ class WP_Setting_Encryption
 
     private function check_nonce_len($nonce)
     {
+        // Guard null: PHP 8.1+ deprecates passing null to mb_strlen().
+        $nonce = (string) $nonce;
         if (mb_strlen($nonce, '8bit') > $this->nonce_length) {
             $nonce = mb_substr($nonce, 0, $this->nonce_length, '8bit');
         }
