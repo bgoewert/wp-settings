@@ -416,4 +416,36 @@ PHP;
         $this->assertIsString($nonce_property->getValue($crypt),
             'get_default_nonce() must return a string even when nothing is configured.');
     }
+
+    /**
+     * Regression test for the PHP 8.1+ mb_strlen(null) / base64_decode(null) deprecation
+     * emitted downstream by v2.29.0 (GitHub issue #4).
+     *
+     * Rather than proving every caller resolves to a string, the fix guards the leaf
+     * helpers themselves so a null can never reach mb_strlen()/base64_decode(). This
+     * exercises those helpers directly with null and asserts they stay silent and
+     * return a string. Fails against unguarded code (deprecation notice raised).
+     */
+    public function test_leaf_helpers_coerce_null_without_deprecation(): void
+    {
+        $crypt = new WP_Setting_Encryption('TEST_ENC_KEY_LEAF', 'TEST_ENC_NONCE_LEAF');
+        $reflection = new ReflectionClass($crypt);
+
+        foreach (['check_key_len', 'check_nonce_len', 'safe_base64_decode'] as $name) {
+            $method = $reflection->getMethod($name);
+            $method->setAccessible(true);
+
+            // safe_base64_decode is static; check_*_len are instance methods.
+            $target = $method->isStatic() ? null : $crypt;
+
+            [$result, $notices] = $this->captureDeprecations(
+                fn() => $method->invoke($target, null)
+            );
+
+            $this->assertSame([], $notices,
+                "{$name}(null) must not raise a PHP deprecation notice.");
+            $this->assertIsString($result,
+                "{$name}(null) must return a string, never null.");
+        }
+    }
 }
