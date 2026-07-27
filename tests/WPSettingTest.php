@@ -2350,4 +2350,95 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringNotContainsString('wps-repeater-numbered', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Fix 5: text-like input args passthrough (min, max, step, …)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render a text-like field with the given args and return the markup.
+     *
+     * @param string $type Field type.
+     * @param array  $args Type-specific args.
+     * @return string
+     */
+    private function renderTextInput(string $type, array $args): string
+    {
+        $setting = new WP_Setting(
+            'attr_field',
+            'Attr Field',
+            $type,
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            $args
+        );
+
+        ob_start();
+        $setting->render_unbound(null, 'attr_field', 'attr_field');
+        return ob_get_clean();
+    }
+
+    public function test_number_renders_min_max_step_from_args(): void
+    {
+        $output = $this->renderTextInput('number', ['min' => 60, 'max' => 86400, 'step' => 60]);
+
+        $this->assertStringContainsString('min="60"', $output);
+        $this->assertStringContainsString('max="86400"', $output);
+        $this->assertStringContainsString('step="60"', $output);
+    }
+
+    public function test_number_renders_zero_min_and_non_numeric_step(): void
+    {
+        $output = $this->renderTextInput('number', ['min' => 0, 'step' => 'any']);
+
+        $this->assertStringContainsString('min="0"', $output);
+        $this->assertStringContainsString('step="any"', $output);
+    }
+
+    public function test_text_renders_pattern_and_length_attributes(): void
+    {
+        $output = $this->renderTextInput('text', [
+            'pattern'      => '[A-Z]{3}',
+            'minlength'    => 3,
+            'maxlength'    => 3,
+            'size'         => 10,
+            'autocomplete' => 'off',
+        ]);
+
+        $this->assertStringContainsString('pattern="[A-Z]{3}"', $output);
+        $this->assertStringContainsString('minlength="3"', $output);
+        $this->assertStringContainsString('maxlength="3"', $output);
+        $this->assertStringContainsString('size="10"', $output);
+        $this->assertStringContainsString('autocomplete="off"', $output);
+    }
+
+    public function test_passthrough_attributes_are_escaped(): void
+    {
+        $output = $this->renderTextInput('text', ['pattern' => '"><script>alert(1)</script>']);
+
+        $this->assertStringNotContainsString('<script>', $output);
+        $this->assertStringContainsString('&lt;script&gt;', $output);
+    }
+
+    public function test_passthrough_skips_empty_and_non_scalar_args(): void
+    {
+        $output = $this->renderTextInput('number', ['min' => '', 'max' => ['bad'], 'step' => null]);
+
+        $this->assertStringNotContainsString('min=', $output);
+        $this->assertStringNotContainsString('max=', $output);
+        $this->assertStringNotContainsString('step=', $output);
+    }
+
+    public function test_passthrough_ignores_unlisted_attributes(): void
+    {
+        $output = $this->renderTextInput('text', ['onclick' => 'alert(1)', 'formaction' => '/evil']);
+
+        $this->assertStringNotContainsString('onclick=', $output);
+        $this->assertStringNotContainsString('formaction=', $output);
+    }
 }

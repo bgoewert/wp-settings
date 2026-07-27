@@ -177,6 +177,26 @@ class WP_Setting
     protected static $logger = null;
 
     /**
+     * Attributes a text-like input (text, email, url, number, password, …) accepts
+     * through $args and renders verbatim.
+     *
+     * Constrained to attributes already whitelisted in $allowed_html['input'] so the
+     * wp_kses() pass cannot silently drop them.
+     *
+     * @var string[]
+     */
+    public const PASSTHROUGH_INPUT_ATTRIBUTES = array(
+        'min',
+        'max',
+        'step',
+        'pattern',
+        'minlength',
+        'maxlength',
+        'size',
+        'autocomplete',
+    );
+
+    /**
      * Array of allowed HTML tags.
      *
      * @var array
@@ -1116,6 +1136,7 @@ class WP_Setting
         if ($placeholder) {
             $atts .= ' ' . $placeholder;
         }
+        $atts .= $this->get_passthrough_input_attributes();
         // Pressing Enter in a single-line input submits the containing form.
         $atts .= $this->get_enter_submit_attribute();
 
@@ -1734,6 +1755,35 @@ class WP_Setting
             . 'var tr=s.closest("tr"),td=s.closest("td");if(!tr||!td)return;'
             . 'var th=tr.querySelector(":scope > th");if(th)th.style.display="none";'
             . 'td.setAttribute("colspan","2");td.style.paddingLeft="0";})();</script>';
+    }
+
+    /**
+     * Build the HTML attributes a text-like input accepts through $args.
+     *
+     * Every attribute here is already whitelisted in self::$allowed_html['input'],
+     * so the wp_kses() pass at render time lets them through unchanged. Anything
+     * non-scalar or empty-string is skipped; `0` is a legitimate value (min="0").
+     *
+     * @return string Leading-space-prefixed attributes, or '' if none apply.
+     */
+    protected function get_passthrough_input_attributes(): string
+    {
+        $atts = '';
+
+        foreach (self::PASSTHROUGH_INPUT_ATTRIBUTES as $attr) {
+            if (!isset($this->args[$attr]) || !is_scalar($this->args[$attr])) {
+                continue;
+            }
+
+            $value = (string) $this->args[$attr];
+            if ('' === $value) {
+                continue;
+            }
+
+            $atts .= sprintf(' %s="%s"', $attr, \esc_attr($value));
+        }
+
+        return $atts;
     }
 
     /**
