@@ -173,6 +173,24 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 
 **Field Map**: Dynamic add/remove rows for mapping source fields to destination fields.
 
+### Input Attributes
+
+Text-like fields (`text`, `email`, `url`, `number`, `password`) render these `$args` keys directly onto the `<input>`: `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size`, `autocomplete`.
+
+```php
+new WP_Setting(
+    'cache_duration', 'Cache Duration (seconds)', 'number', 'settings', 'section',
+    '10ch', 'How long to cache API responses.', false, 3600, null,
+    array('min' => 60, 'step' => 60)
+);
+```
+
+Empty strings, `null` and non-scalar values are skipped; `0` is rendered (`min="0"`).
+
+These are browser-side validation hints only. Saving still goes through the field's sanitize callback, and the default `number` callback rejects non-numerics but does **not** enforce `min`/`max` — supply a custom `sanitize_callback` if you need a hard bound.
+
+`textarea` fields accept `rows`, `class` and `placeholder` the same way.
+
 ### Advanced Field Example
 
 ```php
