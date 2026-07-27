@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.29.2] - 2026-07-27
+
+### Fixed
+
+- Text-like fields (`text`, `email`, `url`, `number`, `password`) now render the `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size` and `autocomplete` keys from `$args` onto the `<input>`. These were accepted by the constructor and already whitelisted for the `wp_kses()` pass, but `render_text_value()` never emitted them, so number fields silently lost their client-side bounds and stepper granularity ([#5](https://github.com/bgoewert/wp-settings/issues/5)). Empty strings and non-scalar values are skipped, `0` is rendered, and values are escaped with `esc_attr()`. Server-side sanitization is unchanged — `min`/`max` remain browser-side hints, so keep enforcing hard bounds in a `sanitize_callback`.
+
 ## [2.29.1] - 2026-07-24
 
 ### Fixed
