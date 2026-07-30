@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.30.0] - 2026-07-30
+
+### Added
+
+- Text-like fields (`text`, `email`, `url`, `number`, `password`) and `textarea` fields now accept a `readonly` key in `$args`, so a field can be rendered non-editable without a consumer shipping its own `<script>` to set `readOnly` after load ([#7](https://github.com/bgoewert/wp-settings/issues/7)). Boolean attributes are rendered by presence, not value: a truthy arg emits the bare `readonly` attribute and any falsy arg (`false`, `0`, `'0'`, `''`, `null`) omits it entirely, because a browser honours `readonly="0"` exactly as it honours `readonly`. The new `WP_Setting::PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES` constant lists which attributes take this path. `disabled` is deliberately excluded: browsers drop disabled inputs from the POST body and `wp-admin/options.php` writes every registered option from `$_POST`, so a disabled field would blank its own stored option on save. `readonly` fields are uneditable in the browser only — a crafted POST can still change the value, so keep enforcing invariants in `sanitize_callback`.
+
 ## [2.29.2] - 2026-07-27
 
 ### Fixed
