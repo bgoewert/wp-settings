@@ -191,6 +191,24 @@ These are browser-side validation hints only. Saving still goes through the fiel
 
 `textarea` fields accept `rows`, `class` and `placeholder` the same way.
 
+#### Boolean Attributes
+
+`readonly` is a boolean attribute, so it is rendered by **presence**: pass anything truthy and the bare attribute is emitted, pass anything falsy (`false`, `0`, `'0'`, `''`, `null`) or omit the key and nothing is emitted. It is never rendered as `readonly="…"`, because a browser treats `readonly="0"` as read-only just like `readonly`.
+
+```php
+new WP_Setting(
+    'quote_email', 'Quote Email', 'text', 'settings', 'section',
+    '30ch', 'Managed by the active quote plugin.', false, null, null,
+    array('readonly' => $quote_plugin_active)
+);
+```
+
+Both text-like fields and `textarea` accept `readonly`.
+
+`disabled` is **not** supported. Browsers omit disabled inputs from form submission and `wp-admin/options.php` writes every registered option from `$_POST`, so a disabled field would blank its own stored option on the next save. Use `readonly`: the input stays uneditable but still submits its current value.
+
+A read-only field is uneditable in the browser only. A crafted POST can still change the value, so keep validating in `sanitize_callback` if the value must not change.
+
 ### Advanced Field Example
 
 ```php
