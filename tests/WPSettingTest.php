@@ -2441,4 +2441,118 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringNotContainsString('onclick=', $output);
         $this->assertStringNotContainsString('formaction=', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Issue 7: presence-based rendering for boolean input attributes
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render a textarea with the given args and return the markup.
+     *
+     * @param array $args Type-specific args.
+     * @return string
+     */
+    private function renderTextarea(array $args): string
+    {
+        $setting = new WP_Setting(
+            'ta_bool',
+            'Textarea Bool',
+            'textarea',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            $args
+        );
+
+        ob_start();
+        $setting->init_textarea();
+        return ob_get_clean();
+    }
+
+    public function test_readonly_renders_bare_attribute_when_truthy(): void
+    {
+        $output = $this->renderTextInput('text', ['readonly' => true]);
+
+        $this->assertStringContainsString(' readonly', $output);
+        $this->assertStringNotContainsString('readonly=', $output);
+    }
+
+    /**
+     * A boolean attribute is presence-based, so every falsy arg must omit it
+     * entirely — readonly="0" would still lock the field.
+     */
+    public function test_readonly_omitted_for_falsy_args(): void
+    {
+        $falsy = [
+            'false'        => false,
+            'int zero'     => 0,
+            'string zero'  => '0',
+            'empty string' => '',
+            'null'         => null,
+        ];
+
+        foreach ($falsy as $label => $value) {
+            $output = $this->renderTextInput('text', ['readonly' => $value]);
+
+            $this->assertStringNotContainsString('readonly', $output, "readonly rendered for {$label}");
+        }
+    }
+
+    public function test_readonly_not_rendered_when_arg_absent(): void
+    {
+        $output = $this->renderTextInput('text', ['size' => 10]);
+
+        $this->assertStringNotContainsString('readonly', $output);
+    }
+
+    public function test_readonly_coexists_with_value_passthrough_attributes(): void
+    {
+        $output = $this->renderTextInput('number', ['min' => 0, 'readonly' => true]);
+
+        $this->assertStringContainsString('min="0"', $output);
+        $this->assertStringContainsString(' readonly', $output);
+    }
+
+    /**
+     * `disabled` stays out of the boolean list: browsers drop disabled inputs
+     * from the POST body, which would blank the stored option on save.
+     */
+    public function test_disabled_is_not_a_passthrough_attribute(): void
+    {
+        $output = $this->renderTextInput('text', ['disabled' => true]);
+
+        $this->assertStringNotContainsString('disabled', $output);
+    }
+
+    public function test_textarea_renders_readonly_from_args(): void
+    {
+        $output = $this->renderTextarea(['readonly' => true]);
+
+        $this->assertStringContainsString(' readonly', $output);
+        $this->assertStringNotContainsString('readonly=', $output);
+    }
+
+    public function test_textarea_omits_readonly_when_falsy(): void
+    {
+        $output = $this->renderTextarea(['readonly' => 0]);
+
+        $this->assertStringNotContainsString('readonly', $output);
+    }
+
+    /**
+     * The value-based list is invalid on a textarea, so only the boolean list
+     * is wired into that renderer.
+     */
+    public function test_textarea_does_not_render_value_passthrough_attributes(): void
+    {
+        $output = $this->renderTextarea(['min' => 5, 'pattern' => '[A-Z]+', 'size' => 10]);
+
+        $this->assertStringNotContainsString('min=', $output);
+        $this->assertStringNotContainsString('pattern=', $output);
+        $this->assertStringNotContainsString('size=', $output);
+    }
 }
