@@ -197,6 +197,26 @@ class WP_Setting
     );
 
     /**
+     * Boolean attributes a text-like input or textarea accepts through $args.
+     *
+     * Rendered by presence, not value: a browser honours readonly="0" and
+     * readonly="false" exactly as it honours readonly, so a falsy arg has to
+     * omit the attribute outright instead of emitting it with a falsy value.
+     * Truthy arg => bare attribute; anything falsy => nothing.
+     *
+     * `disabled` is deliberately excluded. Browsers omit disabled inputs from
+     * form submission and wp-admin/options.php writes every registered option
+     * from $_POST, so a disabled field would blank its own stored option on the
+     * next save. `readonly` is the safe way to show a value without letting it
+     * be edited — the input still submits its current value.
+     *
+     * @var string[]
+     */
+    public const PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES = array(
+        'readonly',
+    );
+
+    /**
      * Array of allowed HTML tags.
      *
      * @var array
@@ -1189,6 +1209,7 @@ class WP_Setting
         if (isset($this->args['placeholder'])) {
             $atts .= ' placeholder="' . esc_attr($this->args['placeholder']) . '"';
         }
+        $atts .= $this->get_passthrough_boolean_attributes();
 
         echo \wp_kses(sprintf('<textarea name="%s" id="%s"%s>%s</textarea>', $name, $id, $atts, $value), self::$allowed_html);
         if ($this->description) {
@@ -1781,6 +1802,30 @@ class WP_Setting
             }
 
             $atts .= sprintf(' %s="%s"', $attr, \esc_attr($value));
+        }
+
+        return $atts . $this->get_passthrough_boolean_attributes();
+    }
+
+    /**
+     * Build the boolean HTML attributes a field accepts through $args.
+     *
+     * Emitted bare (no value) when the arg is truthy and omitted entirely when
+     * it is falsy, because presence is what the browser acts on. See
+     * self::PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES.
+     *
+     * @return string Leading-space-prefixed attributes, or '' if none apply.
+     */
+    protected function get_passthrough_boolean_attributes(): string
+    {
+        $atts = '';
+
+        foreach (self::PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES as $attr) {
+            if (empty($this->args[$attr])) {
+                continue;
+            }
+
+            $atts .= ' ' . $attr;
         }
 
         return $atts;
