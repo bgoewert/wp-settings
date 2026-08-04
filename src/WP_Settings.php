@@ -142,12 +142,6 @@ class WP_Settings
         \add_action("admin_enqueue_scripts", [$this, "enqueue_admin"]);
         \add_filter("admin_footer_text", [$this, "admin_footer_text"], 11);
         \add_filter("update_footer", [$this, "admin_footer_version"], 11);
-        \add_option(
-            $this->text_domain . "_key",
-            base64_encode(WP_Setting::random_bytes(32)),
-            '',
-            'no',
-        );
     }
 
     /**

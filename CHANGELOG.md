@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.30.1] - 2026-08-04
+
+### Removed
+
+- `WP_Settings::__construct()` no longer creates a `{text_domain}_key` option ([#8](https://github.com/bgoewert/wp-settings/issues/8)). Nothing ever read it — `WP_Setting_Encryption` takes its key from a `wp-config.php` constant, falling back to `LOGGED_IN_KEY` — but because the option was written non-autoloaded and the constructor runs on every request, `add_option()`'s existence check cost one `SELECT` on every uncached frontend page view for the life of the site. Existing rows are left in place rather than deleted, in case a consumer has come to rely on the value; delete `{text_domain}_key` manually if you want the row gone.
+
 ## [2.30.0] - 2026-07-30
 
 ### Added

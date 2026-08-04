@@ -147,6 +147,18 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertSame('my_predefined_plugin', WP_Setting::$text_domain);
     }
 
+    /**
+     * The constructor runs on every request, including uncached frontend page
+     * views. Writing an option there costs a query per request forever after,
+     * and nothing reads this one — the encryption key comes from a wp-config
+     * constant. See #8.
+     */
+    public function test_constructor_does_not_create_a_key_option(): void
+    {
+        new Test_WP_Settings_Exposer();
+        $this->assertFalse($this->getOption('test_plugin_key', false));
+    }
+
     public function test_constructor_invalid_throws(): void
     {
         $this->expectException(\InvalidArgumentException::class);
