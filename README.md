@@ -209,6 +209,24 @@ Both text-like fields and `textarea` accept `readonly`.
 
 A read-only field is uneditable in the browser only. A crafted POST can still change the value, so keep validating in `sanitize_callback` if the value must not change.
 
+### Row Labels
+
+WordPress renders each settings row as `<tr><th>title</th><td>field</td></tr>`, and `do_settings_fields()` wraps that `<th>` text in `<label for="…">` only when the field declares `label_for` in its `$args`. Fields set it for you, pointing at the control's own id (the field slug), so the visible title is the control's accessible name — without it every control on the screen has a heading assistive technology cannot associate with its input (WCAG 1.3.1, 4.1.2; axe `label`, and `select-name` for selects).
+
+This applies to every type rendered as one control carrying the slug: the text-like inputs, `textarea`, `select`, `checkbox`, and any custom input type. It is skipped for the types listed in `WP_Setting::UNLABELABLE_TYPES`, where no single control answers to the slug and a label would be an orphan — `radio` (one wrapped label per option), `sortable`, `table`, `field_map`, `repeater` (a control per row), `advanced`, `fieldset` (children label themselves), `hidden`, and `richtext` (TinyMCE hides the textarea the id belongs to).
+
+To point the row label somewhere else, pass your own `label_for`; to suppress it, pass an empty string:
+
+```php
+new WP_Setting(
+    'api_mode', 'API Mode', 'text', 'settings', 'section',
+    null, null, false, null, null,
+    array('label_for' => '') // opt out of the generated <label for>
+);
+```
+
+Container children follow the same rule: `advanced` and `fieldset` bind each child's heading to that child's control when the child is labelable, and render a plain heading when it is not. Use `WP_Setting::renders_labelable_control()` if you build headings yourself.
+
 ### Advanced Field Example
 
 ```php

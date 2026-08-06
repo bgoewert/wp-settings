@@ -2555,4 +2555,190 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringNotContainsString('pattern=', $output);
         $this->assertStringNotContainsString('size=', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Row labels: do_settings_fields() only wraps a row heading in
+    // <label for> when the field declares label_for (issue #9).
+    // -------------------------------------------------------------------------
+
+    /** Register one field and return the args WordPress received for it. */
+    private function registeredArgsFor(string $name, string $type, array $args = [], bool $required = false): array
+    {
+        $setting = new WP_Setting($name, 'A Title', $type, 'general', 'main', null, null, $required, null, null, $args);
+        $setting->init();
+
+        $fields = $this->getRegisteredSettingsFields();
+
+        return $fields['my_plugin_' . $name . '_field']['args'];
+    }
+
+    /**
+     * Every type rendered as one control with id="{slug}" — including a custom
+     * input type falling through to the text renderer — gets the row label.
+     */
+    public function test_label_for_defaults_to_slug_for_single_control_types(): void
+    {
+        foreach (['text', 'email', 'url', 'number', 'password', 'color', 'date', 'textarea', 'select', 'checkbox'] as $type) {
+            $args = $this->registeredArgsFor('lf_' . $type, $type);
+
+            $this->assertSame(
+                'my_plugin_lf_' . $type,
+                $args['label_for'] ?? null,
+                "label_for missing for type {$type}"
+            );
+        }
+    }
+
+    /**
+     * Types with no control carrying the slug must not get a label pointing at
+     * one — that trades a missing label for an orphan label.
+     */
+    public function test_label_for_omitted_for_types_without_a_matching_control(): void
+    {
+        foreach (['radio', 'sortable', 'table', 'field_map', 'repeater', 'richtext'] as $type) {
+            $args = $this->registeredArgsFor('nolf_' . $type, $type);
+
+            $this->assertArrayNotHasKey('label_for', $args, "label_for set for type {$type}");
+        }
+    }
+
+    public function test_label_for_omitted_for_container_types(): void
+    {
+        $child = new WP_Setting('lf_container_child', 'Child', 'text', 'general', 'main');
+
+        foreach (['advanced', 'fieldset'] as $type) {
+            $args = $this->registeredArgsFor('lf_' . $type, $type, ['children' => [$child]]);
+
+            $this->assertArrayNotHasKey('label_for', $args, "label_for set for type {$type}");
+        }
+    }
+
+    public function test_label_for_from_args_is_preserved(): void
+    {
+        $args = $this->registeredArgsFor('lf_custom', 'text', ['label_for' => 'some_other_id']);
+
+        $this->assertSame('some_other_id', $args['label_for']);
+    }
+
+    /**
+     * WordPress tests label_for with `! empty()`, so an explicit empty string is
+     * a consumer opting out of the generated label.
+     */
+    public function test_empty_label_for_from_args_is_preserved_as_opt_out(): void
+    {
+        $args = $this->registeredArgsFor('lf_optout', 'text', ['label_for' => '']);
+
+        $this->assertSame('', $args['label_for']);
+    }
+
+    /**
+     * The required marker is appended to the title, which ends up inside the
+     * generated label — the label itself is still bound to the control.
+     */
+    public function test_required_field_keeps_label_for_and_required_marker(): void
+    {
+        $setting = new WP_Setting('lf_required', 'A Title', 'text', 'general', 'main', null, null, true);
+        $setting->init();
+
+        $field = $this->getRegisteredSettingsFields()['my_plugin_lf_required_field'];
+
+        $this->assertSame('my_plugin_lf_required', $field['args']['label_for']);
+        $this->assertStringContainsString('<span class="required">*</span>', $field['title']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Container children: the container renders its own headings, so the same
+    // labelable/unlabelable split applies there.
+    // -------------------------------------------------------------------------
+
+    /** Build a fieldset container around one child. */
+    private function makeFieldsetWith(WP_Setting $child): WP_Setting
+    {
+        return new WP_Setting(
+            'lf_fs_parent',
+            'Fieldset',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child]]
+        );
+    }
+
+    public function test_fieldset_child_heading_binds_to_labelable_child(): void
+    {
+        $child = new WP_Setting('fs_text_child', 'Text Child', 'text', 'general', 'main');
+
+        ob_start();
+        $this->makeFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('<label for="my_plugin_fs_text_child">Text Child</label>', $output);
+    }
+
+    public function test_fieldset_child_heading_omits_for_on_unlabelable_child(): void
+    {
+        $child = new WP_Setting(
+            'fs_radio_child',
+            'Radio Child',
+            'radio',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['a' => 'A', 'b' => 'B']]
+        );
+
+        ob_start();
+        $this->makeFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('<th scope="row">Radio Child</th>', $output);
+        $this->assertStringNotContainsString('for="my_plugin_fs_radio_child"', $output);
+    }
+
+    public function test_advanced_child_heading_binds_to_labelable_child(): void
+    {
+        $child = new WP_Setting('adv_text_child', 'Text Child', 'text', 'general', 'main');
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString(
+            '<label for="my_plugin_adv_text_child"><strong>Text Child</strong></label>',
+            $output
+        );
+    }
+
+    public function test_advanced_child_heading_omits_for_on_unlabelable_child(): void
+    {
+        $child = new WP_Setting(
+            'adv_radio_child',
+            'Radio Child',
+            'radio',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['a' => 'A', 'b' => 'B']]
+        );
+
+        ob_start();
+        $this->makeAdvancedWith($child)->init_advanced();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('<p><strong>Radio Child</strong></p>', $output);
+        $this->assertStringNotContainsString('for="my_plugin_adv_radio_child"', $output);
+    }
 }

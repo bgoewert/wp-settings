@@ -217,6 +217,36 @@ class WP_Setting
     );
 
     /**
+     * Field types whose markup carries no single control with the field's own id.
+     *
+     * A row heading can only become `<label for="{slug}">` when exactly one
+     * control answers to that id. These types don't qualify: `radio` renders one
+     * wrapped label per option (its inputs have no id at all), `sortable`,
+     * `table`, `field_map` and `repeater` render a control per row, `advanced`
+     * and `fieldset` delegate to children that label themselves, `hidden`
+     * renders no visible control, and `richtext` hands its id to a textarea that
+     * TinyMCE hides behind an iframe. Pointing a label at an id nothing carries
+     * trades a missing label for an orphan one, so these keep a plain heading.
+     *
+     * Every other type — the text-like inputs, `textarea`, `select`, `checkbox`,
+     * and any custom input type falling through to render_text_value() — renders
+     * one control whose id is the slug.
+     *
+     * @var string[]
+     */
+    public const UNLABELABLE_TYPES = array(
+        'radio',
+        'sortable',
+        'table',
+        'field_map',
+        'repeater',
+        'richtext',
+        'advanced',
+        'fieldset',
+        'hidden',
+    );
+
+    /**
      * Array of allowed HTML tags.
      *
      * @var array
@@ -706,13 +736,47 @@ class WP_Setting
         // Skip add_settings_field for hidden fields to avoid empty table rows
         // Advanced and fieldset fields handle their own rendering including child fields
         if ($this->type !== 'hidden' && $this->type !== 'advanced' && $this->type !== 'fieldset') {
-            \add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
+            \add_settings_field($this->slug . '_field', $this->title . ($this->required ? ' <span class="required">*</span>' : ''), $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->settings_field_args());
         } elseif ($this->type === 'advanced' || $this->type === 'fieldset') {
             // For advanced/fieldset fields, only register the parent field (not children)
             // Children will be registered separately when their init() is called
             $this->renders_as_settings_row = true;
             \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
+    }
+
+    /**
+     * Whether this field's row heading can be a `<label for="{slug}">`.
+     *
+     * @return bool True when the field renders one control whose id is its slug.
+     */
+    public function renders_labelable_control(): bool
+    {
+        return !\in_array($this->type, self::UNLABELABLE_TYPES, \true);
+    }
+
+    /**
+     * The args handed to add_settings_field().
+     *
+     * Defaults `label_for` to the field's slug, because do_settings_fields()
+     * wraps a row's `<th>` text in `<label for>` only when that arg is present.
+     * Without it every control on the screen has a visible heading assistive
+     * technology cannot associate with its input — a WCAG 1.3.1/4.1.2 failure
+     * (axe: `label`, plus `select-name` for selects, which have no other naming
+     * source). A consumer passing its own `label_for` keeps it, and an explicit
+     * empty string opts out, since WordPress tests the arg with `! empty()`.
+     *
+     * @return array
+     */
+    private function settings_field_args(): array
+    {
+        $args = $this->args;
+
+        if (!isset($args['label_for']) && $this->renders_labelable_control()) {
+            $args['label_for'] = $this->slug;
+        }
+
+        return $args;
     }
 
     /**
@@ -1738,7 +1802,13 @@ class WP_Setting
         foreach ($this->children as $child) {
             echo '<div class="wps-advanced-child" style="margin-bottom: 15px;">';
             if ($child->title) {
-                echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
+                // Bind the heading to the child's control where one carries the id,
+                // so the visible title is also the control's accessible name.
+                if ($child->renders_labelable_control()) {
+                    echo '<p><label for="' . \esc_attr($child->slug) . '"><strong>' . \esc_html($child->title) . '</strong></label></p>';
+                } else {
+                    echo '<p><strong>' . \esc_html($child->title) . '</strong></p>';
+                }
             }
             // Pass $child->args, mirroring WP's field-callback contract
             // (add_settings_field hands $args to the callback). Built-in
@@ -1873,7 +1943,13 @@ class WP_Setting
             if ($hide_child_labels) {
                 echo '<td colspan="2">';
             } else {
-                echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
+                // Only bind the heading to the child's id when the child renders a
+                // single control carrying it; otherwise the label is an orphan.
+                if ($child->renders_labelable_control()) {
+                    echo '<th scope="row"><label for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label></th>';
+                } else {
+                    echo '<th scope="row">' . \esc_html($child->title) . '</th>';
+                }
                 echo '<td>';
             }
             // Pass $child->args, mirroring WP's field-callback contract

@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.31.0] - 2026-08-06
+
+### Added
+
+- `WP_Setting::UNLABELABLE_TYPES` and `WP_Setting::renders_labelable_control()`, which name the field types whose markup has no single control carrying the field slug. Use the method when rendering your own row headings.
+
+### Fixed
+
+- Settings rows now associate their visible title with the field's control ([#9](https://github.com/bgoewert/wp-settings/issues/9)). WordPress's `do_settings_fields()` wraps a row's `<th>` text in `<label for="…">` only when the field declares `label_for` in its args, and the library never set it, so every control on every screen built with it rendered a heading assistive technology could not associate with its input — a WCAG 1.3.1/4.1.2 failure on the whole screen at once (axe `label` at critical impact, plus `select-name` for `select` fields, which have no other naming source). `label_for` now defaults to the field slug, which is the id every single-control renderer emits. A consumer passing its own `label_for` keeps it, and an explicit empty string opts out, since WordPress tests the arg with `! empty()`.
+- The label is deliberately skipped for the types in `WP_Setting::UNLABELABLE_TYPES`, where nothing carries the slug and a `for` would point at a nonexistent element: `radio` (one wrapped label per option, inputs have no id), `sortable`, `table`, `field_map` and `repeater` (a control per row), `advanced` and `fieldset` (children label themselves), `hidden` (registers no row), and `richtext` (TinyMCE hides the textarea holding the id). Any other type — including a custom input type falling through to the text renderer — gets the label.
+- `fieldset` children no longer emit an orphan `<label for="{child slug}">` when the child is one of those types; the heading renders as plain `<th>` text instead. `advanced` children, whose `<p><strong>` heading was never associated with anything, are now wrapped in a `<label for>` when the child is labelable, with identical visual markup.
+
 ## [2.30.1] - 2026-08-04
 
 ### Removed
