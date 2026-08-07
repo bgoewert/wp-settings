@@ -1653,7 +1653,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->save();
         unset($_POST['my_plugin_child_check']);
 
-        $this->assertTrue($this->getOption('my_plugin_child_check'));
+        $this->assertSame('1', $this->getOption('my_plugin_child_check'));
     }
 
     public function test_fieldset_saves_textarea_child(): void
@@ -1899,6 +1899,53 @@ class WPSettingTest extends WP_Settings_TestCase
 
         // Hidden companion input guarantees an unchecked box still submits 0.
         $this->assertStringContainsString('<input type="hidden" name="my_plugin_cb_child" value="0">', $output);
+    }
+
+    public function test_checkbox_save_stores_string_values(): void
+    {
+        $setting = new WP_Setting('cb_str', 'Checkbox', 'checkbox', 'general', 'main');
+
+        $_POST['my_plugin_cb_str'] = 'on';
+        $setting->save();
+        $this->assertSame('1', $this->getOption('my_plugin_cb_str'));
+
+        // The hidden companion input submits '0' when the box is unchecked.
+        $_POST['my_plugin_cb_str'] = '0';
+        $setting->save();
+        $this->assertSame('0', $this->getOption('my_plugin_cb_str'));
+
+        unset($_POST['my_plugin_cb_str']);
+    }
+
+    public function test_checkbox_saved_off_survives_reinit(): void
+    {
+        // A checkbox defaulting on must stay off after save(): the stored '0'
+        // row keeps add_setting()'s add_option() from re-seeding the default.
+        $setting = new WP_Setting(
+            'cb_default_on',
+            'Checkbox',
+            'checkbox',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            'on'
+        );
+
+        $_POST['my_plugin_cb_default_on'] = '0';
+        $setting->save();
+        unset($_POST['my_plugin_cb_default_on']);
+
+        $setting->init();
+
+        $this->assertSame('0', $this->getOption('my_plugin_cb_default_on'));
+
+        ob_start();
+        $setting->init_checkbox();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('checked=', $output);
     }
 
     public function test_advanced_child_custom_callback_receives_args(): void

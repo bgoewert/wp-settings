@@ -915,7 +915,11 @@ class WP_Setting
 
         switch ($this->type) {
             case 'checkbox':
-                self::set($this->slug, $value == 'on' ? true : false);
+                // Store strings, not booleans: update_option() with boolean false
+                // can leave no usable row, and add_setting()'s add_option() call
+                // then re-seeds the default on the next page load — an unchecked
+                // box would silently turn itself back on.
+                self::set($this->slug, $value == 'on' ? '1' : '0');
                 break;
 
             case 'password':

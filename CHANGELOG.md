@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.31.2] - 2026-08-07
+
+### Fixed
+
+- `checkbox` fields can be turned off again ([#11](https://github.com/bgoewert/wp-settings/issues/11)). `WP_Setting::save()` stored a PHP boolean, and `update_option($option, false)` does not reliably leave a usable row; `WP_Setting::add_setting()` runs `add_option()` on every admin page load, so the missing row was re-seeded with the field's default and an unchecked box came back checked on the next view. The value is now stored as the string `'1'` or `'0'`, so the row always exists. Reading is unchanged: the on state already read back as `'1'` from the database, and `'0'` is falsy in PHP and already rendered unchecked.
+
 ## [2.31.1] - 2026-08-07
 
 ### Added
