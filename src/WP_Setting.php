@@ -575,6 +575,10 @@ class WP_Setting
                     $this->sanitize_callback = array(__CLASS__, 'sanitize_url');
                     break;
 
+                case 'color':
+                    $this->sanitize_callback = array(__CLASS__, 'sanitize_color');
+                    break;
+
                 case 'number':
                     $this->sanitize_callback = function($value) {
                         if (empty($value) && $value !== '0' && $value !== 0) {
@@ -2069,6 +2073,12 @@ class WP_Setting
                     case 'url':
                         $clean_row[$field_name] = \esc_url_raw($raw);
                         break;
+                    case 'color':
+                        // An invalid color is dropped, not stored: a row field
+                        // holds a string, and false would read back as ''.
+                        $color = self::sanitize_color($raw);
+                        $clean_row[$field_name] = false === $color ? '' : $color;
+                        break;
                     case 'textarea':
                         $clean_row[$field_name] = $preserve_percent
                             ? $this->sanitize_keep_percent($raw, true)
@@ -2788,6 +2798,24 @@ class WP_Setting
     }
 
     /**
+     * Validates if a value is a valid hex color.
+     *
+     * Accepts what `<input type="color">` submits: a leading `#` followed by 3
+     * or 6 hex digits. `rgb()`, `hsl()` and named colors are not valid.
+     *
+     * @param mixed $value The value to validate.
+     *
+     * @return bool True if valid hex color, false otherwise.
+     */
+    public static function is_valid_hex_color($value): bool
+    {
+        if (!is_scalar($value)) {
+            return false;
+        }
+        return (bool) preg_match('/^#([A-Fa-f0-9]{3}){1,2}$/', (string) $value);
+    }
+
+    /**
      * Validates if a value is not empty.
      *
      * @param mixed $value The value to validate.
@@ -2841,6 +2869,37 @@ class WP_Setting
 
         if (self::is_valid_email($sanitized)) {
             return $sanitized;
+        }
+
+        return false;
+    }
+
+    /**
+     * Sanitizes and validates a hex color.
+     *
+     * @param mixed $value The color to sanitize.
+     *
+     * @return string|false Sanitized `#rrggbb`/`#rgb` color, an empty string if
+     *                      no value was submitted, or false if invalid.
+     */
+    public static function sanitize_color($value): string|false
+    {
+        if (null === $value || '' === $value) {
+            return '';
+        }
+
+        if (!is_scalar($value)) {
+            return false;
+        }
+
+        $value = trim((string) $value);
+
+        if ('' === $value) {
+            return '';
+        }
+
+        if (self::is_valid_hex_color($value)) {
+            return $value;
         }
 
         return false;

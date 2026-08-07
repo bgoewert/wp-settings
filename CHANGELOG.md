@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.31.1] - 2026-08-07
+
+### Added
+
+- `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()`, public so a consumer can reuse or wrap the library's color validation.
+
+### Fixed
+
+- `color` fields now get a default `sanitize_callback` and no longer store whatever was posted ([#10](https://github.com/bgoewert/wp-settings/issues/10)). The per-type defaults in `WP_Setting::__construct()` covered `email`, `url`, `number`, `sortable`, `text`, `textarea`, `richtext` and `repeater` but not `color`, so a color field fell through `save()` with no callback and the raw `$_POST` value reached the option. A browser's `<input type="color">` only submits `#rrggbb`, but `wp-admin/options.php` writes every registered option from `$_POST`, so a crafted request could store arbitrary text in a value consumers routinely interpolate into a `<style>` block or an inline `style` attribute. Only `#rgb` and `#rrggbb` are accepted — `rgb()`, `hsl()` and named colors are rejected, matching what the control can submit — and an invalid value stores `false` rather than falling back to the field's default, consistent with how `url` and `email` already reject invalid input. Pass your own `sanitize_callback` to accept other CSS color syntaxes.
+- `repeater` children declared as `type => color` are validated the same way instead of falling through to `sanitize_text_field()`, which stripped tags but left a non-color remnant of the submitted value. An invalid child value is stored as an empty string, since a row field holds a string.
+
 ## [2.31.0] - 2026-08-06
 
 ### Added

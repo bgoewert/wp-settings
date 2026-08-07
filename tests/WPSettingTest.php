@@ -1126,6 +1126,152 @@ class WPSettingTest extends WP_Settings_TestCase
     }
 
     /**
+     * Test sanitize_color sanitizes and validates hex colors
+     */
+    public function test_sanitize_color(): void
+    {
+        // Six-digit hex, which is all <input type="color"> ever submits
+        $this->assertSame('#e27728', WP_Setting::sanitize_color('#e27728'));
+
+        // Three-digit shorthand and uppercase digits are valid
+        $this->assertSame('#FFF', WP_Setting::sanitize_color('#FFF'));
+
+        // Surrounding whitespace is trimmed
+        $this->assertSame('#e27728', WP_Setting::sanitize_color('  #e27728  '));
+
+        // No value submitted
+        $this->assertSame('', WP_Setting::sanitize_color(''));
+        $this->assertSame('', WP_Setting::sanitize_color(null));
+        $this->assertSame('', WP_Setting::sanitize_color('   '));
+
+        // Anything else is rejected outright rather than partially cleaned
+        $this->assertFalse(WP_Setting::sanitize_color('e27728'));
+        $this->assertFalse(WP_Setting::sanitize_color('#e2772'));
+        $this->assertFalse(WP_Setting::sanitize_color('#gggggg'));
+        $this->assertFalse(WP_Setting::sanitize_color('rgb(226, 119, 40)'));
+        $this->assertFalse(WP_Setting::sanitize_color('red'));
+        $this->assertFalse(WP_Setting::sanitize_color(array('#e27728')));
+    }
+
+    /**
+     * Test color field type gets default sanitize_callback
+     */
+    public function test_color_field_has_default_sanitization(): void
+    {
+        $setting = new WP_Setting(
+            'color_field',
+            'Color',
+            'color',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        $_POST['my_plugin_color_field'] = '#e27728';
+        $setting->save();
+
+        $this->assertSame('#e27728', WP_Setting::get('color_field'));
+
+        // Clean up
+        unset($_POST['my_plugin_color_field']);
+    }
+
+    /**
+     * A color field must not store whatever was posted (issue #10): the browser
+     * only submits #rrggbb, but options.php writes every registered option from
+     * $_POST, and consumers interpolate colors into CSS.
+     */
+    public function test_color_field_rejects_invalid_color(): void
+    {
+        $setting = new WP_Setting(
+            'color_field',
+            'Color',
+            'color',
+            'general',
+            'main'
+        );
+
+        $setting->init();
+
+        $_POST['my_plugin_color_field'] = '#e27728<script>alert(1)</script>';
+        $setting->save();
+
+        $this->assertFalse(WP_Setting::get('color_field'));
+
+        // Clean up
+        unset($_POST['my_plugin_color_field']);
+    }
+
+    /**
+     * Test a custom sanitize_callback still wins for color fields
+     */
+    public function test_color_field_custom_sanitize_callback_overrides_default(): void
+    {
+        $setting = new WP_Setting(
+            'color_field',
+            'Color',
+            'color',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            array(
+                'sanitize_callback' => function ($value) {
+                    return 'rebeccapurple';
+                },
+            )
+        );
+
+        $setting->init();
+
+        $_POST['my_plugin_color_field'] = 'red';
+        $setting->save();
+
+        $this->assertSame('rebeccapurple', WP_Setting::get('color_field'));
+
+        // Clean up
+        unset($_POST['my_plugin_color_field']);
+    }
+
+    /**
+     * Repeater children of type color get the same validation, dropping an
+     * invalid value instead of storing a tag-stripped remnant of it.
+     */
+    public function test_repeater_sanitizes_color_children(): void
+    {
+        $setting = new WP_Setting(
+            'r_color',
+            'r',
+            'repeater',
+            'tab',
+            'sec',
+            null,
+            null,
+            false,
+            array(),
+            null,
+            array(
+                'children' => array(
+                    array('name' => 'label', 'type' => 'text'),
+                    array('name' => 'swatch', 'type' => 'color'),
+                ),
+            )
+        );
+
+        $out = $setting->sanitize_repeater(array(
+            array('label' => 'Marker', 'swatch' => '#e27728'),
+            array('label' => 'Bad', 'swatch' => '#e27728<script>alert(1)</script>'),
+        ));
+
+        $this->assertSame('#e27728', $out[0]['swatch']);
+        $this->assertSame('', $out[1]['swatch']);
+    }
+
+    /**
      * Test number field type gets default sanitize_callback
      */
     public function test_number_field_has_default_sanitization(): void

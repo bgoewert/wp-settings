@@ -161,7 +161,9 @@ Notes:
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`, `field_map`
+Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`, `field_map`
+
+**Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
 **Advanced**: Collapsible `<details>` section containing child settings.
 
