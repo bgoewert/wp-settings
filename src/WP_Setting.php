@@ -2729,14 +2729,16 @@ class WP_Setting
             return $value;
         }
 
-        $crypt = new WP_Setting_Encryption(
-            strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
-            strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
-        );
-
         try {
+            // Construct inside the try: a missing extension or constant can fail
+            // here too, and that must degrade rather than white-screen the request.
+            $crypt = new WP_Setting_Encryption(
+                strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
+                strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
+            );
+
             $decrypted_value = $crypt->decrypt($value);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             if (self::$logger !== null) {
                 self::$logger->warning('Decryption failed', array('operation' => 'decrypt'));
             }
@@ -2755,14 +2757,14 @@ class WP_Setting
      */
     public static function encrypt($value): mixed
     {
-        $crypt = new WP_Setting_Encryption(
-            strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
-            strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
-        );
-
         try {
+            $crypt = new WP_Setting_Encryption(
+                strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
+                strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
+            );
+
             return $crypt->encrypt($value);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             if (self::$logger !== null) {
                 self::$logger->warning('Encryption failed', array('operation' => 'encrypt'));
             }

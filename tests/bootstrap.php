@@ -17,6 +17,34 @@ if (!file_exists($config_file)) {
     file_put_contents($config_file, "<?php\n// Stub wp-config for tests.\n");
 }
 
+// Namespaced function stubs must be declared before the library is autoloaded.
+require_once __DIR__ . "/namespace-stubs.php";
+
+// Extensions the current test wants the library to believe are missing.
+global $wp_test_disabled_extensions;
+$wp_test_disabled_extensions = [];
+
+/**
+ * Run $callback as though $extension were not compiled into PHP.
+ *
+ * @param string   $extension Extension name, e.g. "sodium".
+ * @param callable $callback  Code to run under the simulated build.
+ * @return mixed The callback's return value.
+ */
+function wp_settings_test_without_extension(string $extension, callable $callback)
+{
+    global $wp_test_disabled_extensions;
+
+    $previous = $wp_test_disabled_extensions;
+    $wp_test_disabled_extensions[] = $extension;
+
+    try {
+        return $callback();
+    } finally {
+        $wp_test_disabled_extensions = $previous;
+    }
+}
+
 // Test globals
 global $wp_test_options,
     $wp_test_actions,

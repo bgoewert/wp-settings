@@ -12,26 +12,56 @@ if (class_exists('BGoewert\\WP_Settings\\WP_Setting_Encryption')) {
 }
 
 /**
- * Handle encryption and decryption of data in WordPress using `libsodium`.
+ * Handle encryption and decryption of data in WordPress using `libsodium`,
+ * falling back to `openssl` (AES-256-GCM) where sodium is unavailable.
  * Expects keys to be stored in wp-config.
  * Note that this is not the safest but is the most reasonable method to support most installations of WordPress as far as I can tell.
  * @link https://felix-arntz.me/blog/storing-confidential-data-in-wordpress/
- * @todo: Add fallback for openssl (if it exists)
  */
 class WP_Setting_Encryption
 {
+    /** Key size in bytes. Matches SODIUM_CRYPTO_SECRETBOX_KEYBYTES and AES-256. */
+    public const DEFAULT_KEY_LENGTH = 32;
+
+    /** Nonce size in bytes. Matches SODIUM_CRYPTO_SECRETBOX_NONCEBYTES. */
+    public const DEFAULT_NONCE_LENGTH = 24;
+
+    /** Authentication tag size in bytes. Matches SODIUM_CRYPTO_SECRETBOX_MACBYTES and the GCM tag. */
+    public const DEFAULT_MAC_LENGTH = 16;
+
+    /** Cipher used by the openssl fallback. AEAD, like secretbox. */
+    public const OPENSSL_CIPHER = 'aes-256-gcm';
+
+    /** AES-GCM IV size in bytes. */
+    public const OPENSSL_IV_LENGTH = 12;
+
+    /**
+     * Marker prefixed to openssl payloads so the two ciphertext formats can be
+     * told apart on read. ':' and '.' are outside the base64 alphabet, so a
+     * sodium payload can never be mistaken for an openssl one.
+     */
+    public const OPENSSL_PREFIX = 'wps.aesgcm.v1:';
+
     private $key;
     private $nonce;
     private static $instance;
 
     private $key_constant;
     private $nonce_constant;
-    private $key_length = SODIUM_CRYPTO_SECRETBOX_KEYBYTES;
-    private $nonce_length = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
-    private $mac_length = SODIUM_CRYPTO_SECRETBOX_MACBYTES;
+    // Resolved in the constructor, not here: property initialisers are evaluated
+    // at instantiation, so referencing SODIUM_* constants at this point makes the
+    // class unconstructable — and the extension_loaded() guards unreachable — on
+    // PHP builds without sodium.
+    private $key_length;
+    private $nonce_length;
+    private $mac_length;
 
     public function __construct($key_constant = \null, $nonce_constant = \null, $key_length = \null, $nonce_length = \null, $mac_length = \null)
     {
+        $this->key_length = \defined('SODIUM_CRYPTO_SECRETBOX_KEYBYTES') ? \SODIUM_CRYPTO_SECRETBOX_KEYBYTES : self::DEFAULT_KEY_LENGTH;
+        $this->nonce_length = \defined('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES') ? \SODIUM_CRYPTO_SECRETBOX_NONCEBYTES : self::DEFAULT_NONCE_LENGTH;
+        $this->mac_length = \defined('SODIUM_CRYPTO_SECRETBOX_MACBYTES') ? \SODIUM_CRYPTO_SECRETBOX_MACBYTES : self::DEFAULT_MAC_LENGTH;
+
         if (\null !== $key_length) {
             $this->key_length = $key_length;
         }
@@ -209,37 +239,143 @@ class WP_Setting_Encryption
         return 'ta-n-uimhir-shoh-soilshaghey-ny-mooar-ny-un-uair';
     }
 
-    public function encrypt($string)
+    /**
+     * Whether this installation can encrypt at all.
+     *
+     * @return bool True when either sodium or openssl is available.
+     */
+    public static function is_available(): bool
     {
-        if (!extension_loaded('sodium')) {
-            // trigger_error('The Sodium extension is not loaded. Encryption cannot be completed. Returned initial value.', E_USER_ERROR);
-            return new \Error('The Sodium extension is not loaded. Encryption cannot be completed. Returned initial value.');
-        }
-
-        $cipher    = sodium_crypto_secretbox($string, $this->nonce, $this->key);
-        $encrypted = base64_encode($this->nonce . $cipher);
-
-        sodium_memzero($string);
-
-        return $encrypted;
+        return extension_loaded('sodium') || extension_loaded('openssl');
     }
 
-    public function decrypt($encrypted_string)
+    /**
+     * Derive the AES-256-GCM key.
+     *
+     * AES-256 needs exactly 32 bytes, but check_key_len() only truncates — a
+     * short key (LOGGED_IN_KEY, or the last-resort literal) would otherwise rely
+     * on openssl silently NUL-padding it. Hashing normalises the length
+     * deterministically.
+     *
+     * @return string 32 raw bytes.
+     */
+    private function openssl_key(): string
     {
-        if (!extension_loaded('sodium')) {
-            // trigger_error('The Sodium extension is not loaded. Decryption cannot be completed. Returned initial string.', E_USER_ERROR);
-            return new \Error('The Sodium extension is not loaded. Decryption cannot be completed. Returned initial string.');
+        return hash('sha256', (string) $this->key, true);
+    }
+
+    /**
+     * Encrypt with AES-256-GCM.
+     *
+     * Unlike the sodium path this generates a fresh IV per call rather than
+     * reusing the configured nonce — IV reuse under GCM is catastrophic.
+     *
+     * @param string $string Plaintext.
+     * @return string Prefixed, base64-encoded `IV . tag . ciphertext`.
+     * @throws \RuntimeException When openssl_encrypt() fails.
+     */
+    private function openssl_encrypt(string $string): string
+    {
+        $iv  = self::random_bytes(self::OPENSSL_IV_LENGTH);
+        $tag = '';
+
+        $cipher = openssl_encrypt($string, self::OPENSSL_CIPHER, $this->openssl_key(), OPENSSL_RAW_DATA, $iv, $tag, '', self::DEFAULT_MAC_LENGTH);
+
+        if (false === $cipher) {
+            throw new \RuntimeException('Error encrypting. openssl_encrypt() failed.');
         }
 
-        if (empty($encrypted_string)) {
+        return self::OPENSSL_PREFIX . base64_encode($iv . $tag . $cipher);
+    }
+
+    /**
+     * Decrypt an AES-256-GCM payload written by openssl_encrypt().
+     *
+     * @param string $encrypted_string Prefixed, base64-encoded payload.
+     * @return string The plaintext.
+     * @throws \RuntimeException When the payload is truncated or fails authentication.
+     */
+    private function openssl_decrypt(string $encrypted_string): string
+    {
+        $decoded = base64_decode(substr($encrypted_string, strlen(self::OPENSSL_PREFIX)), true);
+
+        if (false === $decoded || mb_strlen($decoded, '8bit') < self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH) {
+            throw new \RuntimeException('Error decrypting. The given string was truncated.');
+        }
+
+        $iv        = mb_substr($decoded, 0, self::OPENSSL_IV_LENGTH, '8bit');
+        $tag       = mb_substr($decoded, self::OPENSSL_IV_LENGTH, self::DEFAULT_MAC_LENGTH, '8bit');
+        $cipher    = mb_substr($decoded, self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH, \null, '8bit');
+        $decrypted = openssl_decrypt($cipher, self::OPENSSL_CIPHER, $this->openssl_key(), OPENSSL_RAW_DATA, $iv, $tag);
+
+        if (false === $decrypted) {
+            throw new \RuntimeException('Error decrypting. The string was tampered with in transit.');
+        }
+
+        return $decrypted;
+    }
+
+    /**
+     * Encrypt a value, preferring sodium and falling back to openssl.
+     *
+     * Sodium stays the default where available so existing ciphertexts keep the
+     * format they were written in.
+     *
+     * @param string $string The plaintext to encrypt.
+     * @return string The encrypted value.
+     * @throws \RuntimeException When no supported extension is loaded, or encryption fails.
+     */
+    public function encrypt($string)
+    {
+        $string = (string) $string;
+
+        if (extension_loaded('sodium')) {
+            $cipher    = sodium_crypto_secretbox($string, $this->nonce, $this->key);
+            $encrypted = base64_encode($this->nonce . $cipher);
+
+            sodium_memzero($string);
+
+            return $encrypted;
+        }
+
+        if (extension_loaded('openssl')) {
+            return $this->openssl_encrypt($string);
+        }
+
+        throw new \RuntimeException('Neither the sodium nor the openssl extension is loaded. Encryption cannot be completed.');
+    }
+
+    /**
+     * Decrypt a value, dispatching on the format the payload was written in.
+     *
+     * @param string $encrypted_string The value to decrypt.
+     * @return string The decrypted value.
+     * @throws \RuntimeException When the required extension is missing, or the payload is truncated or tampered with.
+     */
+    public function decrypt($encrypted_string)
+    {
+        $encrypted_string = (string) $encrypted_string;
+
+        if ('' === $encrypted_string) {
             return '';
+        }
+
+        if (str_starts_with($encrypted_string, self::OPENSSL_PREFIX)) {
+            if (!extension_loaded('openssl')) {
+                throw new \RuntimeException('The openssl extension is not loaded. Decryption cannot be completed.');
+            }
+
+            return $this->openssl_decrypt($encrypted_string);
+        }
+
+        if (!extension_loaded('sodium')) {
+            throw new \RuntimeException('The sodium extension is not loaded. Decryption cannot be completed.');
         }
 
         $decoded = base64_decode($encrypted_string);
 
         if (mb_strlen($decoded, '8bit') < $this->nonce_length + $this->mac_length) {
-            // trigger_error('Error decrypting. The given string was truncated.', E_USER_WARNING);
-            return new \Error('Error decrypting. The given string was truncated.');
+            throw new \RuntimeException('Error decrypting. The given string was truncated.');
         }
 
         $nonce     = mb_substr($decoded, 0, $this->nonce_length, '8bit');
@@ -247,8 +383,7 @@ class WP_Setting_Encryption
         $decrypted = sodium_crypto_secretbox_open($cipher, $nonce, $this->key);
 
         if (false === $decrypted) {
-            // trigger_error('Error decrypting. The string was tampered with in transit.', E_USER_WARNING);
-            return new \Error('Error decrypting. The string was tampered with in transit.');
+            throw new \RuntimeException('Error decrypting. The string was tampered with in transit.');
         }
 
         return $decrypted;

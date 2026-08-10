@@ -278,11 +278,11 @@ PHP;
     }
 
     /**
-     * Test that decryption returns Error for truncated ciphertext
-     * 
+     * Test that decryption throws for truncated ciphertext
+     *
      * This verifies error handling for malformed encrypted data.
      */
-    public function test_decrypt_returns_error_for_truncated_ciphertext(): void
+    public function test_decrypt_throws_for_truncated_ciphertext(): void
     {
         if (!extension_loaded('sodium')) {
             $this->markTestSkipped('Sodium extension not loaded');
@@ -290,20 +290,19 @@ PHP;
 
         $crypt = new WP_Setting_Encryption('TEST_KEY', 'TEST_NONCE');
 
-        // Try to decrypt a truncated base64 string
-        $result = $crypt->decrypt('dGVzdA=='); // Just "test" in base64, too short
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('truncated');
 
-        // Should return an Error object
-        $this->assertInstanceOf(\Error::class, $result,
-            'Decryption should return Error for truncated ciphertext');
+        // Try to decrypt a truncated base64 string
+        $crypt->decrypt('dGVzdA=='); // Just "test" in base64, too short
     }
 
     /**
-     * Test that decryption returns Error for tampered ciphertext
-     * 
+     * Test that decryption throws for tampered ciphertext
+     *
      * This verifies that sodium_crypto_secretbox_open detects tampering.
      */
-    public function test_decrypt_returns_error_for_tampered_ciphertext(): void
+    public function test_decrypt_throws_for_tampered_ciphertext(): void
     {
         if (!extension_loaded('sodium')) {
             $this->markTestSkipped('Sodium extension not loaded');
@@ -319,12 +318,227 @@ PHP;
         $tampered = $decoded[0] === 'a' ? 'b' . substr($decoded, 1) : 'a' . substr($decoded, 1);
         $tampered_encrypted = base64_encode($tampered);
 
-        // Try to decrypt the tampered data
-        $result = $crypt->decrypt($tampered_encrypted);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('tampered');
 
-        // Should return an Error object
-        $this->assertInstanceOf(\Error::class, $result,
-            'Decryption should return Error for tampered ciphertext');
+        // Try to decrypt the tampered data
+        $crypt->decrypt($tampered_encrypted);
+    }
+
+    /**
+     * The class must be constructable on PHP without sodium.
+     *
+     * Regression test for #12: the lengths were property initialisers reading
+     * SODIUM_* constants, so instantiation fataled with an undefined-constant
+     * \Error before any extension_loaded() guard could run.
+     */
+    public function test_lengths_are_not_read_from_sodium_constants_at_class_load(): void
+    {
+        $reflection = new ReflectionClass(WP_Setting_Encryption::class);
+
+        foreach (['key_length', 'nonce_length', 'mac_length'] as $name) {
+            $property = $reflection->getProperty($name);
+            $this->assertFalse($property->hasDefaultValue() && $property->getDefaultValue() !== null,
+                sprintf('%s must be resolved in the constructor, not from a SODIUM_* property initialiser', $name));
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_LEN_KEY', 'TEST_LEN_NONCE');
+
+        foreach (['key_length' => 32, 'nonce_length' => 24, 'mac_length' => 16] as $name => $expected) {
+            $property = $reflection->getProperty($name);
+            $property->setAccessible(true);
+            $this->assertSame($expected, $property->getValue($crypt),
+                sprintf('%s should resolve to %d', $name, $expected));
+        }
+    }
+
+    /**
+     * The openssl fallback must round-trip on its own.
+     */
+    public function test_openssl_fallback_roundtrip(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('OpenSSL extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_OSSL_KEY', 'TEST_OSSL_NONCE');
+        $plaintext = 'sensitive-api-token-12345';
+
+        $reflection = new ReflectionClass($crypt);
+        $encrypt = $reflection->getMethod('openssl_encrypt');
+        $encrypt->setAccessible(true);
+
+        $encrypted = $encrypt->invoke($crypt, $plaintext);
+
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+            'openssl payloads must carry the format marker so decrypt() can dispatch on it');
+        $this->assertNotSame($plaintext, $encrypted);
+        $this->assertSame($plaintext, $crypt->decrypt($encrypted),
+            'decrypt() should route a prefixed payload to the openssl path');
+    }
+
+    /**
+     * End-to-end regression test for #12 on a simulated sodium-less build:
+     * constructing must not fatal, and encrypt() must fall back to openssl.
+     */
+    public function test_encrypt_falls_back_to_openssl_when_sodium_is_missing(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('OpenSSL extension not loaded');
+        }
+
+        $plaintext = 'sensitive-api-token-12345';
+
+        [$encrypted, $decrypted] = wp_settings_test_without_extension('sodium', function () use ($plaintext) {
+            $crypt = new WP_Setting_Encryption('TEST_NOSODIUM_KEY', 'TEST_NOSODIUM_NONCE');
+            $encrypted = $crypt->encrypt($plaintext);
+            return [$encrypted, $crypt->decrypt($encrypted)];
+        });
+
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+            'Without sodium, encrypt() should produce an openssl payload');
+        $this->assertSame($plaintext, $decrypted);
+
+        // The payload stays readable once sodium is back — the prefix pins the format.
+        $crypt = new WP_Setting_Encryption('TEST_NOSODIUM_KEY', 'TEST_NOSODIUM_NONCE');
+        $this->assertSame($plaintext, $crypt->decrypt($encrypted),
+            'openssl payloads must remain readable on a build that also has sodium');
+    }
+
+    /**
+     * With neither extension, encryption throws a catchable exception rather
+     * than an \Error that escapes catch (\Exception).
+     */
+    public function test_encrypt_throws_catchable_exception_without_any_backend(): void
+    {
+        $caught = wp_settings_test_without_extension('sodium', function () {
+            return wp_settings_test_without_extension('openssl', function () {
+                $this->assertFalse(WP_Setting_Encryption::is_available(),
+                    'is_available() should report false when neither backend is present');
+
+                $crypt = new WP_Setting_Encryption('TEST_NOEXT_KEY', 'TEST_NOEXT_NONCE');
+
+                try {
+                    $crypt->encrypt('test');
+                } catch (\Exception $e) {
+                    return $e;
+                }
+
+                return null;
+            });
+        });
+
+        $this->assertInstanceOf(\Exception::class, $caught,
+            'encrypt() should throw an \Exception subclass so callers catching \Exception still degrade');
+        $this->assertTrue(WP_Setting_Encryption::is_available(),
+            'is_available() should report true again once the stub is lifted');
+    }
+
+    /**
+     * A sodium payload cannot be read without sodium, but the failure must be a
+     * thrown exception rather than a fatal.
+     */
+    public function test_decrypt_throws_for_sodium_payload_without_sodium(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('Sodium extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_LEGACY_KEY', 'TEST_LEGACY_NONCE');
+        $encrypted = $crypt->encrypt('sensitive-api-token-12345');
+
+        wp_settings_test_without_extension('sodium', function () use ($encrypted) {
+            $crypt = new WP_Setting_Encryption('TEST_LEGACY_KEY', 'TEST_LEGACY_NONCE');
+
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('sodium extension is not loaded');
+
+            $crypt->decrypt($encrypted);
+        });
+    }
+
+    /**
+     * A fresh IV per call — GCM IV reuse across values would be catastrophic.
+     */
+    public function test_openssl_fallback_uses_a_fresh_iv_per_call(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('OpenSSL extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_OSSL_KEY', 'TEST_OSSL_NONCE');
+
+        $reflection = new ReflectionClass($crypt);
+        $encrypt = $reflection->getMethod('openssl_encrypt');
+        $encrypt->setAccessible(true);
+
+        $this->assertNotSame(
+            $encrypt->invoke($crypt, 'same-plaintext'),
+            $encrypt->invoke($crypt, 'same-plaintext'),
+            'Encrypting the same value twice must not produce the same ciphertext'
+        );
+    }
+
+    /**
+     * A tampered openssl payload must fail authentication, not decrypt to garbage.
+     */
+    public function test_openssl_fallback_rejects_tampered_payload(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('OpenSSL extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_OSSL_KEY', 'TEST_OSSL_NONCE');
+
+        $reflection = new ReflectionClass($crypt);
+        $encrypt = $reflection->getMethod('openssl_encrypt');
+        $encrypt->setAccessible(true);
+
+        $encrypted = $encrypt->invoke($crypt, 'sensitive-api-token-12345');
+        $payload = base64_decode(substr($encrypted, strlen(WP_Setting_Encryption::OPENSSL_PREFIX)));
+        // Flip a bit in the ciphertext body, past the IV and tag.
+        $offset = WP_Setting_Encryption::OPENSSL_IV_LENGTH + WP_Setting_Encryption::DEFAULT_MAC_LENGTH;
+        $payload[$offset] = chr(ord($payload[$offset]) ^ 0x01);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('tampered');
+
+        $crypt->decrypt(WP_Setting_Encryption::OPENSSL_PREFIX . base64_encode($payload));
+    }
+
+    /**
+     * An empty value round-trips to an empty string without touching either backend.
+     */
+    public function test_decrypt_returns_empty_string_for_empty_input(): void
+    {
+        $crypt = new WP_Setting_Encryption('TEST_EMPTY_KEY', 'TEST_EMPTY_NONCE');
+
+        $this->assertSame('', $crypt->decrypt(''));
+        $this->assertSame('', $crypt->decrypt(null));
+    }
+
+    /**
+     * WP_Setting::encrypt()/decrypt() must degrade to the original value rather
+     * than let a \Throwable escape — \Error is not an \Exception, so the old
+     * catch (\Exception) let undefined-constant fatals through.
+     */
+    public function test_wp_setting_wrappers_return_original_value_on_failure(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('Sodium extension not loaded');
+        }
+
+        $reflection = new ReflectionClass(\BGoewert\WP_Settings\WP_Setting::class);
+        $text_domain = $reflection->getProperty('text_domain');
+        $text_domain->setAccessible(true);
+        $text_domain->setValue(null, 'test-plugin');
+
+        // A value that is neither valid sodium nor openssl ciphertext: decrypt()
+        // throws internally, and the wrapper must hand back what it was given.
+        $garbage = 'not-actually-encrypted';
+
+        $this->assertSame($garbage, @\BGoewert\WP_Settings\WP_Setting::decrypt($garbage),
+            'decrypt() should return the original value when decryption fails');
     }
 
     /**

@@ -1,7 +1,7 @@
 {
     "name": "bgoewert/wp-settings",
     "description": "WordPress Settings Library",
-    "version": "2.31.2",
+    "version": "3.0.0",
     "license": "GPL-2.0-or-later",
     "type": "library",
     "autoload": {
@@ -11,6 +11,10 @@
     },
     "require": {
         "php": "^8.0"
+    },
+    "suggest": {
+        "ext-sodium": "Required to encrypt settings with XSalsa20-Poly1305, and to read values already encrypted with it",
+        "ext-openssl": "Fallback backend (AES-256-GCM) used to encrypt settings when sodium is unavailable"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6.33 || ^10.5.62 || ^11.5.50 || ^12.5.8"

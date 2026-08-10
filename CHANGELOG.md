@@ -4,6 +4,23 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] - 2026-08-10
+
+### Changed
+
+- **Breaking:** `WP_Setting_Encryption::encrypt()` and `decrypt()` now throw `\RuntimeException` on failure instead of returning an `\Error` object. The old behaviour handed back a value the caller could not use as a string, and contradicted the docblocks. `WP_Setting::encrypt()` and `WP_Setting::decrypt()` are unaffected from the outside: they catch the failure and return the original value, as documented. Code calling `WP_Setting_Encryption` directly and testing the result with `instanceof \Error` must catch `\RuntimeException` instead.
+
+### Added
+
+- An openssl fallback for encryption ([#12](https://github.com/bgoewert/wp-settings/issues/12)). Where sodium is unavailable, values are encrypted with AES-256-GCM — an AEAD construction equivalent to `sodium_crypto_secretbox()` — rather than encryption silently becoming impossible. openssl payloads carry a `wps.aesgcm.v1:` marker, so the two formats are told apart on read and existing sodium ciphertexts keep working untouched. Sodium remains the default wherever it is loaded. Unlike the sodium path, the openssl path generates a fresh IV per value instead of reusing the configured nonce, because IV reuse under GCM is catastrophic. A sodium payload still cannot be read on a build without sodium; move the value before migrating, or re-save it.
+- `WP_Setting_Encryption::is_available()`, which reports whether either backend is present.
+- `ext-sodium` and `ext-openssl` in `composer.json`'s `suggest` block, so the platform requirement is visible at install time. Neither is a hard requirement: encryption is opt-in per field and the rest of the library works without both.
+
+### Fixed
+
+- `WP_Setting_Encryption` no longer fatals on PHP built without sodium ([#12](https://github.com/bgoewert/wp-settings/issues/12)). The key, nonce and MAC lengths were property initialisers reading `SODIUM_CRYPTO_SECRETBOX_*`. Property initialisers are evaluated at instantiation, before any method body runs, so constructing the class raised an undefined-constant `\Error` and the class's own `extension_loaded('sodium')` guards were unreachable. The lengths are now resolved in the constructor, preferring the `SODIUM_*` constants where defined. This made the library unloadable — not merely unable to encrypt — on sodium-less runtimes such as WordPress Playground's WASM build.
+- `WP_Setting::encrypt()` and `WP_Setting::decrypt()` catch `\Throwable` rather than `\Exception`, and construct `WP_Setting_Encryption` inside the `try`. An `\Error` is a `\Throwable` but not an `\Exception`, so the intended "warn and return the value unchanged" fallback was skipped and the error took down the request.
+
 ## [2.31.2] - 2026-08-07
 
 ### Fixed

@@ -2,6 +2,11 @@
 
 Simple, reusable WordPress settings library with support for collapsible field groups.
 
+## Requirements
+
+- PHP 8.0 or newer
+- `ext-sodium` or `ext-openssl`, only if you use encrypted fields — see [Encryption](#encryption). Neither is required for anything else.
+
 ## Installation
 
 Add the GitHub repository to your project's `composer.json`:
@@ -427,6 +432,25 @@ The `field_map` type provides dynamic add/remove rows where users can:
 - Map multiple source fields to different destinations (useful for combining values)
 
 Stored as array: `[['key' => 'first_name', 'value' => 'FirstName'], ['key' => 'email', 'value' => 'Email'], ...]`
+
+## Encryption
+
+Fields marked for encryption are stored ciphered, with the key and nonce kept in `wp-config.php` constants (falling back to `LOGGED_IN_KEY` / `NONCE_KEY`).
+
+Two backends are supported, chosen automatically:
+
+| Backend | Cipher | Stored format |
+| --- | --- | --- |
+| `ext-sodium` (preferred) | XSalsa20-Poly1305 (`sodium_crypto_secretbox`) | `base64(nonce . ciphertext)` |
+| `ext-openssl` (fallback) | AES-256-GCM | `wps.aesgcm.v1:` + `base64(iv . tag . ciphertext)` |
+
+Sodium is used wherever it is loaded, so values already stored by earlier versions keep their format. The marker on openssl payloads means both formats stay readable on a host that has both extensions.
+
+Notes:
+
+- A value written with sodium cannot be read on a build without sodium. Decrypt and re-save it before migrating to such a host.
+- With neither extension present, `WP_Setting::encrypt()` and `WP_Setting::decrypt()` log a warning and return the value unchanged rather than failing the request. Call `WP_Setting_Encryption::is_available()` to check up front.
+- `WP_Setting_Encryption::encrypt()` and `decrypt()` throw `\RuntimeException` on failure if you call them directly.
 
 ## Settings Tables
 
