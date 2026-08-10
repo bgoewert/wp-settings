@@ -310,8 +310,9 @@ PHP;
 
         $crypt = new WP_Setting_Encryption('TEST_KEY', 'TEST_NONCE');
 
-        // Encrypt something
-        $encrypted = $crypt->encrypt('test');
+        // Encrypt down the sodium path explicitly: encrypt() prefers openssl,
+        // and this test is about secretbox's own authentication.
+        $encrypted = $this->invokeBackend($crypt, 'sodium_encrypt', 'test');
 
         // Tamper with the encrypted data by flipping a bit
         $decoded = base64_decode($encrypted);
@@ -350,6 +351,83 @@ PHP;
             $this->assertSame($expected, $property->getValue($crypt),
                 sprintf('%s should resolve to %d', $name, $expected));
         }
+    }
+
+    /**
+     * Drive one backend directly, bypassing encrypt()'s preference order.
+     *
+     * @param WP_Setting_Encryption $crypt  Instance under test.
+     * @param string                $method sodium_encrypt or openssl_encrypt.
+     * @param string                $value  Plaintext.
+     * @return string The ciphertext in that backend's format.
+     */
+    private function invokeBackend(WP_Setting_Encryption $crypt, string $method, string $value): string
+    {
+        $reflection = new ReflectionClass($crypt);
+        $backend = $reflection->getMethod($method);
+        $backend->setAccessible(true);
+
+        return $backend->invoke($crypt, $value);
+    }
+
+    /**
+     * openssl is the default writer as of 3.1.0 — it is the more widely built
+     * extension, and its path derives a fresh IV rather than reusing the nonce.
+     */
+    public function test_encrypt_prefers_openssl_when_both_extensions_are_present(): void
+    {
+        if (!extension_loaded('openssl') || !extension_loaded('sodium')) {
+            $this->markTestSkipped('Both openssl and sodium must be loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_PREF_KEY', 'TEST_PREF_NONCE');
+        $encrypted = $crypt->encrypt('sensitive-api-token-12345');
+
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+            'encrypt() should write an openssl payload even when sodium is available');
+        $this->assertSame('sensitive-api-token-12345', $crypt->decrypt($encrypted));
+    }
+
+    /**
+     * Sodium still covers a host that has it but not openssl.
+     */
+    public function test_encrypt_falls_back_to_sodium_when_openssl_is_missing(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('Sodium extension not loaded');
+        }
+
+        $plaintext = 'sensitive-api-token-12345';
+
+        [$encrypted, $decrypted] = wp_settings_test_without_extension('openssl', function () use ($plaintext) {
+            $crypt = new WP_Setting_Encryption('TEST_NOSSL_KEY', 'TEST_NOSSL_NONCE');
+            $encrypted = $crypt->encrypt($plaintext);
+            return [$encrypted, $crypt->decrypt($encrypted)];
+        });
+
+        $this->assertStringStartsNotWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+            'Without openssl, encrypt() should write a sodium payload');
+        $this->assertSame($plaintext, $decrypted);
+    }
+
+    /**
+     * A payload written by 3.0.x and earlier must still decrypt unchanged —
+     * dispatch keys off the payload format, not off the write preference.
+     */
+    public function test_existing_sodium_payloads_still_decrypt_after_the_default_flipped(): void
+    {
+        if (!extension_loaded('sodium')) {
+            $this->markTestSkipped('Sodium extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption('TEST_COMPAT_KEY', 'TEST_COMPAT_NONCE');
+        $plaintext = 'sensitive-api-token-12345';
+
+        $legacy = $this->invokeBackend($crypt, 'sodium_encrypt', $plaintext);
+
+        $this->assertStringStartsNotWith(WP_Setting_Encryption::OPENSSL_PREFIX, $legacy);
+        $this->assertSame($plaintext, $crypt->decrypt($legacy),
+            'A sodium payload must keep decrypting now that openssl is the default writer');
     }
 
     /**
@@ -445,7 +523,8 @@ PHP;
         }
 
         $crypt = new WP_Setting_Encryption('TEST_LEGACY_KEY', 'TEST_LEGACY_NONCE');
-        $encrypted = $crypt->encrypt('sensitive-api-token-12345');
+        // A value as written by 3.0.x and earlier, before openssl became the default.
+        $encrypted = $this->invokeBackend($crypt, 'sodium_encrypt', 'sensitive-api-token-12345');
 
         wp_settings_test_without_extension('sodium', function () use ($encrypted) {
             $crypt = new WP_Setting_Encryption('TEST_LEGACY_KEY', 'TEST_LEGACY_NONCE');

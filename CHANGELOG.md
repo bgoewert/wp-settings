@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.1.0] - 2026-08-10
+
+### Changed
+
+- Encryption now writes with openssl (AES-256-GCM) by default, falling back to sodium where openssl is unavailable — the reverse of 3.0.0. openssl is the wider bet: WordPress leans on it for HTTPS, whereas sodium is only *bundled* with PHP and still has to be enabled at build time (`--with-sodium`), so it is routinely absent from minimal and cross-compiled builds. Writing openssl by default keeps a value readable if the site later moves to such a host, and the openssl path is the stronger of the two here because it derives a fresh IV per value instead of reusing the configured nonce.
+- Reading is unaffected and needs no migration: `decrypt()` dispatches on the payload's own format, so values written by 3.0.x and earlier keep decrypting as long as sodium is present. Values written from now on carry the `wps.aesgcm.v1:` marker.
+
 ## [3.0.1] - 2026-08-10
 
 ### Changed

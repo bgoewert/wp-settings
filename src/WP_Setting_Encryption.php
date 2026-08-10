@@ -246,7 +246,7 @@ class WP_Setting_Encryption
      */
     public static function is_available(): bool
     {
-        return extension_loaded('sodium') || extension_loaded('openssl');
+        return extension_loaded('openssl') || extension_loaded('sodium');
     }
 
     /**
@@ -316,10 +316,62 @@ class WP_Setting_Encryption
     }
 
     /**
-     * Encrypt a value, preferring sodium and falling back to openssl.
+     * Encrypt with XSalsa20-Poly1305.
      *
-     * Sodium stays the default where available so existing ciphertexts keep the
-     * format they were written in.
+     * Retained for hosts without openssl, and as the format every value written
+     * before 3.1.0 is in. Note this reuses the configured nonce for every value.
+     *
+     * @param string $string Plaintext.
+     * @return string Base64-encoded `nonce . ciphertext`, unprefixed.
+     */
+    private function sodium_encrypt(string $string): string
+    {
+        $cipher    = sodium_crypto_secretbox($string, $this->nonce, $this->key);
+        $encrypted = base64_encode($this->nonce . $cipher);
+
+        sodium_memzero($string);
+
+        return $encrypted;
+    }
+
+    /**
+     * Decrypt an XSalsa20-Poly1305 payload written by sodium_encrypt().
+     *
+     * @param string $encrypted_string Base64-encoded `nonce . ciphertext`.
+     * @return string The plaintext.
+     * @throws \RuntimeException When the payload is truncated or fails authentication.
+     */
+    private function sodium_decrypt(string $encrypted_string): string
+    {
+        $decoded = base64_decode($encrypted_string);
+
+        if (strlen($decoded) < $this->nonce_length + $this->mac_length) {
+            throw new \RuntimeException('Error decrypting. The given string was truncated.');
+        }
+
+        $nonce     = substr($decoded, 0, $this->nonce_length);
+        $cipher    = substr($decoded, $this->nonce_length);
+        $decrypted = sodium_crypto_secretbox_open($cipher, $nonce, $this->key);
+
+        if (false === $decrypted) {
+            throw new \RuntimeException('Error decrypting. The string was tampered with in transit.');
+        }
+
+        return $decrypted;
+    }
+
+    /**
+     * Encrypt a value, preferring openssl and falling back to sodium.
+     *
+     * openssl is the wider bet: WordPress leans on it for HTTPS, whereas sodium
+     * is only bundled with PHP, not guaranteed to be built (`--with-sodium`), and
+     * is routinely absent from minimal and cross-compiled builds. Writing openssl
+     * by default keeps a value readable if the site later moves to such a host.
+     * The openssl path is also the stronger of the two here: it derives a fresh
+     * IV per value rather than reusing the configured nonce.
+     *
+     * Existing sodium ciphertexts are unaffected — decrypt() dispatches on the
+     * payload format, not on this preference.
      *
      * @param string $string The plaintext to encrypt.
      * @return string The encrypted value.
@@ -329,20 +381,15 @@ class WP_Setting_Encryption
     {
         $string = (string) $string;
 
-        if (extension_loaded('sodium')) {
-            $cipher    = sodium_crypto_secretbox($string, $this->nonce, $this->key);
-            $encrypted = base64_encode($this->nonce . $cipher);
-
-            sodium_memzero($string);
-
-            return $encrypted;
-        }
-
         if (extension_loaded('openssl')) {
             return $this->openssl_encrypt($string);
         }
 
-        throw new \RuntimeException('Neither the sodium nor the openssl extension is loaded. Encryption cannot be completed.');
+        if (extension_loaded('sodium')) {
+            return $this->sodium_encrypt($string);
+        }
+
+        throw new \RuntimeException('Neither the openssl nor the sodium extension is loaded. Encryption cannot be completed.');
     }
 
     /**
@@ -372,20 +419,6 @@ class WP_Setting_Encryption
             throw new \RuntimeException('The sodium extension is not loaded. Decryption cannot be completed.');
         }
 
-        $decoded = base64_decode($encrypted_string);
-
-        if (strlen($decoded) < $this->nonce_length + $this->mac_length) {
-            throw new \RuntimeException('Error decrypting. The given string was truncated.');
-        }
-
-        $nonce     = substr($decoded, 0, $this->nonce_length);
-        $cipher    = substr($decoded, $this->nonce_length);
-        $decrypted = sodium_crypto_secretbox_open($cipher, $nonce, $this->key);
-
-        if (false === $decrypted) {
-            throw new \RuntimeException('Error decrypting. The string was tampered with in transit.');
-        }
-
-        return $decrypted;
+        return $this->sodium_decrypt($encrypted_string);
     }
 }

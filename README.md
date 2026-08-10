@@ -441,10 +441,12 @@ Two backends are supported, chosen automatically:
 
 | Backend | Cipher | Stored format |
 | --- | --- | --- |
-| `ext-sodium` (preferred) | XSalsa20-Poly1305 (`sodium_crypto_secretbox`) | `base64(nonce . ciphertext)` |
-| `ext-openssl` (fallback) | AES-256-GCM | `wps.aesgcm.v1:` + `base64(iv . tag . ciphertext)` |
+| `ext-openssl` (preferred) | AES-256-GCM | `wps.aesgcm.v1:` + `base64(iv . tag . ciphertext)` |
+| `ext-sodium` (fallback) | XSalsa20-Poly1305 (`sodium_crypto_secretbox`) | `base64(nonce . ciphertext)` |
 
-Sodium is used wherever it is loaded, so values already stored by earlier versions keep their format. The marker on openssl payloads means both formats stay readable on a host that has both extensions.
+openssl is the default writer: WordPress leans on it for HTTPS, whereas sodium is only *bundled* with PHP and still has to be enabled at build time (`--with-sodium`), so it is routinely absent from minimal and cross-compiled builds. The openssl path also derives a fresh IV per value, where the sodium path reuses the configured nonce.
+
+Reading dispatches on the payload's own format, not on this preference, so values written by earlier versions keep decrypting untouched.
 
 Notes:
 
