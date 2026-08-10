@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.2.0] - 2026-08-10
+
+### Added
+
+- `WP_Setting::try_decrypt()` and `WP_Setting::try_encrypt()` throw `\RuntimeException` on failure instead of returning the value they were handed, so a caller can tell "this could not be decrypted" from "this decrypted and is wrong" without reimplementing the key/nonce constant naming ([#13](https://github.com/bgoewert/wp-settings/issues/13)). The underlying failure, which may be an `\Error`, is kept as the previous exception. `encrypt()`/`decrypt()` keep their existing degrade-and-log contract.
+
 ## [3.1.0] - 2026-08-10
 
 ### Changed

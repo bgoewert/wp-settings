@@ -621,6 +621,112 @@ PHP;
     }
 
     /**
+     * try_decrypt() exists so a caller can tell a failed decrypt apart from a
+     * successful one, which the swallowing wrapper makes impossible (#13).
+     */
+    public function test_try_decrypt_throws_runtime_exception_on_failure(): void
+    {
+        $this->setTextDomain('test-plugin');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Decryption failed');
+
+        \BGoewert\WP_Settings\WP_Setting::try_decrypt('not-actually-encrypted');
+    }
+
+    /**
+     * The original failure has to survive the \RuntimeException normalization,
+     * otherwise the caller trades a swallowed error for an unhelpful one.
+     */
+    public function test_try_decrypt_preserves_the_underlying_failure(): void
+    {
+        $this->setTextDomain('test-plugin');
+
+        try {
+            \BGoewert\WP_Settings\WP_Setting::try_decrypt('not-actually-encrypted');
+            $this->fail('try_decrypt() should have thrown');
+        } catch (\RuntimeException $e) {
+            $this->assertInstanceOf(\Throwable::class, $e->getPrevious(),
+                'the underlying failure should be kept as the previous exception');
+        }
+    }
+
+    /**
+     * An empty value is not a failure — nothing to decrypt, nothing to throw.
+     */
+    public function test_try_decrypt_returns_empty_value_untouched(): void
+    {
+        $this->setTextDomain('test-plugin');
+
+        $this->assertSame('', \BGoewert\WP_Settings\WP_Setting::try_decrypt(''));
+        $this->assertNull(\BGoewert\WP_Settings\WP_Setting::try_decrypt(null));
+    }
+
+    /**
+     * try_encrypt()/try_decrypt() must round-trip through the same key/nonce
+     * derivation as the swallowing wrappers, or values written one way would not
+     * read back the other.
+     */
+    public function test_try_encrypt_round_trips_through_the_swallowing_wrapper(): void
+    {
+        if (!WP_Setting_Encryption::is_available()) {
+            $this->markTestSkipped('Neither openssl nor sodium is loaded');
+        }
+
+        $this->setTextDomain('test-plugin');
+
+        $encrypted = \BGoewert\WP_Settings\WP_Setting::try_encrypt('sensitive-api-token-12345');
+
+        $this->assertNotSame('sensitive-api-token-12345', $encrypted, 'the value should be ciphered');
+        $this->assertSame('sensitive-api-token-12345', \BGoewert\WP_Settings\WP_Setting::decrypt($encrypted));
+        $this->assertSame('sensitive-api-token-12345', \BGoewert\WP_Settings\WP_Setting::try_decrypt($encrypted));
+    }
+
+    /**
+     * A crypto failure still reaches the logger when the caller opts into the
+     * throwing variant — the point of #13 was to keep that integration.
+     */
+    public function test_try_decrypt_still_logs_the_failure(): void
+    {
+        $this->setTextDomain('test-plugin');
+
+        $logger = new class {
+            public array $warnings = [];
+            public function warning($message, $context = array()): void
+            {
+                $this->warnings[] = array($message, $context);
+            }
+        };
+
+        \BGoewert\WP_Settings\WP_Setting::set_logger($logger);
+
+        try {
+            \BGoewert\WP_Settings\WP_Setting::try_decrypt('not-actually-encrypted');
+            $this->fail('try_decrypt() should have thrown');
+        } catch (\RuntimeException $e) {
+            // Expected.
+        } finally {
+            \BGoewert\WP_Settings\WP_Setting::set_logger(null);
+        }
+
+        $this->assertSame(
+            array(array('Decryption failed', array('operation' => 'decrypt'))),
+            $logger->warnings
+        );
+    }
+
+    /**
+     * Point WP_Setting at a text domain, which is what the key/nonce constant
+     * names are derived from.
+     */
+    private function setTextDomain(string $domain): void
+    {
+        $text_domain = (new ReflectionClass(\BGoewert\WP_Settings\WP_Setting::class))->getProperty('text_domain');
+        $text_domain->setAccessible(true);
+        $text_domain->setValue(null, $domain);
+    }
+
+    /**
      * Run $callback with a PHP-level error handler that records every E_DEPRECATED/E_WARNING
      * raised during its execution, instead of letting them pass through silently.
      *

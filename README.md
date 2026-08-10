@@ -454,6 +454,21 @@ Notes:
 - With neither extension present, `WP_Setting::encrypt()` and `WP_Setting::decrypt()` log a warning and return the value unchanged rather than failing the request. Call `WP_Setting_Encryption::is_available()` to check up front.
 - `WP_Setting_Encryption::encrypt()` and `decrypt()` throw `\RuntimeException` on failure if you call them directly.
 
+### Detecting a failure
+
+Because `decrypt()` hands back what it was given, a returned ciphertext is indistinguishable from a plaintext that decrypted fine. Use `WP_Setting::try_decrypt()` / `try_encrypt()` when the failure itself matters — same key/nonce derivation and logging, but it throws `\RuntimeException` instead of degrading:
+
+```php
+try {
+    $token = WP_Setting::try_decrypt( WP_Setting::get( 'api_token' ) );
+} catch ( \RuntimeException $e ) {
+    // "your encryption keys changed; re-save the secret", not "check your credentials"
+    $e->getPrevious(); // the underlying failure, which may be an \Error
+}
+```
+
+`try_encrypt()` is the one to use where storing an unencrypted secret is unacceptable — `encrypt()`'s fallback persists plaintext.
+
 ## Settings Tables
 
 Use `WP_Settings_Table` to create a reusable table + modal editor stored as a single option array.

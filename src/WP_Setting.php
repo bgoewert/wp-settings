@@ -2716,60 +2716,131 @@ class WP_Setting
     }
 
     /**
-     * Decrypt a value.
+     * Build an encryption handle keyed to the current text domain.
+     *
+     * Kept private so the key/nonce constant naming stays derived in one place —
+     * a caller that reimplements it can drift from what was used to write.
+     *
+     * @return WP_Setting_Encryption
+     */
+    private static function encryption(): WP_Setting_Encryption
+    {
+        return new WP_Setting_Encryption(
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
+            strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
+        );
+    }
+
+    /**
+     * Log a crypto failure and normalize it to a \RuntimeException.
+     *
+     * Everything is wrapped, including \Error, so a caller only ever has to
+     * catch \RuntimeException; the original is kept as the previous exception.
+     *
+     * @param string     $operation Either 'encrypt' or 'decrypt'.
+     * @param \Throwable $e         The failure to wrap.
+     *
+     * @return \RuntimeException
+     */
+    private static function crypt_failure(string $operation, \Throwable $e): \RuntimeException
+    {
+        $label = 'decrypt' === $operation ? 'Decryption failed' : 'Encryption failed';
+
+        if (self::$logger !== null) {
+            self::$logger->warning($label, array('operation' => $operation));
+        }
+
+        return new \RuntimeException($label . ': ' . $e->getMessage(), 0, $e);
+    }
+
+    /**
+     * Decrypt a value, degrading to the value itself on failure.
+     *
+     * A corrupt payload or a missing extension must not white-screen a settings
+     * page, so the failure is logged and the input handed back. Because that
+     * makes a failed decrypt indistinguishable from a successful one, callers
+     * that need to tell them apart should use {@see self::try_decrypt()}.
      *
      * @param string $value The value to decrypt.
      *
-     * @return string The decrypted value.
+     * @return string The decrypted value, or $value if decryption failed.
      */
     public static function decrypt($value): mixed
     {
+        try {
+            return self::try_decrypt($value);
+        } catch (\RuntimeException $e) {
+            trigger_error($e->getMessage(), E_USER_WARNING);
+            return $value;
+        }
+    }
 
+    /**
+     * Decrypt a value, throwing on failure.
+     *
+     * Same key/nonce derivation and logging as {@see self::decrypt()}, but the
+     * failure reaches the caller instead of being swallowed — for cases where
+     * "this could not be decrypted" and "this decrypted and is wrong" need
+     * different handling.
+     *
+     * @param string $value The value to decrypt.
+     *
+     * @return string The decrypted value. An empty value is returned as-is.
+     *
+     * @throws \RuntimeException When decryption fails. The underlying failure,
+     *                           which may be an \Error, is the previous exception.
+     */
+    public static function try_decrypt($value): mixed
+    {
         if (empty($value)) {
             return $value;
         }
 
         try {
             // Construct inside the try: a missing extension or constant can fail
-            // here too, and that must degrade rather than white-screen the request.
-            $crypt = new WP_Setting_Encryption(
-                strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
-                strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
-            );
-
-            $decrypted_value = $crypt->decrypt($value);
+            // here too, and that must surface as a \RuntimeException like the rest.
+            return self::encryption()->decrypt($value);
         } catch (\Throwable $e) {
-            if (self::$logger !== null) {
-                self::$logger->warning('Decryption failed', array('operation' => 'decrypt'));
-            }
-            trigger_error('Decryption failed: ' . $e->getMessage(), E_USER_WARNING);
-            return $value;
+            throw self::crypt_failure('decrypt', $e);
         }
-        return $decrypted_value;
     }
 
     /**
-     * Encrypt a value.
+     * Encrypt a value, degrading to the value itself on failure.
+     *
+     * Note the fallback stores plaintext. Callers that must not persist an
+     * unencrypted secret should use {@see self::try_encrypt()} instead.
      *
      * @param string $value The value to encrypt.
      *
-     * @return string The encrypted value.
+     * @return string The encrypted value, or $value if encryption failed.
      */
     public static function encrypt($value): mixed
     {
         try {
-            $crypt = new WP_Setting_Encryption(
-                strtoupper(self::normalize_text_domain(self::$text_domain . '_key')),
-                strtoupper(self::normalize_text_domain(self::$text_domain . '_nonce'))
-            );
-
-            return $crypt->encrypt($value);
-        } catch (\Throwable $e) {
-            if (self::$logger !== null) {
-                self::$logger->warning('Encryption failed', array('operation' => 'encrypt'));
-            }
-            trigger_error('Encryption failed: ' . $e->getMessage(), E_USER_WARNING);
+            return self::try_encrypt($value);
+        } catch (\RuntimeException $e) {
+            trigger_error($e->getMessage(), E_USER_WARNING);
             return $value;
+        }
+    }
+
+    /**
+     * Encrypt a value, throwing on failure.
+     *
+     * @param string $value The value to encrypt.
+     *
+     * @return string The encrypted value.
+     *
+     * @throws \RuntimeException When encryption fails. The underlying failure,
+     *                           which may be an \Error, is the previous exception.
+     */
+    public static function try_encrypt($value): mixed
+    {
+        try {
+            return self::encryption()->encrypt($value);
+        } catch (\Throwable $e) {
+            throw self::crypt_failure('encrypt', $e);
         }
     }
 
