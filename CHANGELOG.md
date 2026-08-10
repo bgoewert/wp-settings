@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.0.1] - 2026-08-10
+
+### Changed
+
+- `WP_Setting_Encryption` no longer needs `ext-mbstring`. Every `mb_strlen()`/`mb_substr()` call in the class already passed the `'8bit'` encoding, which is byte-for-byte what `strlen()`/`substr()` do, so the extension was a silent hard requirement of the encryption path buying nothing. It was undeclared, and a build without it would have failed the same way the missing sodium constants did in [#12](https://github.com/bgoewert/wp-settings/issues/12). Behaviour is unchanged.
+
 ## [3.0.0] - 2026-08-10
 
 ### Changed

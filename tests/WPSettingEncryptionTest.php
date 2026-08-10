@@ -565,11 +565,11 @@ PHP;
     }
 
     /**
-     * Regression test for the mb_strlen(null) deprecation (2.28.2 regression).
+     * Regression test for the strlen(null) deprecation (2.28.2 regression).
      *
      * A key/nonce constant defined as `null` (e.g. `define('X_KEY', getenv('X_KEY') ?: null);`,
      * a common pattern for "not configured yet") used to flow unmodified through
-     * safe_base64_decode() into check_key_len()/check_nonce_len(), reaching mb_strlen() as
+     * safe_base64_decode() into check_key_len()/check_nonce_len(), reaching strlen() as
      * null and emitting a PHP deprecation notice.
      */
     public function test_get_default_key_and_nonce_are_strings_when_constant_defined_as_null(): void
@@ -632,11 +632,11 @@ PHP;
     }
 
     /**
-     * Regression test for the PHP 8.1+ mb_strlen(null) / base64_decode(null) deprecation
+     * Regression test for the PHP 8.1+ strlen(null) / base64_decode(null) deprecation
      * emitted downstream by v2.29.0 (GitHub issue #4).
      *
      * Rather than proving every caller resolves to a string, the fix guards the leaf
-     * helpers themselves so a null can never reach mb_strlen()/base64_decode(). This
+     * helpers themselves so a null can never reach strlen()/base64_decode(). This
      * exercises those helpers directly with null and asserts they stay silent and
      * return a string. Fails against unguarded code (deprecation notice raised).
      */

@@ -113,7 +113,7 @@ class WP_Setting_Encryption
      */
     private static function safe_base64_decode($value)
     {
-        // Guard null: PHP 8.1+ deprecates passing null to base64_decode()/mb_strlen().
+        // Guard null: PHP 8.1+ deprecates passing null to base64_decode()/strlen().
         // An unset/empty encrypted option arrives here as null; coerce to '' so it
         // round-trips cleanly instead of propagating null into decrypt().
         $value = (string) $value;
@@ -138,21 +138,21 @@ class WP_Setting_Encryption
 
     private function check_key_len($key)
     {
-        // Guard null: PHP 8.1+ deprecates passing null to mb_strlen(). A key/salt
+        // Guard null: PHP 8.1+ deprecates passing null to strlen(). A key/salt
         // that hasn't been resolved yet can arrive here as null.
         $key = (string) $key;
-        if (mb_strlen($key, '8bit') > $this->key_length) {
-            $key = mb_substr($key, 0, $this->key_length, '8bit');
+        if (strlen($key) > $this->key_length) {
+            $key = substr($key, 0, $this->key_length);
         }
         return $key;
     }
 
     private function check_nonce_len($nonce)
     {
-        // Guard null: PHP 8.1+ deprecates passing null to mb_strlen().
+        // Guard null: PHP 8.1+ deprecates passing null to strlen().
         $nonce = (string) $nonce;
-        if (mb_strlen($nonce, '8bit') > $this->nonce_length) {
-            $nonce = mb_substr($nonce, 0, $this->nonce_length, '8bit');
+        if (strlen($nonce) > $this->nonce_length) {
+            $nonce = substr($nonce, 0, $this->nonce_length);
         }
         return $nonce;
     }
@@ -299,13 +299,13 @@ class WP_Setting_Encryption
     {
         $decoded = base64_decode(substr($encrypted_string, strlen(self::OPENSSL_PREFIX)), true);
 
-        if (false === $decoded || mb_strlen($decoded, '8bit') < self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH) {
+        if (false === $decoded || strlen($decoded) < self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH) {
             throw new \RuntimeException('Error decrypting. The given string was truncated.');
         }
 
-        $iv        = mb_substr($decoded, 0, self::OPENSSL_IV_LENGTH, '8bit');
-        $tag       = mb_substr($decoded, self::OPENSSL_IV_LENGTH, self::DEFAULT_MAC_LENGTH, '8bit');
-        $cipher    = mb_substr($decoded, self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH, \null, '8bit');
+        $iv        = substr($decoded, 0, self::OPENSSL_IV_LENGTH);
+        $tag       = substr($decoded, self::OPENSSL_IV_LENGTH, self::DEFAULT_MAC_LENGTH);
+        $cipher    = substr($decoded, self::OPENSSL_IV_LENGTH + self::DEFAULT_MAC_LENGTH);
         $decrypted = openssl_decrypt($cipher, self::OPENSSL_CIPHER, $this->openssl_key(), OPENSSL_RAW_DATA, $iv, $tag);
 
         if (false === $decrypted) {
@@ -374,12 +374,12 @@ class WP_Setting_Encryption
 
         $decoded = base64_decode($encrypted_string);
 
-        if (mb_strlen($decoded, '8bit') < $this->nonce_length + $this->mac_length) {
+        if (strlen($decoded) < $this->nonce_length + $this->mac_length) {
             throw new \RuntimeException('Error decrypting. The given string was truncated.');
         }
 
-        $nonce     = mb_substr($decoded, 0, $this->nonce_length, '8bit');
-        $cipher    = mb_substr($decoded, $this->nonce_length, \null, '8bit');
+        $nonce     = substr($decoded, 0, $this->nonce_length);
+        $cipher    = substr($decoded, $this->nonce_length);
         $decrypted = sodium_crypto_secretbox_open($cipher, $nonce, $this->key);
 
         if (false === $decrypted) {
