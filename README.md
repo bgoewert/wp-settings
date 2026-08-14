@@ -234,6 +234,8 @@ new WP_Setting(
 
 Container children follow the same rule: `advanced` and `fieldset` bind each child's heading to that child's control when the child is labelable, and render a plain heading when it is not. Use `WP_Setting::renders_labelable_control()` if you build headings yourself.
 
+`repeater` rows have no heading to bind to — a column `<th>` is not an accessible name for a control, and neither axe nor forms mode treats it as one. Each cell is named `aria-label="{column label}, row {n}"` instead, falling back to the child's `name` when it declares no `label`. Rows added or removed in the browser are renumbered to match, so the name always tracks the visible row position.
+
 ### Advanced Field Example
 
 ```php
@@ -282,7 +284,9 @@ $fieldset = new WP_Setting(
 );
 ```
 
-Set `'hide_child_labels' => true` to drop each child's label column and let the control span the full width — useful when a child's title merely repeats the fieldset legend (e.g. a lone repeater). The `<legend>` then serves as the group's label. Omit it (the default) to keep per-child labels.
+Set `'hide_child_labels' => true` to drop each child's label column and let the control span the full width — useful when a child's title merely repeats the fieldset legend (e.g. a lone repeater). Omit it (the default) to keep per-child labels.
+
+Hiding the label is a layout choice only. A labelable child still gets its title as a `<label class="screen-reader-text">`, so the control keeps its accessible name — the `<legend>` names the group, not a child whose title differs from it. Children that already label themselves (a `checkbox` with a description) are left alone so the control keeps exactly one label.
 
 **Hidden fields**: Store values without rendering table rows.
 

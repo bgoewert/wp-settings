@@ -760,6 +760,19 @@ class WP_Setting
     }
 
     /**
+     * Whether this field's own renderer already emits a `<label for>`.
+     *
+     * A checkbox labels itself with its description, so a second label for the
+     * same control would trip axe's `form-field-multiple-labels`.
+     *
+     * @return bool
+     */
+    public function renders_own_label(): bool
+    {
+        return $this->type === 'checkbox' && !empty($this->description);
+    }
+
+    /**
      * The args handed to add_settings_field().
      *
      * Defaults `label_for` to the field's slug, because do_settings_fields()
@@ -1942,14 +1955,21 @@ class WP_Setting
         //
         // With hide_child_labels, the per-child <th> label is dropped and the
         // control spans the full width — useful when a child's title merely
-        // repeats the fieldset legend (e.g. a lone repeater); the legend then
-        // provides the group's accessible label.
+        // repeats the fieldset legend (e.g. a lone repeater).
         $hide_child_labels = !empty($this->args['hide_child_labels']);
         echo '<table class="form-table" role="presentation">';
         foreach ($this->children as $child) {
             echo '<tr>';
             if ($hide_child_labels) {
                 echo '<td colspan="2">';
+                // Hiding the visible heading is a layout choice and must not
+                // also drop the control's accessible name: the legend names the
+                // group, not a child whose title differs from it (issue #14 —
+                // axe: label, select-name). Children that label themselves are
+                // skipped so the control keeps exactly one label.
+                if ($child->renders_labelable_control() && !$child->renders_own_label()) {
+                    echo '<label class="screen-reader-text" for="' . \esc_attr($child->slug) . '">' . \esc_html($child->title) . '</label>';
+                }
             } else {
                 // Only bind the heading to the child's id when the child renders a
                 // single control carrying it; otherwise the label is an orphan.
@@ -2113,6 +2133,51 @@ class WP_Setting
     }
 
     /**
+     * The naming attributes for one repeater cell control.
+     *
+     * A repeater cell has no `<label>` to point at, and a column `<th>` is not
+     * an accessible name for a control — axe (`label`, `select-name`) and forms
+     * mode both ignore it, so every cell rendered unnamed (issue #14). The
+     * column label plus the row position is the name; `data-label` carries the
+     * unnumbered half so the row script can renumber after an add or remove.
+     *
+     * @param array      $child Child field definition.
+     * @param int|string $index Row index, or a template placeholder.
+     * @return string Attributes to interpolate, leading space included.
+     */
+    private function repeater_field_naming_atts(array $child, $index): string
+    {
+        $label = (string) ($child['label'] ?? '');
+        if ($label === '') {
+            $label = (string) ($child['name'] ?? '');
+        }
+        if ($label === '') {
+            return '';
+        }
+
+        // The template row has no position yet; the script names it on insert.
+        $name = is_numeric($index)
+            ? sprintf(self::repeater_row_label_format(), $label, (int) $index + 1)
+            : $label;
+
+        return ' data-label="' . \esc_attr($label) . '" aria-label="' . \esc_attr($name) . '"';
+    }
+
+    /**
+     * The sprintf format naming a repeater cell by column and row position.
+     *
+     * Shared with the row script so a row added in the browser is named the
+     * same way one rendered by PHP is.
+     *
+     * @return string
+     */
+    private static function repeater_row_label_format(): string
+    {
+        /* translators: 1: repeater column label, 2: row number. */
+        return \__('%1$s, row %2$d', 'wp-settings');
+    }
+
+    /**
      * Render a single repeater row.
      *
      * @param array      $children  Child field definitions.
@@ -2132,17 +2197,18 @@ class WP_Setting
             $field_name = $child['name'] ?? '';
             $field_type = $child['type'] ?? 'text';
             $field_value = $row_data[$field_name] ?? '';
+            $naming = $this->repeater_field_naming_atts($child, $index);
 
             echo '<td class="wps-repeater-cell" style="padding: 6px;">';
 
             switch ($field_type) {
                 case 'textarea':
-                    echo '<textarea class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" style="width: 100%;">' . \esc_textarea($field_value) . '</textarea>';
+                    echo '<textarea class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '"' . $naming . ' style="width: 100%;">' . \esc_textarea($field_value) . '</textarea>';
                     break;
 
                 case 'select':
                     $options = $child['options'] ?? array();
-                    echo '<select class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" style="width: 100%;">';
+                    echo '<select class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '"' . $naming . ' style="width: 100%;">';
                     foreach ($options as $opt_value => $opt_label) {
                         echo sprintf(
                             '<option value="%s"%s>%s</option>',
@@ -2156,7 +2222,7 @@ class WP_Setting
 
                 default:
                     $placeholder = $child['placeholder'] ?? '';
-                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '" value="' . \esc_attr($field_value) . '"' . ($placeholder ? ' placeholder="' . \esc_attr($placeholder) . '"' : '') . ' style="width: 100%;">';
+                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '"' . $naming . ' value="' . \esc_attr($field_value) . '"' . ($placeholder ? ' placeholder="' . \esc_attr($placeholder) . '"' : '') . ' style="width: 100%;">';
                     break;
             }
 
@@ -2184,6 +2250,22 @@ class WP_Setting
             $(document).ready(function() {
                 var container = $('#<?php echo \esc_js($uid); ?>');
                 var dataInput = container.find('.wps-repeater-data');
+                var labelFormat = <?php echo \wp_json_encode(self::repeater_row_label_format()); ?>;
+
+                // Row position is part of each control's accessible name, so it
+                // has to follow the DOM after an add or remove — same numbering
+                // the visible counter uses.
+                function relabelRows() {
+                    container.find('.wps-repeater-rows .wps-repeater-row').each(function(rowIndex) {
+                        $(this).find('.wps-repeater-field').each(function() {
+                            var label = $(this).attr('data-label');
+                            if (!label) return;
+                            $(this).attr('aria-label', labelFormat
+                                .replace('%1$s', function() { return label; })
+                                .replace('%2$d', rowIndex + 1));
+                        });
+                    });
+                }
 
                 function updateData() {
                     var rows = [];
@@ -2212,12 +2294,14 @@ class WP_Setting
                     }
                     rowEl.attr('data-index', newIndex);
                     container.find('.wps-repeater-rows').append(clone);
+                    relabelRows();
                     updateData();
                 });
 
                 container.on('click', '.wps-repeater-remove', function(e) {
                     e.preventDefault();
                     $(this).closest('.wps-repeater-row').remove();
+                    relabelRows();
                     updateData();
                 });
 
@@ -2228,6 +2312,9 @@ class WP_Setting
                 container.closest('form').on('submit', function() {
                     updateData();
                 });
+
+                // Saved rows can come back with non-sequential keys.
+                relabelRows();
             });
         })(jQuery);
         </script>

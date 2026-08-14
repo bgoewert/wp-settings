@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.2.1] - 2026-08-14
+
+### Fixed
+
+- Fieldset children under `hide_child_labels` keep their accessible name. Dropping the per-child `<th>` is a layout choice, but it also removed the only naming source a `select` has, so a child whose title differs from the legend rendered unnamed (WCAG 1.3.1, 4.1.2; axe `select-name`). A labelable child now gets its title as a `<label class="screen-reader-text">`; children that already label themselves — a `checkbox` with a description — are skipped so the control keeps exactly one label ([#14](https://github.com/bgoewert/wp-settings/issues/14)).
+- `repeater` cells are named. Every cell control rendered with only a `data-field` hook, and a column `<th>` is not an accessible name for a control, so `textarea` and `select` cells had no name at all and text cells had one only when the child declared a `placeholder` (axe `label`). Each cell now carries `aria-label="{column label}, row {n}"`, falling back to the child's `name`, and rows added or removed in the browser are renumbered to match the visible row position ([#14](https://github.com/bgoewert/wp-settings/issues/14)).
+
 ## [3.2.0] - 2026-08-10
 
 ### Added

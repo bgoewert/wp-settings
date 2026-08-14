@@ -2074,11 +2074,15 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->init_fieldset();
         $output = ob_get_clean();
 
-        // Child label suppressed; fieldset legend remains as the group label.
-        $this->assertStringNotContainsString('Duplicate Label', $output);
+        // Visible heading suppressed; the title survives only as the control's
+        // accessible name (issue #14).
         $this->assertStringContainsString('Group Legend', $output);
         $this->assertStringContainsString('colspan="2"', $output);
         $this->assertStringNotContainsString('<th scope="row"', $output);
+        $this->assertStringContainsString(
+            '<label class="screen-reader-text" for="my_plugin_hcl_child">Duplicate Label</label>',
+            $output
+        );
     }
 
     public function test_fieldset_keeps_child_labels_by_default(): void
@@ -2933,5 +2937,211 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringContainsString('<p><strong>Radio Child</strong></p>', $output);
         $this->assertStringNotContainsString('for="my_plugin_adv_radio_child"', $output);
+    }
+
+    // -------------------------------------------------------------------------
+    // Accessible names the label_for fix did not reach (issue #14): children
+    // under hide_child_labels, and repeater cells.
+    // -------------------------------------------------------------------------
+
+    /** Build a hide_child_labels fieldset around one child. */
+    private function makeHiddenLabelFieldsetWith(WP_Setting $child): WP_Setting
+    {
+        return new WP_Setting(
+            'a11y_fs_parent',
+            'Group Legend',
+            'fieldset',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => [$child], 'hide_child_labels' => true]
+        );
+    }
+
+    /**
+     * A select has no naming source of its own, so dropping the <th> left it
+     * unnamed (axe: select-name).
+     */
+    public function test_hidden_child_label_still_names_a_select(): void
+    {
+        $child = new WP_Setting(
+            'a11y_select_child',
+            'Sync Frequency',
+            'select',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['daily' => 'Daily', 'weekly' => 'Weekly']]
+        );
+
+        ob_start();
+        $this->makeHiddenLabelFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('<th scope="row"', $output);
+        $this->assertStringContainsString(
+            '<label class="screen-reader-text" for="my_plugin_a11y_select_child">Sync Frequency</label>',
+            $output
+        );
+    }
+
+    /**
+     * A checkbox already labels itself with its description; a second label for
+     * the same control is its own violation (axe: form-field-multiple-labels).
+     */
+    public function test_hidden_child_label_skipped_for_self_labelling_checkbox(): void
+    {
+        $child = new WP_Setting(
+            'a11y_cb_child',
+            'Enable Sync',
+            'checkbox',
+            'general',
+            'main',
+            null,
+            'Sync products nightly'
+        );
+
+        ob_start();
+        $this->makeHiddenLabelFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('screen-reader-text', $output);
+        $this->assertSame(1, substr_count($output, 'for="my_plugin_a11y_cb_child"'));
+    }
+
+    /** A checkbox with no description has no label of its own to keep. */
+    public function test_hidden_child_label_names_a_checkbox_without_a_description(): void
+    {
+        $child = new WP_Setting('a11y_cb_bare', 'Enable Sync', 'checkbox', 'general', 'main');
+
+        ob_start();
+        $this->makeHiddenLabelFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString(
+            '<label class="screen-reader-text" for="my_plugin_a11y_cb_bare">Enable Sync</label>',
+            $output
+        );
+    }
+
+    /** Nothing carries the child's slug, so a label would be an orphan. */
+    public function test_hidden_child_label_omitted_for_unlabelable_child(): void
+    {
+        $child = new WP_Setting(
+            'a11y_radio_child',
+            'Radio Child',
+            'radio',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['a' => 'A']]
+        );
+
+        ob_start();
+        $this->makeHiddenLabelFieldsetWith($child)->init_fieldset();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('for="my_plugin_a11y_radio_child"', $output);
+    }
+
+    /** Build a repeater over the three cell renderers. */
+    private function makeRepeater(string $slug, array $children): WP_Setting
+    {
+        return new WP_Setting(
+            $slug,
+            'Rows',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['children' => $children]
+        );
+    }
+
+    /**
+     * A column <th> is not an accessible name for a control, so every cell
+     * renderer has to name its own control.
+     */
+    public function test_repeater_cells_are_named_by_column_and_row(): void
+    {
+        $setting = $this->makeRepeater('a11y_rep', [
+            ['name' => 'key', 'label' => 'Key', 'type' => 'text'],
+            ['name' => 'notes', 'label' => 'Notes', 'type' => 'textarea'],
+            ['name' => 'mode', 'label' => 'Mode', 'type' => 'select', 'options' => ['a' => 'A']],
+        ]);
+
+        ob_start();
+        $setting->render_unbound([['key' => 'k', 'notes' => 'n', 'mode' => 'a']], 'a11y_rep', 'a11y_rep');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('aria-label="Key, row 1"', $output);
+        $this->assertStringContainsString('aria-label="Notes, row 1"', $output);
+        $this->assertStringContainsString('aria-label="Mode, row 1"', $output);
+    }
+
+    /** Rows are numbered from one, matching the visible counter. */
+    public function test_repeater_row_numbers_are_one_based(): void
+    {
+        $setting = $this->makeRepeater('a11y_rep_rows', [
+            ['name' => 'key', 'label' => 'Key', 'type' => 'text'],
+        ]);
+
+        ob_start();
+        $setting->render_unbound([['key' => 'a'], ['key' => 'b']], 'a11y_rep_rows', 'a11y_rep_rows');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('aria-label="Key, row 1"', $output);
+        $this->assertStringContainsString('aria-label="Key, row 2"', $output);
+        $this->assertStringNotContainsString('row 0', $output);
+    }
+
+    /**
+     * The template row has no position until it is inserted, so it carries the
+     * bare column label and the row script numbers it on add.
+     */
+    public function test_repeater_template_row_is_named_without_a_position(): void
+    {
+        $setting = $this->makeRepeater('a11y_rep_tmpl', [
+            ['name' => 'key', 'label' => 'Key', 'type' => 'text'],
+        ]);
+
+        ob_start();
+        $setting->render_unbound([], 'a11y_rep_tmpl', 'a11y_rep_tmpl');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('data-label="Key"', $output);
+        $this->assertStringContainsString('aria-label="Key"', $output);
+        $this->assertStringNotContainsString('row __INDEX__', $output);
+        $this->assertStringContainsString('relabelRows', $output);
+    }
+
+    /** With no column label to borrow, the field name is the name. */
+    public function test_repeater_cell_falls_back_to_the_field_name(): void
+    {
+        $setting = $this->makeRepeater('a11y_rep_nolabel', [
+            ['name' => 'sku', 'type' => 'text'],
+        ]);
+
+        ob_start();
+        $setting->render_unbound([['sku' => 'x']], 'a11y_rep_nolabel', 'a11y_rep_nolabel');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('aria-label="sku, row 1"', $output);
     }
 }
