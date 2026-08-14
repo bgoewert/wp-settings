@@ -153,7 +153,7 @@ class My_Settings extends WP_Settings
 What it adds:
 
 - A `Logging` tab with settings for enable/disable, destination, level, retention days, and auto-refresh
-- Plugin log files in `<plugin-dir>/logs`
+- Log files in `wp-content/uploads/<text-domain>-logs-<hash>/`, guarded by an `index.php` and a deny-all `.htaccess`
 - Daily file rotation using `<text-domain>-YYYY-MM-DD.log`
 - A built-in viewer for plugin log files with refresh and clear actions
 
@@ -163,6 +163,23 @@ Notes:
 - `log_destination` can write to the plugin log file or WordPress `debug.log`
 - The built-in viewer only displays plugin log files, not WordPress `debug.log`
 - Crypto failure logging records only generic operation metadata, not encrypted or decrypted values
+
+### Where log files live
+
+The directory name carries a 16-character `wp_hash()` suffix derived from the text domain and the site's salts. Uploads is not reliably outside the web root and neither was the old `<plugin-dir>/logs`, so the suffix — not the location — is what stops an unauthenticated visitor fetching a log by guessing the text domain and a date ([#15](https://github.com/bgoewert/wp-settings/issues/15)). The `.htaccess` covers Apache only; on nginx the unguessable name is the whole of the protection. Rotating the site's salts changes the suffix, which orphans existing files until retention prunes them.
+
+Log files written by 3.x into `<plugin-dir>/logs` are moved into the new directory on the first write or log-viewer load. Anything the move cannot claim — a file the web user cannot rename, or a file the consumer put there itself — stays put and gets the guards written alongside it instead; a directory left holding nothing but those guards is removed.
+
+Pass `log_dir` to override the location entirely, e.g. a path above the web root:
+
+```php
+$this->logging(array(
+    'plugin_dir_path' => plugin_dir_path(MY_PLUGIN_FILE),
+    'log_dir' => dirname(ABSPATH) . '/logs/my-plugin',
+));
+```
+
+The directory is created with `wp_mkdir_p()`, so it honours `FS_CHMOD_DIR` (0755 by default). If it cannot be created or written, file logging turns off for the rest of the request after one `error_log()` line rather than retrying per entry.
 
 ## Field Types
 

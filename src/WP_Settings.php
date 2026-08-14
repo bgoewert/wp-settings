@@ -359,6 +359,7 @@ $tab
             array(
                 'enabled' => true,
                 'plugin_dir_path' => '',
+                'log_dir' => '',
                 'tab_slug' => 'logging',
                 'tab_name' => 'Logging',
                 'retention_days_default' => 14,
@@ -620,6 +621,7 @@ $tab
         $this->logger = new WP_Settings_Logger(
             array(
                 'plugin_dir_path' => $this->logging_config['plugin_dir_path'],
+                'log_dir' => $this->logging_config['log_dir'] ?? '',
                 'text_domain' => $this->text_domain,
                 'default_level' => $this->logging_config['default_level'] ?? 'error',
             )

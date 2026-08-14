@@ -16,6 +16,15 @@ class WP_Settings_Logger
     protected $text_domain;
     protected $default_level;
 
+    /** Consumer-supplied absolute path; empty means derive it from the uploads directory. */
+    protected $log_dir;
+
+    /** Set once per request so a broken log directory is reported once, not per entry. */
+    protected $write_failure_reported = false;
+
+    /** Set once per request so the legacy directory is only scanned once. */
+    protected $legacy_migration_attempted = false;
+
     public function __construct(array $args)
     {
         $this->plugin_dir_path = isset($args['plugin_dir_path'])
@@ -27,6 +36,9 @@ class WP_Settings_Logger
         $this->default_level = isset($args['default_level'])
             ? $this->normalize_level((string) $args['default_level'])
             : 'error';
+        $this->log_dir = isset($args['log_dir'])
+            ? rtrim((string) $args['log_dir'], '/\\')
+            : '';
     }
 
     public function is_enabled(): bool
@@ -62,13 +74,32 @@ class WP_Settings_Logger
         return $interval >= 0 ? $interval : 0;
     }
 
+    /**
+     * Directory that log files are written to and read from.
+     *
+     * Defaults to an uploads subdirectory carrying a `wp_hash()` suffix, and falls back to
+     * the plugin directory only where uploads are unusable. Neither location is reliably
+     * outside the web root, so it is the per-site suffix — not the folder — that stops an
+     * unauthenticated visitor fetching a log file by guessing the text domain and a date
+     * (#15). Rotating the site's salts changes the suffix and orphans older files; the
+     * retention setting prunes them.
+     */
     public function get_log_dir(): string
     {
-        if ($this->plugin_dir_path === '') {
-            return '';
+        if ($this->log_dir !== '') {
+            return $this->log_dir;
         }
 
-        return $this->plugin_dir_path . DIRECTORY_SEPARATOR . 'logs';
+        $uploads = \wp_upload_dir(null, false);
+        $basedir = isset($uploads['basedir']) ? rtrim((string) $uploads['basedir'], '/\\') : '';
+
+        if ($basedir === '' || !empty($uploads['error'])) {
+            return $this->get_legacy_log_dir();
+        }
+
+        // Resolved per call rather than cached: on multisite the uploads base moves with
+        // switch_to_blog(), and core already caches the lookup for the request.
+        return $basedir . DIRECTORY_SEPARATOR . $this->get_log_dir_name();
     }
 
     public function get_log_file($date = null): string
@@ -80,6 +111,12 @@ class WP_Settings_Logger
 
     public function get_log_files(): array
     {
+        // Listing is the first thing the viewer does after an upgrade, so migrate here too
+        // rather than making the admin wait for the next write to see their own history.
+        if (!$this->legacy_migration_attempted && $this->has_legacy_logs()) {
+            $this->ensure_log_dir();
+        }
+
         $dir = $this->get_log_dir();
 
         if ($dir === '' || !is_dir($dir)) {
@@ -118,13 +155,9 @@ class WP_Settings_Logger
 
         if ($this->get_destination() === 'wordpress') {
             error_log('[' . $this->text_domain . '] ' . trim($entry));
-        } else {
-            $dir = $this->get_log_dir();
-            if ($dir !== '') {
-                $this->ensure_log_dir();
-                $this->rotate_logs();
-                file_put_contents($this->get_log_file(), $entry, FILE_APPEND);
-            }
+        } elseif ($this->ensure_log_dir()) {
+            $this->rotate_logs();
+            $this->write_entry($entry);
         }
 
         $this->maybe_send_notification($level, $message, $entry);
@@ -349,15 +382,179 @@ class WP_Settings_Logger
         return $weights[$this->normalize_level($level)] ?? 400;
     }
 
-    protected function ensure_log_dir(): void
+    /**
+     * Create the log directory, guard it, and return whether it can be written to.
+     *
+     * `wp_mkdir_p()` honours `FS_CHMOD_DIR` (0755 by default) where the old `mkdir(0777)`
+     * left a world-writable directory. Returning a bool lets `log()` stop instead of
+     * appending to a path that does not exist, once per entry, with the warning swallowed.
+     * The first failure turns file logging off for the rest of the request, so a broken
+     * directory costs one `error_log()` line and one `mkdir()` attempt, not one per entry.
+     */
+    protected function ensure_log_dir(): bool
     {
         $dir = $this->get_log_dir();
 
-        if ($dir === '' || is_dir($dir)) {
+        if ($dir === '' || $this->write_failure_reported) {
+            return false;
+        }
+
+        if (!is_dir($dir) && !\wp_mkdir_p($dir)) {
+            $this->report_write_failure('cannot create log directory ' . $dir);
+
+            return false;
+        }
+
+        $this->protect_dir($dir);
+        $this->migrate_legacy_logs();
+
+        return true;
+    }
+
+    /**
+     * Write the deny guards, backfilling directories that predate them.
+     *
+     * `.htaccess` only covers Apache, so on nginx the unguessable directory name is the
+     * whole of the protection.
+     */
+    protected function protect_dir(string $dir): void
+    {
+        $guards = array(
+            'index.php' => "<?php\n// Silence is golden.\n",
+            '.htaccess' => "<IfModule mod_authz_core.c>\n\tRequire all denied\n</IfModule>\n"
+                . "<IfModule !mod_authz_core.c>\n\tOrder allow,deny\n\tDeny from all\n</IfModule>\n",
+        );
+
+        foreach ($guards as $name => $contents) {
+            $path = $dir . DIRECTORY_SEPARATOR . $name;
+
+            if (!file_exists($path)) {
+                file_put_contents($path, $contents);
+            }
+        }
+    }
+
+    /**
+     * Move logs written to `<plugin-dir>/logs` by earlier versions into the current dir.
+     *
+     * Without this every install that ever logged keeps a readable copy at the old
+     * predictable URL, so the fix would only protect entries written from now on.
+     */
+    protected function migrate_legacy_logs(): void
+    {
+        if ($this->legacy_migration_attempted) {
             return;
         }
 
-        mkdir($dir, 0777, true);
+        $this->legacy_migration_attempted = true;
+
+        $legacy = $this->get_legacy_log_dir();
+        $dir = $this->get_log_dir();
+
+        if ($legacy === '' || $legacy === $dir || !is_dir($legacy)) {
+            return;
+        }
+
+        $files = glob($legacy . DIRECTORY_SEPARATOR . $this->text_domain . '-*.log');
+
+        foreach ($files === false ? array() : $files as $file) {
+            $target = $dir . DIRECTORY_SEPARATOR . basename((string) $file);
+
+            if (!file_exists($target)) {
+                $this->move_file((string) $file, $target);
+            }
+        }
+
+        $entries = scandir($legacy);
+        $leftovers = $entries === false
+            ? array('unknown')
+            : array_diff($entries, array('.', '..', 'index.php', '.htaccess'));
+
+        // Anything the move could not claim stays put and gets guarded instead; a directory
+        // holding nothing but this class's own guards is removed rather than left behind.
+        if (!empty($leftovers)) {
+            $this->protect_dir($legacy);
+
+            return;
+        }
+
+        foreach (array('index.php', '.htaccess') as $guard) {
+            $path = $legacy . DIRECTORY_SEPARATOR . $guard;
+
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+
+        @rmdir($legacy);
+    }
+
+    /**
+     * Move one file, copying where a plain rename cannot cross the boundary.
+     *
+     * Hosts that mount uploads separately from the plugin directory fail `rename()` with
+     * EXDEV, which would leave the exposed copy behind — the thing the move exists to remove.
+     */
+    protected function move_file(string $source, string $target): bool
+    {
+        if (@rename($source, $target)) {
+            return true;
+        }
+
+        if (!copy($source, $target)) {
+            return false;
+        }
+
+        return unlink($source);
+    }
+
+    protected function has_legacy_logs(): bool
+    {
+        $legacy = $this->get_legacy_log_dir();
+
+        if ($legacy === '' || $legacy === $this->get_log_dir() || !is_dir($legacy)) {
+            return false;
+        }
+
+        $files = glob($legacy . DIRECTORY_SEPARATOR . $this->text_domain . '-*.log');
+
+        return !empty($files);
+    }
+
+    protected function get_legacy_log_dir(): string
+    {
+        if ($this->plugin_dir_path === '') {
+            return '';
+        }
+
+        return $this->plugin_dir_path . DIRECTORY_SEPARATOR . 'logs';
+    }
+
+    protected function get_log_dir_name(): string
+    {
+        $suffix = substr(\wp_hash($this->text_domain . '|wp-settings-logs'), 0, 16);
+
+        return $this->text_domain . '-logs-' . $suffix;
+    }
+
+    protected function write_entry(string $entry): void
+    {
+        $file = $this->get_log_file();
+
+        if (file_put_contents($file, $entry, FILE_APPEND) === false) {
+            $this->report_write_failure('cannot write ' . $file);
+        }
+    }
+
+    protected function report_write_failure(string $reason): void
+    {
+        if ($this->write_failure_reported) {
+            return;
+        }
+
+        $this->write_failure_reported = true;
+
+        error_log('[' . $this->text_domain . '] file logging unavailable: ' . $reason);
     }
 
     protected function format_entry(string $level, string $message, array $context = array()): string

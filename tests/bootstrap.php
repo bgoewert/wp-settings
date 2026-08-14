@@ -56,7 +56,9 @@ global $wp_test_options,
     $wp_test_enqueued_styles,
     $wp_test_inline_scripts,
     $wp_test_current_screen_id,
-    $wp_test_doing_it_wrong_calls;
+    $wp_test_doing_it_wrong_calls,
+    $wp_test_upload_basedir,
+    $wp_test_upload_error;
 
 function wp_settings_test_reset_stubs(): void
 {
@@ -70,7 +72,9 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_enqueued_styles,
         $wp_test_inline_scripts,
         $wp_test_current_screen_id,
-        $wp_test_doing_it_wrong_calls;
+        $wp_test_doing_it_wrong_calls,
+        $wp_test_upload_basedir,
+        $wp_test_upload_error;
 
     $wp_test_options = [];
     $wp_test_actions = [];
@@ -83,6 +87,8 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_inline_scripts = [];
     $wp_test_current_screen_id = null;
     $wp_test_doing_it_wrong_calls = [];
+    $wp_test_upload_basedir = "";
+    $wp_test_upload_error = false;
 }
 
 wp_settings_test_reset_stubs();
@@ -631,6 +637,38 @@ if (!function_exists("_doing_it_wrong")) {
             "message",
             "version",
         );
+    }
+}
+
+if (!function_exists("wp_upload_dir")) {
+    function wp_upload_dir($time = null, $create_dir = true, $refresh_cache = false)
+    {
+        global $wp_test_upload_basedir, $wp_test_upload_error;
+
+        return [
+            "basedir" => (string) $wp_test_upload_basedir,
+            "baseurl" => "https://example.test/wp-content/uploads",
+            "error" => $wp_test_upload_error,
+        ];
+    }
+}
+
+if (!function_exists("wp_mkdir_p")) {
+    function wp_mkdir_p($target)
+    {
+        if ($target === "" || is_dir($target)) {
+            return is_dir($target);
+        }
+
+        // Core suppresses the warning and reports failure through the return value.
+        return @mkdir($target, 0755, true);
+    }
+}
+
+if (!function_exists("wp_hash")) {
+    function wp_hash($data, $scheme = "auth")
+    {
+        return hash_hmac("md5", (string) $data, "test-salt-" . $scheme);
     }
 }
 

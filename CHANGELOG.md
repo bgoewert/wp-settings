@@ -4,6 +4,20 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] - 2026-08-14
+
+### Changed
+
+- **Breaking:** Plugin log files now live in `wp-content/uploads/<text-domain>-logs-<16-char wp_hash()>/` instead of `<plugin-dir>/logs`, and the directory is created with `wp_mkdir_p()` (0755 via `FS_CHMOD_DIR`) rather than `mkdir(0777)` ([#15](https://github.com/bgoewert/wp-settings/issues/15)). The old path was predictable from the plugin slug and a date, so an unauthenticated visitor could fetch any log file the consumer had written — the only externally reachable finding in the audit that opened the issue. Uploads is not outside the web root either, so it is the per-site hash suffix, plus an `index.php` and a deny-all `.htaccess`, that closes it; the `.htaccess` covers Apache only, and on nginx the unguessable name is the whole of the protection. Existing `<plugin-dir>/logs` files are moved on the first write or log-viewer load, and a legacy directory holding anything the move could not claim is guarded in place instead of removed. Code that assumed the old location must read `WP_Settings_Logger::get_log_dir()`; rotating the site's salts changes the suffix and orphans existing files until retention prunes them.
+
+### Added
+
+- A `log_dir` key for `WP_Settings::logging()`, which overrides the derived location — the way to put logs above the web root, which is the only placement nginx also protects.
+
+### Fixed
+
+- A log directory that cannot be created no longer sends every subsequent entry to `file_put_contents()` against a missing path with the warning swallowed. `ensure_log_dir()` returns a bool, `log()` honours it, and the first failure — creating the directory or writing the file — turns file logging off for the rest of the request after one `error_log()` line.
+
 ## [3.2.1] - 2026-08-14
 
 ### Fixed
