@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.2] - 2026-08-21
+
+### Fixed
+
+- A setting that ships a `default_value` can be saved empty ([#17](https://github.com/bgoewert/wp-settings/issues/17)). Seven render paths substituted the default whenever the stored value was falsy, so an admin who cleared a field got the default back on reload and concluded the save had failed — `get_option()` had been returning `''` the whole time, only the field lied. The default now reaches a field the way WordPress already provides for: the option row `add_setting()` creates carries it and `register_setting()` declares it, so a never-configured field still shows it while a saved value renders verbatim. `render_unbound()` still applies the default to a `null` value, which is what a blank "add row" form and a settings-table row saved before the field existed pass, and an array reaching a text or hidden field is still treated as a type error rather than a value. A consumer that leaned on the field redisplaying its default when empty should pass `'reset_button' => true` (`text`, `textarea`, `richtext`) and let the admin restore it deliberately.
+
 ## [4.0.1] - 2026-08-21
 
 ### Fixed
