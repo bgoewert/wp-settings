@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.1.0] - 2026-08-21
+
+### Added
+
+- Text-like fields accept a `list` arg, so a field can point at a `<datalist>` without JavaScript ([#18](https://github.com/bgoewert/wp-settings/issues/18)). Suggestions fetched from a remote system were only reachable by appending the element and setting `list=` on the input after render, which meant every consumer that wanted them shipped JS to bolt an attribute onto markup this library had already produced, and the field's own definition said nothing about it. The library emits the attribute only — the consumer still renders the `<datalist>` and owns the fetching, caching and failure handling behind it. Unlike a `select`, a value that is not in the list is still accepted, so a stale or failed lookup degrades to a plain text field. `list` does nothing on a `<textarea>` and is ignored there.
+
 ## [4.0.2] - 2026-08-21
 
 ### Fixed
