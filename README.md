@@ -206,7 +206,7 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 
 ### Input Attributes
 
-Text-like fields (`text`, `email`, `url`, `number`, `password`) render these `$args` keys directly onto the `<input>`: `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size`, `autocomplete`.
+Text-like fields (`text`, `email`, `url`, `number`, `password`) render these `$args` keys directly onto the `<input>`: `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size`, `autocomplete`, `list`.
 
 ```php
 new WP_Setting(
@@ -220,7 +220,17 @@ Empty strings, `null` and non-scalar values are skipped; `0` is rendered (`min="
 
 These are browser-side validation hints only. Saving still goes through the field's sanitize callback, and the default `number` callback rejects non-numerics but does **not** enforce `min`/`max` — supply a custom `sanitize_callback` if you need a hard bound.
 
-`textarea` fields accept `rows`, `class` and `placeholder` the same way.
+`list` names the `id` of a `<datalist>` the **consumer** renders — the library emits the attribute and nothing else, because the suggestions usually come from a remote lookup whose fetching, caching and failure handling belong outside a field definition. Unlike a `select`, the admin can still type a value the list doesn't contain, which is the point: a stale or failed fetch degrades to a plain text field.
+
+```php
+new WP_Setting(
+    'sf_field', 'Salesforce Field', 'text', 'settings', 'section',
+    '30ch', 'Pick a field, or paste an id the lookup did not return.', false, null, null,
+    array('list' => 'sf_field_names')
+);
+```
+
+`textarea` fields accept `rows`, `class` and `placeholder` the same way; the value-based attributes above (including `list`, which does nothing on a `<textarea>`) are ignored there.
 
 #### Boolean Attributes
 

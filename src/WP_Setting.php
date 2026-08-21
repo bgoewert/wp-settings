@@ -194,6 +194,7 @@ class WP_Setting
         'maxlength',
         'size',
         'autocomplete',
+        'list',
     );
 
     /**
@@ -279,6 +280,7 @@ class WP_Setting
             'id'           => array(),
             'value'        => array(),
             'autocomplete' => array(),
+            'list'         => array(),
             'style'        => array(),
             'required'     => array(),
             'placeholder'  => array(),

@@ -2614,6 +2614,17 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('autocomplete="off"', $output);
     }
 
+    /**
+     * `list` points at a <datalist> the consumer renders, so the library only
+     * has to emit the attribute (issue #18).
+     */
+    public function test_text_renders_list_attribute_for_datalist(): void
+    {
+        $output = $this->renderTextInput('text', ['list' => 'sf_field_names']);
+
+        $this->assertStringContainsString('list="sf_field_names"', $output);
+    }
+
     public function test_passthrough_attributes_are_escaped(): void
     {
         $output = $this->renderTextInput('text', ['pattern' => '"><script>alert(1)</script>']);
@@ -2746,11 +2757,12 @@ class WPSettingTest extends WP_Settings_TestCase
      */
     public function test_textarea_does_not_render_value_passthrough_attributes(): void
     {
-        $output = $this->renderTextarea(['min' => 5, 'pattern' => '[A-Z]+', 'size' => 10]);
+        $output = $this->renderTextarea(['min' => 5, 'pattern' => '[A-Z]+', 'size' => 10, 'list' => 'suggestions']);
 
         $this->assertStringNotContainsString('min=', $output);
         $this->assertStringNotContainsString('pattern=', $output);
         $this->assertStringNotContainsString('size=', $output);
+        $this->assertStringNotContainsString('list=', $output);
     }
 
     // -------------------------------------------------------------------------
