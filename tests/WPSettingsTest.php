@@ -617,4 +617,74 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertArrayHasKey('test_plugin_section_general', $registered);
         $this->assertSame('', $registered['test_plugin_section_general']['title']);
     }
+
+    // -------------------------------------------------------------------------
+    // Tab navigation
+    // -------------------------------------------------------------------------
+
+    /** Capture the admin page markup for a settings page object. */
+    private function render_menu_page(WP_Settings $page): string
+    {
+        unset($_GET['tab'], $_GET['settings-updated'], $_POST['submit']);
+
+        ob_start();
+        try {
+            $page->menu_page_callback();
+        } catch (\Throwable $th) {
+            ob_end_clean();
+            throw $th;
+        }
+
+        return (string) ob_get_clean();
+    }
+
+    public function test_menu_page_omits_tab_nav_for_a_single_tab(): void
+    {
+        $page = new Test_WP_Settings_Exposer([], [
+            'general' => [
+                'name'     => 'General',
+                'tab'      => 'general',
+                'callback' => '__return_false',
+            ],
+        ]);
+
+        $html = $this->render_menu_page($page);
+
+        $this->assertStringNotContainsString('nav-tab-wrapper', $html,
+            'A page with one tab must not render a tab strip.');
+    }
+
+    public function test_menu_page_omits_tab_nav_when_sections_share_a_tab(): void
+    {
+        $page = new Test_WP_Settings_Exposer([], [
+            'general' => [
+                'name'     => 'General',
+                'tab'      => 'general',
+                'callback' => '__return_false',
+            ],
+            'more' => [
+                'name'     => 'More',
+                'tab'      => 'general',
+                'callback' => '__return_false',
+            ],
+        ]);
+
+        $html = $this->render_menu_page($page);
+
+        $this->assertStringNotContainsString('nav-tab-wrapper', $html,
+            'Several sections on one tab still amount to a single tab.');
+    }
+
+    public function test_menu_page_renders_tab_nav_for_multiple_tabs(): void
+    {
+        $page = new Test_WP_Settings_Multi_Tab([]);
+
+        $html = $this->render_menu_page($page);
+
+        $this->assertStringContainsString('nav-tab-wrapper', $html);
+        $this->assertStringContainsString('>General</a>', $html);
+        $this->assertStringContainsString('>Advanced</a>', $html);
+        $this->assertStringContainsString('class="nav-tab nav-tab-active"', $html,
+            'The tab being viewed must still be marked active.');
+    }
 }

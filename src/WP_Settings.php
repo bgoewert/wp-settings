@@ -304,16 +304,20 @@ class WP_Settings
 
         <?php \settings_errors($this->text_domain . "_messages"); ?>
 
-        <nav class="nav-tab-wrapper">
-            <?php foreach ($tabs as $t): ?>
-                <a href="?page=<?php echo rawurlencode(
-                    $this->text_domain,
-                ); ?>&tab=<?php echo $t; ?>" class="nav-tab <?php echo $t ===
-$tab
-    ? " nav-tab-active"
-    : ""; ?>"><?php echo \esc_html($tab_labels[$t] ?? ucwords($t)); ?></a>
-            <?php endforeach; ?>
-        </nav>
+        <?php // A lone tab links to the page already on screen, so there is nothing to navigate. ?>
+        <?php if (count($tabs) > 1): ?>
+            <nav class="nav-tab-wrapper">
+                <?php foreach ($tabs as $t): ?>
+                    <?php $tab_class =
+                        "nav-tab" . ($t === $tab ? " nav-tab-active" : ""); ?>
+                    <a href="?page=<?php echo rawurlencode(
+                        $this->text_domain,
+                    ); ?>&tab=<?php echo $t; ?>" class="<?php echo $tab_class; ?>"><?php echo \esc_html(
+    $tab_labels[$t] ?? ucwords($t),
+); ?></a>
+                <?php endforeach; ?>
+            </nav>
+        <?php endif; ?>
 
         <div class="tab-content">
 

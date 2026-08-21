@@ -91,6 +91,7 @@ new My_Settings();
 ```
 
 Tab labels default to `ucwords(tab)` but you can override the display label per tab with `tab_name`.
+The tab strip renders only when there are two or more tabs, so a page whose sections all share one tab gets no nav.
 
 ### Construct Unconditionally — Do Not Gate Behind `is_admin()`
 

@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.1] - 2026-08-21
+
+### Fixed
+
+- A settings page with one tab no longer renders a `nav-tab-wrapper` around a single tab ([#16](https://github.com/bgoewert/wp-settings/issues/16)). The lone tab looked like a control and did nothing when clicked, because it linked to the page already on screen, and there was no way to suppress it short of hiding it with CSS in every single-section consumer. The tab machinery is unchanged — `$tab` still selects the section group and names the save notice — so nothing about section definitions or saving moves. A consumer that shipped a CSS rule to hide the strip can drop it; the rule is now redundant rather than broken.
+
 ## [4.0.0] - 2026-08-14
 
 ### Changed
