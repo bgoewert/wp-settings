@@ -980,7 +980,7 @@ class WP_Setting
      */
     public function init_type(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
     /**
@@ -990,7 +990,7 @@ class WP_Setting
      */
     public function init_textarea(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1001,7 +1001,7 @@ class WP_Setting
      */
     public function init_richtext(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1012,7 +1012,7 @@ class WP_Setting
      */
     public function init_checkbox(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1023,7 +1023,7 @@ class WP_Setting
      */
     public function init_select(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1034,7 +1034,7 @@ class WP_Setting
      */
     public function init_radio(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1045,14 +1045,14 @@ class WP_Setting
      */
     public function init_hidden(): void
     {
-        $value = self::get($this->slug);
+        $value = self::get($this->slug, $this->default_value);
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
     /**
      * Render the setting without binding to an option value.
      *
-     * @param mixed       $value Optional value override.
+     * @param mixed       $value Optional value override. Null falls back to the default value.
      * @param string|null $name  Optional field name override.
      * @param string|null $id    Optional field id override.
      * @return void
@@ -1061,6 +1061,10 @@ class WP_Setting
     {
         $field_name = $name ?? $this->name;
         $field_id   = $id ?? $field_name;
+        // Null is "no value here" - an unbound control, or a table row saved
+        // before this field existed - so the default seeds it. An empty string
+        // is a value the admin chose and renders as-is (#17).
+        $value      = $value ?? $this->default_value;
 
         // Wrap field in container with conditions data if applicable.
         if ($this->has_conditions()) {
@@ -1156,6 +1160,11 @@ class WP_Setting
     /**
      * Render a field using the provided value.
      *
+     * A saved value renders verbatim. `default_value` reaches a field through
+     * the option row `add_setting()` creates, not through a substitution for an
+     * empty value here - that one also fired on a value the admin deliberately
+     * saved empty, making an empty setting impossible to keep (#17).
+     *
      * @param string $name  Field name.
      * @param string $id    Field id.
      * @param mixed  $value Field value.
@@ -1213,15 +1222,14 @@ class WP_Setting
      */
     protected function render_text_value($name, $id, $value): void
     {
-        // Safety check: if value is an array, convert to empty string
-        if (is_array($value)) {
-            $value = '';
-        }
+        $has_existing_value = !is_array($value) && !empty($value);
 
-        $has_existing_value = !empty($value);
-        if (!$value) {
+        // An array is a type error, not a value the admin saved, so the default
+        // still renders here - unlike an empty string, which is a choice (#17).
+        if (is_array($value)) {
             $value = $this->default_value;
         }
+        $value = $value ?? '';
 
         // For password fields, don't pre-fill the value for security reasons
         if ('password' === $this->type) {
@@ -1274,9 +1282,7 @@ class WP_Setting
      */
     protected function render_textarea_value($name, $id, $value): void
     {
-        if (!$value) {
-            $value = $this->default_value;
-        }
+        $value = $value ?? '';
 
         $atts = '';
         if ($this->width) {
@@ -1322,9 +1328,7 @@ class WP_Setting
      */
     protected function render_richtext_value($name, $id, $value): void
     {
-        if (!$value) {
-            $value = $this->default_value ?? '';
-        }
+        $value = $value ?? '';
         $settings = [
             'textarea_name' => $name,
             'media_buttons' => false,
@@ -1525,9 +1529,6 @@ class WP_Setting
      */
     protected function render_select_value($name, $id, $value): void
     {
-        if (!$value) {
-            $value = $this->default_value;
-        }
         $options = $this->resolve_options();
         ob_start();
         echo sprintf('<select name="%s" id="%s">', \esc_attr($name), \esc_attr($id));
@@ -1556,10 +1557,6 @@ class WP_Setting
      */
     protected function render_radio_value($name, $id, $value): void
     {
-        if (!$value) {
-            $value = $this->default_value;
-        }
-
         $options = $this->resolve_options();
         $option_count = count($options);
 
@@ -1599,14 +1596,12 @@ class WP_Setting
      */
     protected function render_hidden_value($name, $id, $value): void
     {
-        // Safety check: if value is an array, convert to empty string
+        // An array is a type error, not a value the admin saved, so the default
+        // still renders here - unlike an empty string, which is a choice (#17).
         if (is_array($value)) {
-            $value = '';
-        }
-
-        if (!$value && $this->default_value) {
             $value = $this->default_value;
         }
+        $value = $value ?? '';
 
         // Output hidden field with no visible markup
         echo \wp_kses(sprintf('<input type="hidden" name="%s" id="%s" value="%s">', $name, $id, \esc_attr($value)), self::$allowed_html);
@@ -1629,9 +1624,6 @@ class WP_Setting
 
         if (!is_array($value)) {
             $value = array();
-        }
-        if (empty($value) && is_array($this->default_value)) {
-            $value = $this->default_value;
         }
 
         $ordered_keys = $this->normalize_sortable_value($value, $options);

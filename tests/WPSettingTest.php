@@ -3144,4 +3144,118 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringContainsString('aria-label="sku, row 1"', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // default_value seeds an unset option, it does not override a saved one (#17)
+    // -------------------------------------------------------------------------
+
+    /** Build a field of $type carrying $default_value. */
+    private function makeDefaulted(string $name, string $type, $default_value, array $args = array()): WP_Setting
+    {
+        return new WP_Setting($name, 'Defaulted', $type, 'general', 'main', null, null, false, $default_value, null, $args);
+    }
+
+    public function test_text_saved_empty_renders_empty(): void
+    {
+        $setting = $this->makeDefaulted('lead_reason', 'text', 'Request a Quote');
+        $this->setOption('my_plugin_lead_reason', '');
+
+        ob_start();
+        $setting->init_type();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('value=""', $output);
+        $this->assertStringNotContainsString('Request a Quote', $output);
+    }
+
+    public function test_text_with_no_saved_row_renders_the_default(): void
+    {
+        $setting = $this->makeDefaulted('unsaved_reason', 'text', 'Request a Quote');
+
+        ob_start();
+        $setting->init_type();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('value="Request a Quote"', $output);
+    }
+
+    public function test_textarea_saved_empty_renders_empty(): void
+    {
+        $setting = $this->makeDefaulted('blurb', 'textarea', 'Default blurb');
+        $this->setOption('my_plugin_blurb', '');
+
+        ob_start();
+        $setting->init_textarea();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('></textarea>', $output);
+        $this->assertStringNotContainsString('Default blurb', $output);
+    }
+
+    public function test_richtext_saved_empty_renders_empty(): void
+    {
+        $setting = $this->makeDefaulted('body', 'richtext', 'Default body');
+        $this->setOption('my_plugin_body', '');
+
+        ob_start();
+        $setting->init_richtext();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('Default body', $output);
+    }
+
+    public function test_select_saved_empty_selects_the_empty_option(): void
+    {
+        $setting = $this->makeDefaulted('choice', 'select', 'option_b', array(
+            'options' => array('' => '- Select -', 'option_a' => 'Option A', 'option_b' => 'Option B'),
+        ));
+        $this->setOption('my_plugin_choice', '');
+
+        ob_start();
+        $setting->init_select();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('<option value="" selected="selected"', $output);
+        $this->assertStringNotContainsString('<option value="option_b" selected="selected"', $output);
+    }
+
+    public function test_radio_saved_empty_checks_nothing(): void
+    {
+        $setting = $this->makeDefaulted('pick', 'radio', 'b', array(
+            'options' => array('a' => 'A', 'b' => 'B'),
+        ));
+        $this->setOption('my_plugin_pick', '');
+
+        ob_start();
+        $setting->init_radio();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('checked', $output);
+    }
+
+    public function test_hidden_saved_empty_renders_empty(): void
+    {
+        $setting = $this->makeDefaulted('token', 'hidden', 'fallback');
+        $this->setOption('my_plugin_token', '');
+
+        ob_start();
+        $setting->init_hidden();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('value=""', $output);
+        $this->assertStringNotContainsString('fallback', $output);
+    }
+
+    /** An unbound control has no saved value to respect, so the default seeds it. */
+    public function test_render_unbound_without_a_value_renders_the_default(): void
+    {
+        $setting = $this->makeDefaulted('unbound_reason', 'text', 'Request a Quote');
+        $this->setOption('my_plugin_unbound_reason', '');
+
+        ob_start();
+        $setting->render_unbound(null, 'new_row', 'new_row');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('value="Request a Quote"', $output);
+    }
 }

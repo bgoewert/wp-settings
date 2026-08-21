@@ -113,6 +113,12 @@ $value = WP_Setting::get('my_option', 'default');
 
 Calling `WP_Setting::get()` or `::set()` while `$text_domain` is still unset triggers a `_doing_it_wrong()` notice (visible under `WP_DEBUG`, silent in production) naming the likely cause and fix; the call still returns its existing fallback value either way.
 
+### Default Values
+
+`$default_value` (the ninth constructor argument) is what the option starts life with, not what the field falls back to when empty. `add_option()` seeds the option row with it and `register_setting()` declares it, so a setting nobody has configured shows it — and a setting saved empty stays empty, which is what makes an optional field clearable at all. Pass `'reset_button' => true` in `$args` on a `text`, `textarea` or `richtext` field to render a *Reset to Default* button beside it, so restoring the default is something the admin chooses rather than something the field does to them.
+
+`WP_Setting::get( $setting, $default )` follows `get_option()`: the second argument applies only when the option row is absent, so an empty saved value comes back empty. Use `?:` at the call site if consuming code needs its own fallback.
+
 ## Built-In Logging
 
 You can opt into a built-in `Logging` tab with plugin log files, retention settings, and an admin log viewer.
