@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.3.1] - 2026-08-25
+
+### Fixed
+
+- "Reset to Default" restores the right value on a `text` or `textarea` field that declares a `delimiter`. The button's script assigns the default to `input.value`, and a list default reached it as a JavaScript array, which the assignment coerced through `Array.toString()` — always comma-joined, whatever the delimiter is. A field split on `'|'` or `"\n"` reset to a single comma-joined string that then re-split into one wrong item. The default is now joined the same way the field renders it.
+
 ## [4.3.0] - 2026-08-25
 
 ### Added
