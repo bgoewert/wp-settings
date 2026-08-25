@@ -22,3 +22,9 @@ Thumbs.db
 *.patch
 .local/
 .claude/
+
+# Playwright
+/node_modules/
+/test-results/
+/playwright-report/
+/.playwright/

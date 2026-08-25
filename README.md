@@ -523,6 +523,20 @@ Rows are stored in the order they appear: `[['label' => 'Name', 'type' => 'text'
 
 `'reorder' => true` adds an up/down button pair to every row, which is the affordance a keyboard reaches without a pointer. The move that would take a row nowhere is disabled, each button is named `Move row {n} up`/`down` from the row's position, and the position, the cell names and the visible counter are all rebuilt after a move the same way they are after an add or remove. `'numbered_rows' => true` shows the counter; both default off, and a repeater that asks for neither renders exactly as before.
 
+## Testing
+
+Three suites, three things they can prove.
+
+| Suite | Command | Needs |
+| --- | --- | --- |
+| Unit | `composer test` | Nothing — the library runs against the WordPress function stubs in `tests/bootstrap.php` |
+| Integration | `composer test:integration` | A booted WordPress (`ddev start`) |
+| E2E | `bun run test:e2e` | The same ddev site, plus `bunx playwright install chromium` |
+
+`ddev start` downloads WordPress into `.local/wp` (gitignored, so core never lands in the repo), installs it as `admin`/`admin`, and links `tests/harness/wp-settings-harness.php` in as an mu-plugin. That harness registers the settings page both the integration and e2e suites drive, at **Settings → Wp Settings Harness**.
+
+The split is about what each layer can reach. The unit suite calls a sanitizer directly. The integration suite is the only one with a real `sanitize_option_{$option}` filter, which is where `register_setting()` hangs the sanitizer and where every writer — including ones that never touch this library — picks it up. The e2e suite is the only one that executes the admin page's JavaScript, so it is the only place a bug in what the *Reset to Default* script assigns can show up at all.
+
 ## Encryption
 
 Fields marked for encryption are stored ciphered, with the key and nonce kept in `wp-config.php` constants (falling back to `LOGGED_IN_KEY` / `NONCE_KEY`).

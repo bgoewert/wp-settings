@@ -1,0 +1,16 @@
+{
+  "name": "wp-settings",
+  "private": true,
+  "description": "Browser tests for the WordPress Settings Library.",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.50.0"
+  },
+  "scripts": {
+    "env:start": "ddev start",
+    "env:stop": "ddev stop",
+    "env:url": "ddev describe -j | jq -r '.raw.primary_url'",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  }
+}
