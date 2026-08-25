@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.3.0] - 2026-08-25
+
+### Added
+
+- A `text` or `textarea` field can declare a `delimiter` and store its value as a list ([#20](https://github.com/bgoewert/wp-settings/issues/20)). A single input often stands in for a list — tags, SKU prefixes, allowed domains, roles — and the library had no expression for that, so every consumer that wanted one re-derived the same split/trim/filter `sanitize_callback`. Pass `'delimiter' => ','` and the value is split, trimmed, emptied entries dropped, each part run through `sanitize_text_field()`, and stored and returned as a `list<string>`. The stored list renders back into the one input joined on the delimiter plus a space (`rental, demo`), because that is what an admin types and the split trims it back off; a delimiter that is already whitespace (`"\n"`, one item per line) joins verbatim. A string `default_value` is normalized to a list at construction, so the option row `add_option()` seeds matches what the field reads back. The sanitizer accepts the array as well as the string, because `save()` sanitizes before `set()` and `register_setting()` sanitizes again inside it. Only `text` and `textarea` honour the arg, an explicit `sanitize_callback` still wins, and a field without the key is a plain string end to end.
+
+### Fixed
+
+- Storing an array in a string-typed setting now says so instead of saving `''` silently. `sanitize_text()` and `sanitize_textarea()` are registered with `register_setting()`, so they run on every writer including `WP_Setting::set()`, and `sanitize_text_field()` turns an array into an empty string — the write reported success, the value was gone, and the field re-rendered empty, which reads as "the setting won't save" rather than as a type error three layers down in `update_option()`. Both now raise `_doing_it_wrong()` pointing at `delimiter` or a custom `sanitize_callback`. The stored value is unchanged.
+
 ## [4.2.0] - 2026-08-25
 
 ### Added
