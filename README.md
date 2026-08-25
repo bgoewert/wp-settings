@@ -204,6 +204,8 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 
 **Field Map**: Dynamic add/remove rows for mapping source fields to destination fields.
 
+**Repeater**: Dynamic add/remove rows of child controls, stored in row order.
+
 ### Input Attributes
 
 Text-like fields (`text`, `email`, `url`, `number`, `password`) render these `$args` keys directly onto the `<input>`: `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size`, `autocomplete`, `list`.
@@ -470,6 +472,38 @@ The `field_map` type provides dynamic add/remove rows where users can:
 - Map multiple source fields to different destinations (useful for combining values)
 
 Stored as array: `[['key' => 'first_name', 'value' => 'FirstName'], ['key' => 'email', 'value' => 'Email'], ...]`
+
+### Repeater Field Example
+
+```php
+new WP_Setting(
+    'attendee_fields',
+    'Attendee Fields',
+    'repeater',
+    'settings',
+    'section',
+    null,
+    'Questions each registrant answers, in the order they are asked.',
+    false,
+    null,
+    null,
+    array(
+        'reorder'       => true,
+        'numbered_rows' => true,
+        'children'      => array(
+            array('name' => 'label', 'label' => 'Label', 'type' => 'text'),
+            array('name' => 'type',  'label' => 'Type',  'type' => 'select', 'options' => array(
+                'text'  => 'Text',
+                'email' => 'Email',
+            )),
+        ),
+    )
+);
+```
+
+Rows are stored in the order they appear: `[['label' => 'Name', 'type' => 'text'], ...]`. Each child takes `name`, `label`, `type` (`text`-like, `textarea` or `select`), plus `options` for a `select`, `placeholder`, `width`, and `preserve_percent_encoded`.
+
+`'reorder' => true` adds an up/down button pair to every row, which is the affordance a keyboard reaches without a pointer. The move that would take a row nowhere is disabled, each button is named `Move row {n} up`/`down` from the row's position, and the position, the cell names and the visible counter are all rebuilt after a move the same way they are after an add or remove. `'numbered_rows' => true` shows the counter; both default off, and a repeater that asks for neither renders exactly as before.
 
 ## Encryption
 

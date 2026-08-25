@@ -3270,4 +3270,152 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertStringContainsString('value="Request a Quote"', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Feature: reorder arg for repeater fields (#19)
+    // -------------------------------------------------------------------------
+
+    /** Build a repeater carrying $args on top of a one-column definition. */
+    private function makeReorderable(string $slug, array $args = []): WP_Setting
+    {
+        return new WP_Setting(
+            $slug,
+            'Rows',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            array_merge(['children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']]], $args)
+        );
+    }
+
+    /** The rendered rows, without the header, the template or the row script. */
+    private function repeaterTbody(string $output): string
+    {
+        $start = strpos($output, '<tbody');
+        $end   = strpos($output, '</tbody>');
+        return substr($output, $start, $end - $start);
+    }
+
+    /** The template row the add button clones, without the row script. */
+    private function repeaterTemplate(string $output): string
+    {
+        $start = strpos($output, '<template');
+        $end   = strpos($output, '</template>');
+        return substr($output, $start, $end - $start);
+    }
+
+    public function test_repeater_without_reorder_renders_no_move_controls(): void
+    {
+        $setting = $this->makeReorderable('rep_no_reorder');
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('wps-repeater-move-header', $output);
+        $this->assertStringNotContainsString('wps-repeater-cell--move', $output);
+        $this->assertStringNotContainsString('data-move=', $output);
+    }
+
+    public function test_repeater_reorder_renders_a_move_control_pair_per_row(): void
+    {
+        $this->setOption('my_plugin_rep_reorder', json_encode([['label' => 'a'], ['label' => 'b']]));
+        $setting = $this->makeReorderable('rep_reorder', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $rows = $this->repeaterTbody($output);
+
+        $this->assertStringContainsString('wps-repeater-move-header', $output);
+        $this->assertSame(2, substr_count($rows, 'data-move="up"'), 'One move-up button per row.');
+        $this->assertSame(2, substr_count($rows, 'data-move="down"'), 'One move-down button per row.');
+    }
+
+    /** A move control is named by the row it moves, the way the cells are. */
+    public function test_repeater_move_controls_are_named_by_row_position(): void
+    {
+        $this->setOption('my_plugin_rep_move_names', json_encode([['label' => 'a'], ['label' => 'b']]));
+        $setting = $this->makeReorderable('rep_move_names', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('aria-label="Move row 1 up"', $output);
+        $this->assertStringContainsString('aria-label="Move row 1 down"', $output);
+        $this->assertStringContainsString('aria-label="Move row 2 up"', $output);
+        $this->assertStringContainsString('aria-label="Move row 2 down"', $output);
+    }
+
+    /** The move that would take a row nowhere is disabled before the script runs. */
+    public function test_repeater_end_rows_disable_the_move_that_goes_nowhere(): void
+    {
+        $this->setOption('my_plugin_rep_ends', json_encode([['label' => 'a'], ['label' => 'b'], ['label' => 'c']]));
+        $setting = $this->makeReorderable('rep_ends', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $rows = $this->repeaterTbody($output);
+
+        $this->assertStringContainsString('aria-label="Move row 1 up" disabled', $rows);
+        $this->assertStringContainsString('aria-label="Move row 3 down" disabled', $rows);
+        $this->assertSame(2, substr_count($rows, 'disabled'), 'Only the two end-of-list moves are disabled.');
+    }
+
+    /** The template row is inert, so its controls stay enabled for the script to name. */
+    public function test_repeater_template_row_move_controls_are_enabled(): void
+    {
+        $setting = $this->makeReorderable('rep_tmpl_move', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $template = $this->repeaterTemplate($output);
+        $this->assertStringContainsString('data-move="up"', $template);
+        $this->assertStringNotContainsString('disabled', $template);
+        $this->assertStringNotContainsString('row __INDEX__', $template);
+    }
+
+    /** A move has to rerun the relabel that add and remove already run. */
+    public function test_repeater_script_relabels_and_serializes_after_a_move(): void
+    {
+        $setting = $this->makeReorderable('rep_script', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString(".wps-repeater-move', function(e)", $output);
+        $this->assertStringContainsString('moveFormats', $output);
+        // The handler runs both the relabel and the DOM-order serialize.
+        $handler = substr($output, strpos($output, ".wps-repeater-move', function(e)"));
+        $this->assertStringContainsString('relabelRows();', $handler);
+        $this->assertStringContainsString('updateData();', $handler);
+    }
+
+    /** Saved rows can come back keyed non-sequentially; positions still count from one. */
+    public function test_repeater_rows_are_numbered_by_position_not_saved_key(): void
+    {
+        $this->setOption('my_plugin_rep_sparse', json_encode([3 => ['label' => 'a'], 7 => ['label' => 'b']]));
+        $setting = $this->makeReorderable('rep_sparse', ['reorder' => true]);
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('aria-label="Move row 1 up"', $output);
+        $this->assertStringContainsString('aria-label="Label, row 2"', $output);
+        $this->assertStringNotContainsString('row 4', $output);
+        $this->assertStringNotContainsString('row 8', $output);
+    }
 }

@@ -2172,19 +2172,73 @@ class WP_Setting
     }
 
     /**
+     * Whether this repeater renders per-row move controls.
+     *
+     * Any truthy `reorder` opts in. The affordance is a pair of buttons rather
+     * than a drag handle because row order is data here, and a keyboard has to
+     * be able to change it without a pointer.
+     *
+     * @return bool
+     */
+    private function reorder_enabled(): bool
+    {
+        return !empty($this->args['reorder']);
+    }
+
+    /**
+     * The sprintf formats naming a row's move controls by position.
+     *
+     * Shared with the row script so a row moved in the browser is named the
+     * same way one rendered by PHP is.
+     *
+     * @return array<string, string>
+     */
+    private static function repeater_move_label_formats(): array
+    {
+        return array(
+            /* translators: %d: row number. */
+            'up' => \__('Move row %d up', 'wp-settings'),
+            /* translators: %d: row number. */
+            'down' => \__('Move row %d down', 'wp-settings'),
+        );
+    }
+
+    /**
      * Render a single repeater row.
      *
      * @param array      $children  Child field definitions.
      * @param array      $row_data  Row data values.
      * @param int|string $index     Row index.
+     * @param int        $total     Number of rows rendered, so the first and
+     *                              last row can disable the move that would
+     *                              take them nowhere.
      * @return void
      */
-    private function render_repeater_row(array $children, array $row_data, $index): void
+    private function render_repeater_row(array $children, array $row_data, $index, int $total = 0): void
     {
         echo '<tr class="wps-repeater-row" data-index="' . \esc_attr($index) . '">';
 
         if (!empty($this->args['numbered_rows'])) {
             echo '<td class="wps-repeater-row-number"></td>';
+        }
+
+        if ($this->reorder_enabled()) {
+            $formats = self::repeater_move_label_formats();
+            // The template row has no position until it is inserted; the script
+            // names and enables it on add, and <template> is out of the a11y tree.
+            $position = is_numeric($index) ? (int) $index + 1 : 1;
+
+            echo '<td class="wps-repeater-cell--move" style="padding: 6px; width: 4.5em; white-space: nowrap; text-align: center;">';
+            foreach (array('up' => '&uarr;', 'down' => '&darr;') as $direction => $glyph) {
+                $at_end = 'up' === $direction
+                    ? 1 === $position
+                    : ($total > 0 && $position === $total);
+                echo '<button type="button" class="button wps-repeater-move" data-move="' . \esc_attr($direction) . '"'
+                    . ' aria-label="' . \esc_attr(sprintf($formats[$direction], $position)) . '"'
+                    . (is_numeric($index) && $at_end ? ' disabled' : '') . '>'
+                    . '<span aria-hidden="true">' . $glyph . '</span></button>';
+            }
+            echo '</td>';
         }
 
         foreach ($children as $child) {
@@ -2245,18 +2299,27 @@ class WP_Setting
                 var container = $('#<?php echo \esc_js($uid); ?>');
                 var dataInput = container.find('.wps-repeater-data');
                 var labelFormat = <?php echo \wp_json_encode(self::repeater_row_label_format()); ?>;
+                var moveFormats = <?php echo \wp_json_encode(self::repeater_move_label_formats()); ?>;
 
                 // Row position is part of each control's accessible name, so it
                 // has to follow the DOM after an add or remove — same numbering
                 // the visible counter uses.
                 function relabelRows() {
-                    container.find('.wps-repeater-rows .wps-repeater-row').each(function(rowIndex) {
+                    var rows = container.find('.wps-repeater-rows .wps-repeater-row');
+                    var count = rows.length;
+                    rows.each(function(rowIndex) {
                         $(this).find('.wps-repeater-field').each(function() {
                             var label = $(this).attr('data-label');
                             if (!label) return;
                             $(this).attr('aria-label', labelFormat
                                 .replace('%1$s', function() { return label; })
                                 .replace('%2$d', rowIndex + 1));
+                        });
+                        $(this).find('.wps-repeater-move').each(function() {
+                            var direction = $(this).attr('data-move');
+                            if (!moveFormats[direction]) return;
+                            $(this).attr('aria-label', moveFormats[direction].replace('%d', rowIndex + 1));
+                            $(this).prop('disabled', direction === 'up' ? rowIndex === 0 : rowIndex === count - 1);
                         });
                     });
                 }
@@ -2297,6 +2360,27 @@ class WP_Setting
                     $(this).closest('.wps-repeater-row').remove();
                     relabelRows();
                     updateData();
+                });
+
+                container.on('click', '.wps-repeater-move', function(e) {
+                    e.preventDefault();
+                    var button = $(this);
+                    var row = button.closest('.wps-repeater-row');
+
+                    if (button.attr('data-move') === 'up') {
+                        row.prev('.wps-repeater-row').before(row);
+                    } else {
+                        row.next('.wps-repeater-row').after(row);
+                    }
+
+                    relabelRows();
+                    updateData();
+
+                    // A row moved to either end disables the button that moved
+                    // it, which would drop focus to the document.
+                    (button.prop('disabled')
+                        ? row.find('.wps-repeater-move').not(button)
+                        : button).trigger('focus');
                 });
 
                 container.on('change input', '.wps-repeater-field', function() {
@@ -2354,6 +2438,9 @@ class WP_Setting
         if (!empty($this->args['numbered_rows'])) {
             echo '<th class="wps-repeater-number-header" style="width: 2.5em; border-bottom: 1px solid #ddd;"></th>';
         }
+        if ($this->reorder_enabled()) {
+            echo '<th class="wps-repeater-move-header" style="width: 4.5em; border-bottom: 1px solid #ddd;">' . \esc_html__('Order', 'wp-settings') . '</th>';
+        }
         foreach ($children as $child) {
             $th_style = 'text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd;';
             if (!empty($child['width'])) {
@@ -2366,12 +2453,15 @@ class WP_Setting
 
         echo '<tbody class="wps-repeater-rows">';
 
-        if (!empty($value)) {
-            foreach ($value as $index => $row) {
-                $this->render_repeater_row($children, $row, $index);
-            }
-        } else {
-            $this->render_repeater_row($children, array(), 0);
+        // Saved rows can come back keyed non-sequentially, and the row position
+        // is both the visible counter and part of every control's name.
+        $rows = array_values($value);
+        if (empty($rows)) {
+            $rows = array(array());
+        }
+        $total = count($rows);
+        foreach ($rows as $index => $row) {
+            $this->render_repeater_row($children, (array) $row, $index, $total);
         }
 
         echo '</tbody></table>';

@@ -687,4 +687,108 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertStringContainsString('class="nav-tab nav-tab-active"', $html,
             'The tab being viewed must still be marked active.');
     }
+
+    // -------------------------------------------------------------------------
+    // Integration: a reorderable repeater from registration to save (#19)
+    // -------------------------------------------------------------------------
+
+    /** A repeater whose row order is the data — the order questions are asked. */
+    private function make_reorderable_repeater(string $name): WP_Setting
+    {
+        return new WP_Setting($name, 'Attendee Fields', 'repeater', 'general', 'general', null, null, false, null, null, [
+            'reorder'  => true,
+            'children' => [
+                ['name' => 'label', 'label' => 'Label', 'type' => 'text'],
+                ['name' => 'type', 'label' => 'Type', 'type' => 'select', 'options' => ['text' => 'Text', 'email' => 'Email']],
+            ],
+        ]);
+    }
+
+    /** Render the field the way do_settings_fields() does: through what init() registered. */
+    private function render_registered_field(string $slug): string
+    {
+        $fields = $this->getRegisteredSettingsFields();
+        $this->assertArrayHasKey($slug . '_field', $fields, 'The repeater must register a settings field.');
+
+        ob_start();
+        call_user_func($fields[$slug . '_field']['callback'], $fields[$slug . '_field']['args']);
+        return (string) ob_get_clean();
+    }
+
+    public function test_registered_repeater_renders_move_controls_for_saved_rows(): void
+    {
+        WP_Setting::$text_domain = 'my_plugin';
+        $this->setOption('my_plugin_attendee_fields', json_encode([
+            ['label' => 'Name', 'type' => 'text'],
+            ['label' => 'Email', 'type' => 'email'],
+        ]));
+
+        $page = $this->make_multi_tab_page([$this->make_reorderable_repeater('attendee_fields')]);
+        $page->init();
+
+        $html = $this->render_registered_field('my_plugin_attendee_fields');
+
+        $this->assertStringContainsString('aria-label="Move row 1 down"', $html);
+        $this->assertStringContainsString('aria-label="Move row 2 up"', $html);
+        $this->assertStringContainsString('aria-label="Move row 1 up" disabled', $html);
+        $this->assertStringContainsString('aria-label="Move row 2 down" disabled', $html);
+    }
+
+    /**
+     * The browser reorders the DOM and reserializes; what reaches the option is
+     * the moved order, and it is the order the field renders back.
+     */
+    public function test_saving_a_reordered_repeater_stores_and_rerenders_the_new_order(): void
+    {
+        WP_Setting::$text_domain = 'my_plugin';
+        $this->setOption('my_plugin_attendee_fields', json_encode([
+            ['label' => 'Name', 'type' => 'text'],
+            ['label' => 'Email', 'type' => 'email'],
+        ]));
+
+        $page = $this->make_multi_tab_page([$this->make_reorderable_repeater('attendee_fields')]);
+        $page->init();
+
+        $_POST['my_plugin_attendee_fields'] = json_encode([
+            ['label' => 'Email', 'type' => 'email'],
+            ['label' => 'Name', 'type' => 'text'],
+        ]);
+        $page->expose_save_tab('general');
+        unset($_POST['my_plugin_attendee_fields']);
+
+        $this->assertSame(
+            [
+                ['label' => 'Email', 'type' => 'email'],
+                ['label' => 'Name', 'type' => 'text'],
+            ],
+            $this->getOption('my_plugin_attendee_fields')
+        );
+
+        $html = $this->render_registered_field('my_plugin_attendee_fields');
+
+        $this->assertLessThan(
+            strpos($html, 'value="Name"'),
+            strpos($html, 'value="Email"'),
+            'The moved row must render first.'
+        );
+        $this->assertStringContainsString('aria-label="Label, row 1"', $html);
+        $this->assertStringContainsString('aria-label="Label, row 2"', $html);
+    }
+
+    /** Reordering is opt-in; a repeater that does not ask for it is unchanged. */
+    public function test_registered_repeater_without_reorder_has_no_move_controls(): void
+    {
+        WP_Setting::$text_domain = 'my_plugin';
+        $repeater = new WP_Setting('plain_rows', 'Plain Rows', 'repeater', 'general', 'general', null, null, false, null, null, [
+            'children' => [['name' => 'label', 'label' => 'Label', 'type' => 'text']],
+        ]);
+
+        $page = $this->make_multi_tab_page([$repeater]);
+        $page->init();
+
+        $html = $this->render_registered_field('my_plugin_plain_rows');
+
+        $this->assertStringContainsString('wps-repeater-row', $html);
+        $this->assertStringNotContainsString('data-move=', $html);
+    }
 }
