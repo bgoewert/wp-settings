@@ -115,6 +115,8 @@ class WP_Setting
      * - options => _array{value:string,label:string}_ Array of options to use for the select or radio inputs.
      * - children => _WP_Setting[]_ Array of child settings for advanced field type.
      * - sanitize_callback => _callable_ Sanitization callback for register_setting.
+     * - delimiter => _string_ On `text`/`textarea`, the separator that makes the single
+     *   input hold a list: the value is stored and returned as `list<string>`.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
      *   - 'field' => string - Field name to check
      *   - 'operator' => string - 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
@@ -626,11 +628,20 @@ class WP_Setting
                     break;
 
                 case 'text':
-                    $this->sanitize_callback = array(__CLASS__, 'sanitize_text');
-                    break;
-
                 case 'textarea':
-                    $this->sanitize_callback = array(__CLASS__, 'sanitize_textarea');
+                    if (null !== $this->list_delimiter()) {
+                        $this->sanitize_callback = array($this, 'sanitize_delimited_list');
+                        // The default is seeded into the option row by add_option(), so it
+                        // has to be stored in the list shape the field reads back — even
+                        // when it was written as the string an admin would have typed.
+                        if (null !== $this->default_value) {
+                            $this->default_value = $this->sanitize_delimited_list($this->default_value);
+                        }
+                    } elseif ('text' === $this->type) {
+                        $this->sanitize_callback = array(__CLASS__, 'sanitize_text');
+                    } else {
+                        $this->sanitize_callback = array(__CLASS__, 'sanitize_textarea');
+                    }
                     break;
 
                 case 'richtext':
@@ -1215,6 +1226,81 @@ class WP_Setting
     }
 
     /**
+     * The separator that makes a single `text`/`textarea` input hold a list.
+     *
+     * Opt-in and null by default, so a field without it stays a plain string
+     * end to end. Only these two types honour it: they are the ones whose
+     * default sanitizer is a bare string cast, which is what turns a list
+     * stored in them into `''`.
+     *
+     * @return string|null
+     */
+    private function list_delimiter(): ?string
+    {
+        if (!in_array($this->type, array('text', 'textarea'), true)) {
+            return null;
+        }
+
+        $delimiter = $this->args['delimiter'] ?? null;
+
+        return (is_string($delimiter) && '' !== $delimiter) ? $delimiter : null;
+    }
+
+    /**
+     * Join a stored list back into the string the input displays.
+     *
+     * Joins on the delimiter plus a space — `a, b` rather than `a,b` — because
+     * that is what an admin types, and the sanitizer trims each part back off,
+     * so the array still round-trips. A delimiter that is already whitespace
+     * (`"\n"`, one item per line) joins verbatim.
+     *
+     * @param array  $value     Stored list.
+     * @param string $delimiter Configured delimiter.
+     * @return string
+     */
+    private function join_list(array $value, string $delimiter): string
+    {
+        $separator = '' === trim($delimiter) ? $delimiter : rtrim($delimiter) . ' ';
+
+        return implode($separator, array_filter($value, 'is_scalar'));
+    }
+
+    /**
+     * Split a delimited string into the list a `delimiter` field stores.
+     *
+     * Accepts the array back as well as the string, because `save()` sanitizes
+     * before `set()` and `register_setting()` sanitizes again inside it — a
+     * pass that only understood the string would throw the value away on the
+     * second run.
+     *
+     * @param mixed $value Raw submitted string, or an already-split list.
+     * @return list<string>
+     */
+    public function sanitize_delimited_list($value): array
+    {
+        $delimiter = $this->list_delimiter();
+
+        if (null === $delimiter) {
+            return array();
+        }
+
+        $parts = is_array($value) ? $value : explode($delimiter, (string) $value);
+
+        $sanitized = array();
+        foreach ($parts as $part) {
+            if (!is_scalar($part)) {
+                continue;
+            }
+            $part = \sanitize_text_field(trim((string) $part));
+            if ('' !== $part) {
+                $sanitized[] = $part;
+            }
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Render a text-like input field (text, email, url, number, password).
      *
      * @param string $name  Field name.
@@ -1224,6 +1310,11 @@ class WP_Setting
      */
     protected function render_text_value($name, $id, $value): void
     {
+        $delimiter = $this->list_delimiter();
+        if (null !== $delimiter && is_array($value)) {
+            $value = $this->join_list($value, $delimiter);
+        }
+
         $has_existing_value = !is_array($value) && !empty($value);
 
         // An array is a type error, not a value the admin saved, so the default
@@ -1284,6 +1375,11 @@ class WP_Setting
      */
     protected function render_textarea_value($name, $id, $value): void
     {
+        $delimiter = $this->list_delimiter();
+        if (null !== $delimiter && is_array($value)) {
+            $value = $this->join_list($value, $delimiter);
+        }
+
         $value = $value ?? '';
 
         $atts = '';
@@ -3162,7 +3258,34 @@ class WP_Setting
      */
     public static function sanitize_text($value): string
     {
+        if (is_array($value)) {
+            self::warn_array_to_string_sanitizer(__FUNCTION__);
+            return '';
+        }
+
         return \sanitize_text_field($value);
+    }
+
+    /**
+     * Signal that a string sanitizer was handed an array.
+     *
+     * The sanitizer runs on `sanitize_option_{$option}` for every writer, so an
+     * array stored in a string-typed setting is discarded inside `update_option()`:
+     * the write reports success, the value is gone and the field re-renders empty.
+     * Without this the misuse only surfaces as "the setting won't save".
+     *
+     * @param string $function_name The calling sanitizer.
+     * @return void
+     */
+    private static function warn_array_to_string_sanitizer(string $function_name): void
+    {
+        \_doing_it_wrong(
+            'WP_Setting::' . $function_name,
+            'An array was passed to a string sanitizer, so the value was discarded and the option saved empty. ' .
+            'A text or textarea field that holds a list needs the "delimiter" arg, which stores and returns it ' .
+            'as an array; otherwise pass your own "sanitize_callback".',
+            '4.3.0'
+        );
     }
 
     /**
@@ -3174,6 +3297,11 @@ class WP_Setting
      */
     public static function sanitize_textarea($value): string
     {
+        if (is_array($value)) {
+            self::warn_array_to_string_sanitizer(__FUNCTION__);
+            return '';
+        }
+
         return \sanitize_textarea_field($value);
     }
 }

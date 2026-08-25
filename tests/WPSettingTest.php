@@ -3418,4 +3418,143 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringNotContainsString('row 4', $output);
         $this->assertStringNotContainsString('row 8', $output);
     }
+
+    // -------------------------------------------------------------------------
+    // Issue 20: a text-like field that holds a delimited list
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a text/textarea field carrying a `delimiter`.
+     *
+     * @param string $type      Field type.
+     * @param array  $args      Field args (including `delimiter`).
+     * @param mixed  $default   Default value.
+     * @return WP_Setting
+     */
+    private function makeDelimited(string $type, array $args, $default = null): WP_Setting
+    {
+        return new WP_Setting(
+            'tag_list',
+            'Tag List',
+            $type,
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            $default,
+            null,
+            $args
+        );
+    }
+
+    /** The delimiter splits, trims and drops empties, and the value is stored as a list. */
+    public function test_delimiter_splits_text_into_a_list(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['rental', 'demo'], $setting->sanitize_value(' rental , demo , '));
+    }
+
+    /**
+     * save() sanitizes and set() sanitizes again through sanitize_option_{$option},
+     * so a pass that only understood the string would discard the value on the
+     * second run — the silent '' that cost a release.
+     */
+    public function test_delimiter_sanitizer_is_idempotent_over_the_stored_array(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $once  = $setting->sanitize_value('rental, demo');
+        $twice = $setting->sanitize_value($once);
+
+        $this->assertSame(['rental', 'demo'], $twice);
+    }
+
+    /** The stored list renders back into the one input, joined the way an admin types it. */
+    public function test_delimiter_renders_stored_list_joined_with_delimiter_and_space(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        ob_start();
+        $setting->render_unbound(['rental', 'demo'], 'tag_list', 'tag_list');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('value="rental, demo"', $output);
+    }
+
+    /** A whitespace delimiter is its own separator — one item per line, joined verbatim. */
+    public function test_delimiter_newline_renders_one_item_per_line_in_a_textarea(): void
+    {
+        $setting = $this->makeDelimited('textarea', ['delimiter' => "\n"]);
+
+        $this->assertSame(['a.com', 'b.com'], $setting->sanitize_value("a.com\n\nb.com\n"));
+
+        ob_start();
+        $setting->render_unbound(['a.com', 'b.com'], 'tag_list', 'tag_list');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString(">a.com\nb.com</textarea>", $output);
+    }
+
+    /** The default is seeded into the option row, so it is stored in the list shape too. */
+    public function test_delimiter_normalizes_a_string_default_into_a_list(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ','], 'rental, demo');
+
+        $this->assertSame(['rental', 'demo'], $setting->default_value);
+    }
+
+    /** `delimiter` is shorthand for the common case, not a competing mechanism. */
+    public function test_explicit_sanitize_callback_wins_over_delimiter(): void
+    {
+        $setting = $this->makeDelimited('text', [
+            'delimiter'         => ',',
+            'sanitize_callback' => 'strtoupper',
+        ]);
+
+        $this->assertSame('RENTAL,DEMO', $setting->sanitize_value('rental,demo'));
+    }
+
+    /** Without the arg a text field is a string end to end, exactly as before. */
+    public function test_text_without_delimiter_still_sanitizes_to_a_string(): void
+    {
+        $setting = $this->makeDelimited('text', []);
+
+        $this->assertSame('rental,demo', $setting->sanitize_value('rental,demo'));
+    }
+
+    /** Only the two types whose default sanitizer is a bare string cast honour it. */
+    public function test_delimiter_is_ignored_on_other_field_types(): void
+    {
+        $setting = $this->makeDelimited('email', ['delimiter' => ',']);
+
+        $this->assertSame('user@example.com', $setting->sanitize_value('user@example.com'));
+        // Still the email sanitizer: a delimited string is one invalid address, not a list.
+        $this->assertFalse($setting->sanitize_value('a@example.com,b@example.com'));
+    }
+
+    /**
+     * Storing an array in a string-typed setting still saves '' — but it now says so,
+     * instead of reading as "the setting won't save" three layers down in update_option().
+     */
+    public function test_sanitize_text_warns_when_handed_an_array(): void
+    {
+        $this->assertSame('', WP_Setting::sanitize_text(['rental', 'demo']));
+
+        $calls = $this->getDoingItWrongCalls();
+        $this->assertCount(1, $calls);
+        $this->assertSame('WP_Setting::sanitize_text', $calls[0]['function_name']);
+        $this->assertStringContainsString('delimiter', $calls[0]['message']);
+    }
+
+    /** Same sharp edge on the textarea sanitizer. */
+    public function test_sanitize_textarea_warns_when_handed_an_array(): void
+    {
+        $this->assertSame('', WP_Setting::sanitize_textarea(['a', 'b']));
+
+        $calls = $this->getDoingItWrongCalls();
+        $this->assertCount(1, $calls);
+        $this->assertSame('WP_Setting::sanitize_textarea', $calls[0]['function_name']);
+    }
 }

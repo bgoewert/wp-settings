@@ -252,6 +252,24 @@ Both text-like fields and `textarea` accept `readonly`.
 
 A read-only field is uneditable in the browser only. A crafted POST can still change the value, so keep validating in `sanitize_callback` if the value must not change.
 
+### Delimited Lists
+
+A single input often stands in for a list — tags, SKU prefixes, allowed domains, roles. `'delimiter'` on a `text` or `textarea` field makes that shape first-class: the value is split on the delimiter, trimmed, emptied entries dropped, each part run through `sanitize_text_field()`, and stored as a `list<string>`. `WP_Setting::get()` hands the array straight back.
+
+```php
+new WP_Setting(
+    'rental_tags', 'Rental Tags', 'text', 'products', 'rental_button',
+    '300px', 'Comma-separated.', false, 'rental', null,
+    array('delimiter' => ',')
+);
+```
+
+The stored list renders back into the one input joined on the delimiter plus a space (`rental, demo`), because that is what an admin types and the split trims it back off. A delimiter that is already whitespace — `"\n"` for one item per line in a `textarea` — joins verbatim. A string `default_value` is normalized to a list at construction, so the option row is seeded in the shape the field reads back.
+
+Only `text` and `textarea` honour it, and an explicit `sanitize_callback` still wins: `delimiter` is shorthand for the common case, not a competing mechanism. Omit the key and the field is a plain string end to end, exactly as before.
+
+Without it, storing an array in a string-typed setting is a silent data loss — the sanitizer registered with `register_setting()` runs on every writer, `sanitize_text_field()` turns the array into `''`, and the write reports success while the field re-renders empty. `sanitize_text()` and `sanitize_textarea()` now raise `_doing_it_wrong()` when handed an array, so the misuse surfaces at the first save.
+
 ### Row Labels
 
 WordPress renders each settings row as `<tr><th>title</th><td>field</td></tr>`, and `do_settings_fields()` wraps that `<th>` text in `<label for="…">` only when the field declares `label_for` in its `$args`. Fields set it for you, pointing at the control's own id (the field slug), so the visible title is the control's accessible name — without it every control on the screen has a heading assistive technology cannot associate with its input (WCAG 1.3.1, 4.1.2; axe `label`, and `select-name` for selects).
