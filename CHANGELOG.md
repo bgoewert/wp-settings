@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.2.0] - 2026-08-25
+
+### Added
+
+- `repeater` rows can be reordered ([#19](https://github.com/bgoewert/wp-settings/issues/19)). Rows could be added and removed but never moved, so changing the order of three fields meant retyping three rows — and in a repeater the order is the data: the order questions are asked, and the order those columns land in an export. Pass `'reorder' => true` in `$args` to give every row an up/down button pair. The affordance is buttons rather than a drag handle because order here is data a keyboard has to be able to change, and a handle alone leaves that to a pointer. Rows already serialize from DOM order, so a move re-triggers that serialize and reruns the relabel an add or remove runs — row position is part of every cell's accessible name and of each move button's own name. The move that would take a row nowhere is disabled server-side as well as in the browser, and a row moved to an end hands focus to its sibling button instead of dropping it to the document. Repeaters that do not ask for `reorder` render exactly as before.
+
+### Fixed
+
+- Repeater rows saved under non-sequential keys are numbered from one rather than from their key. Row position feeds the visible counter and the `{column}, row {n}` name on every cell, so a value stored as `[3 => …, 7 => …]` announced rows 4 and 8 until the row script corrected it on load.
+
 ## [4.1.0] - 2026-08-21
 
 ### Added
