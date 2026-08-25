@@ -1,0 +1,20 @@
+# Local WordPress for the integration and e2e suites. The unit suite needs none
+# of this — it runs against the function stubs in tests/bootstrap.php.
+#
+# docroot is .local/wp (gitignored), so WordPress core never lands in the repo
+# while the library itself stays at the project root, autoloadable from
+# /var/www/html/vendor/autoload.php inside the container.
+name: wp-settings
+type: wordpress
+docroot: .local/wp
+php_version: "8.3"
+webserver_type: nginx-fpm
+# ddev would otherwise write wp-config.php into the project root; wp-bootstrap
+# runs `wp config create` inside the docroot instead.
+disable_settings_management: true
+database:
+  type: mariadb
+  version: "10.11"
+hooks:
+  post-start:
+    - exec: bash /mnt/ddev_config/commands/web/wp-bootstrap

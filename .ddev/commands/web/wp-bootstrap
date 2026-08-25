@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+## Description: Download, install and configure the WordPress this repo tests against.
+## Usage: wp-bootstrap
+## Example: ddev wp-bootstrap
+set -euo pipefail
+
+DOCROOT=/var/www/html/.local/wp
+HARNESS=/var/www/html/tests/harness/wp-settings-harness.php
+
+mkdir -p "$DOCROOT"
+cd "$DOCROOT"
+
+if [ ! -f wp-load.php ]; then
+    wp core download --force
+fi
+
+if [ ! -f wp-config.php ]; then
+    wp config create \
+        --dbname="${DDEV_DATABASE_NAME:-db}" \
+        --dbuser=db --dbpass=db --dbhost=db \
+        --extra-php <<'PHP'
+define( 'WP_DEBUG', true );
+define( 'WP_DEBUG_LOG', true );
+define( 'WP_DEBUG_DISPLAY', false );
+PHP
+fi
+
+if ! wp core is-installed 2>/dev/null; then
+    wp core install \
+        --url="${DDEV_PRIMARY_URL:-https://wp-settings.ddev.site}" \
+        --title="wp-settings" \
+        --admin_user=admin --admin_password=admin \
+        --admin_email=admin@example.com \
+        --skip-email
+fi
+
+# The harness is tracked in the repo and loaded as an mu-plugin, so it is active
+# for every request without an activation step the tests would have to repeat.
+mkdir -p "$DOCROOT/wp-content/mu-plugins"
+ln -sf "$HARNESS" "$DOCROOT/wp-content/mu-plugins/wp-settings-harness.php"
+
+wp rewrite structure '/%postname%/' --hard

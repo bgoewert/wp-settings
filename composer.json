@@ -17,11 +17,18 @@
         "ext-sodium": "Fallback backend, and required to read values encrypted before 3.1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.6.33 || ^10.5.62 || ^11.5.50 || ^12.5.8"
+        "phpunit/phpunit": "^9.6.33 || ^10.5.62 || ^11.5.50 || ^12.5.8",
+        "seilerinstrument/wp-test-utils": "^1.1"
     },
     "scripts": {
         "test": "./vendor/bin/phpunit --testdox",
         "test:unit": "./vendor/bin/phpunit -c phpunit.xml.dist --testdox",
-        "test:integration": "./vendor/bin/phpunit -c phpunit-integration.xml.dist --testdox"
+        "test:integration": "ddev exec php vendor/bin/phpunit -c phpunit-integration.xml.dist --testdox"
+    },
+    "repositories": {
+        "wp-test-utils": {
+            "type": "vcs",
+            "url": "https://github.com/SeilerInstrument/wp-test-utils"
+        }
     }
 }
