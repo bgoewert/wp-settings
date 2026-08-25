@@ -1557,6 +1557,13 @@ class WP_Setting
     private function render_reset_button(string $field_id, bool $is_richtext): void
     {
         $btn_id = 'wps-rb-' . $field_id;
+        // A delimited field's default is a list. Handing it to the script as one
+        // would set the input to Array.toString() — comma-joined whatever the
+        // delimiter is — so it is joined here the same way the field renders it.
+        $delimiter     = $this->list_delimiter();
+        $default_value = (null !== $delimiter && is_array($this->default_value))
+            ? $this->join_list($this->default_value, $delimiter)
+            : $this->default_value;
         printf(
             '<button type="button" id="%s" class="button" style="margin-left:6px;">%s</button>',
             esc_attr($btn_id),
@@ -1568,7 +1575,7 @@ class WP_Setting
             var btnId        = <?php echo wp_json_encode($btn_id); ?>;
             var fieldId      = <?php echo wp_json_encode($field_id); ?>;
             var isRichtext   = <?php echo $is_richtext ? 'true' : 'false'; ?>;
-            var defaultValue = <?php echo wp_json_encode($this->default_value ?? ''); ?>;
+            var defaultValue = <?php echo wp_json_encode($default_value ?? ''); ?>;
 
             document.addEventListener('DOMContentLoaded', function() {
                 var btn = document.getElementById(btnId);

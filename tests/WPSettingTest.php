@@ -3557,4 +3557,25 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertCount(1, $calls);
         $this->assertSame('WP_Setting::sanitize_textarea', $calls[0]['function_name']);
     }
+
+    /**
+     * The reset script assigns defaultValue to input.value, so a list default has
+     * to reach it already joined — an array there becomes Array.toString(), which
+     * is comma-joined whatever the delimiter is.
+     */
+    public function test_reset_button_default_is_joined_on_the_delimiter(): void
+    {
+        $setting = $this->makeDelimited(
+            'text',
+            ['delimiter' => '|', 'reset_button' => true],
+            ['rental', 'demo']
+        );
+
+        ob_start();
+        $setting->render_unbound(null, 'tag_list', 'tag_list');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('var defaultValue = "rental| demo";', $output);
+        $this->assertStringNotContainsString('["rental","demo"]', $output);
+    }
 }
