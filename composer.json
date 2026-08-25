@@ -20,6 +20,8 @@
         "phpunit/phpunit": "^9.6.33 || ^10.5.62 || ^11.5.50 || ^12.5.8"
     },
     "scripts": {
-        "test": "./vendor/bin/phpunit --testdox"
+        "test": "./vendor/bin/phpunit --testdox",
+        "test:unit": "./vendor/bin/phpunit -c phpunit.xml.dist --testdox",
+        "test:integration": "./vendor/bin/phpunit -c phpunit-integration.xml.dist --testdox"
     }
 }

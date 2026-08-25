@@ -3578,4 +3578,71 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('var defaultValue = "rental| demo";', $output);
         $this->assertStringNotContainsString('["rental","demo"]', $output);
     }
+
+    /** Parts are trimmed, so the delimiter tolerates the spaces an admin types around it. */
+    public function test_delimiter_trims_space_around_each_part(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['a', 'b', 'c'], $setting->sanitize_value('a , b , c'));
+        $this->assertSame(['a', 'b', 'c'], $setting->sanitize_value('a, b, c'));
+        $this->assertSame(['a', 'b', 'c'], $setting->sanitize_value('a,b,c'));
+    }
+
+    /** Nothing dedupes: a list is what the admin typed, in the order they typed it. */
+    public function test_delimiter_keeps_duplicates_and_order(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['b', 'a', 'b'], $setting->sanitize_value('b,a,b'));
+    }
+
+    /** An empty submission, and a field absent from the POST, both store an empty list. */
+    public function test_delimiter_stores_an_empty_list_for_empty_and_missing_input(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame([], $setting->sanitize_value(''));
+        $this->assertSame([], $setting->sanitize_value(null));
+    }
+
+    /** '0' is a value, not an empty part — only '' is dropped. */
+    public function test_delimiter_keeps_zero_as_a_part(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['0', '1'], $setting->sanitize_value('0,1'));
+    }
+
+    /** explode() is literal, so a multi-character delimiter splits on the whole string. */
+    public function test_delimiter_may_be_more_than_one_character(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => '||']);
+
+        $this->assertSame(['a', 'b|c'], $setting->sanitize_value('a||b|c'));
+    }
+
+    /** Browsers submit a textarea with CRLF, so a "\n" delimiter must not leave a stray \r. */
+    public function test_delimiter_newline_survives_a_crlf_submission(): void
+    {
+        $setting = $this->makeDelimited('textarea', ['delimiter' => "\n"]);
+
+        $this->assertSame(['a', 'b'], $setting->sanitize_value("a\r\nb\r\n"));
+    }
+
+    /** Each part is still sanitized, so markup cannot ride in on a list entry. */
+    public function test_delimiter_sanitizes_each_part(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['ax', 'b'], $setting->sanitize_value('a<script>x</script>,b'));
+    }
+
+    /** A part that is not scalar is dropped rather than coerced. */
+    public function test_delimiter_drops_non_scalar_parts_of_an_array(): void
+    {
+        $setting = $this->makeDelimited('text', ['delimiter' => ',']);
+
+        $this->assertSame(['a', 'b'], $setting->sanitize_value(['a', ['nested'], 'b']));
+    }
 }

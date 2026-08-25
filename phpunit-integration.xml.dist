@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Real WordPress. Needs a booted WP (ddev, or WP_TESTS_DIR / .wp-tests-lib),
+    which tests/bootstrap-integration.php locates through wp-test-utils.
+    Run with: composer test:integration
+-->
+<phpunit
+    bootstrap="tests/bootstrap-integration.php"
+    colors="true"
+    stopOnFailure="false">
+    <testsuites>
+        <testsuite name="integration">
+            <directory suffix="Test.php">./tests/Integration/</directory>
+        </testsuite>
+    </testsuites>
+    <groups>
+        <include>
+            <group>integration</group>
+        </include>
+    </groups>
+</phpunit>

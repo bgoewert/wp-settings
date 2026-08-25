@@ -4,8 +4,9 @@
     colors="true"
     stopOnFailure="false">
     <testsuites>
-        <testsuite name="WP Settings Test Suite">
-            <directory suffix="Test.php">./tests/</directory>
+        <!-- No WordPress: the library runs against the function stubs in tests/bootstrap.php. -->
+        <testsuite name="unit">
+            <directory suffix="Test.php">./tests/Unit/</directory>
         </testsuite>
     </testsuites>
 </phpunit>
