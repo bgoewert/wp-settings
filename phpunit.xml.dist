@@ -9,4 +9,11 @@
             <directory suffix="Test.php">./tests/Unit/</directory>
         </testsuite>
     </testsuites>
+    <!-- Without a source filter PHPUnit collects no coverage, and Infection then
+         finds nothing to mutate: it only mutates files the coverage report names. -->
+    <source>
+        <include>
+            <directory suffix=".php">./src/</directory>
+        </include>
+    </source>
 </phpunit>

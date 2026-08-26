@@ -1,0 +1,27 @@
+{
+    // Runs on the host against the unit suite. Infection finds a test config by
+    // fixed name — phpunit.xml, then phpunit.xml.dist — so it picks up the unit
+    // config here and never sees phpunit-integration.xml.dist, whose bootstrap
+    // needs a live wp-load.php and would die before the first mutant.
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "timeout": 30,
+    // Defines ABSPATH for Infection's own process — without it the run exits 0
+    // with no mutants; see the file for why.
+    "bootstrap": "tests/bootstrap-mutation.php",
+    "source": {
+        "directories": [
+            "src"
+        ]
+    },
+    "logs": {
+        "text": ".local/infection.log",
+        "summary": ".local/infection-summary.log"
+    },
+    // Set below the observed score (56.35% at 4.3.1), not at it: PHPUnit
+    // randomises test order, so which test covers a given mutant shifts between
+    // runs and a gate set exactly at the score fails intermittently. Raise as
+    // coverage improves; never lower it to make a run pass.
+    "minMsi": 54,
+    "minCoveredMsi": 54,
+    "testFramework": "phpunit"
+}

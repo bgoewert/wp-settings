@@ -539,8 +539,11 @@ Three suites, three things they can prove.
 | Unit | `composer test` | Nothing — the library runs against the WordPress function stubs in `tests/bootstrap.php` |
 | Integration | `composer test:integration` | A booted WordPress (`ddev start`) |
 | E2E | `bun run test:e2e` | The same ddev site, plus `bunx playwright install chromium` |
+| Mutation | `composer test:mutation` | A coverage driver on the host (pcov or Xdebug) |
 
 `ddev start` downloads WordPress into `.local/wp` (gitignored, so core never lands in the repo), installs it as `admin`/`admin`, and links `tests/harness/wp-settings-harness.php` in as an mu-plugin. That harness registers the settings page both the integration and e2e suites drive, at **Settings → Wp Settings Harness**.
+
+`composer test:mutation` runs [Infection](https://infection.github.io/) over `src/` against the unit suite, mutating operators and return values to see which changes the tests fail to notice. Infection finds a PHPUnit config by fixed name, so it picks up `phpunit.xml.dist` and never touches the integration config, whose bootstrap needs a live `wp-load.php`. `minMsi` sits below the observed score deliberately — PHPUnit randomises test order, so which test covers a given mutant shifts between runs. Raise the gate as coverage improves; do not lower it to make a run pass.
 
 The split is about what each layer can reach. The unit suite calls a sanitizer directly. The integration suite is the only one with a real `sanitize_option_{$option}` filter, which is where `register_setting()` hangs the sanitizer and where every writer — including ones that never touch this library — picks it up. The e2e suite is the only one that executes the admin page's JavaScript, so it is the only place a bug in what the *Reset to Default* script assigns can show up at all.
 
