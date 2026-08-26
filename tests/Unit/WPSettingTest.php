@@ -3645,4 +3645,192 @@ class WPSettingTest extends WP_Settings_TestCase
 
         $this->assertSame(['a', 'b'], $setting->sanitize_value(['a', ['nested'], 'b']));
     }
+
+    // -------------------------------------------------------------------------
+    // Issue 21: dual_list (Available/Chosen)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a dual_list field.
+     *
+     * @param mixed $default Chosen keys the field ships with.
+     * @param array $extra   Extra args merged over the options.
+     * @return WP_Setting
+     */
+    private function makeDualList($default = null, array $extra = []): WP_Setting
+    {
+        return new WP_Setting(
+            'columns',
+            'Attendee Columns',
+            'dual_list',
+            'exports',
+            'exports',
+            null,
+            null,
+            false,
+            $default,
+            null,
+            array_merge(
+                ['options' => ['primary_info' => 'Attendee', 'ticket' => 'Ticket', 'email' => 'Email']],
+                $extra
+            )
+        );
+    }
+
+    private function renderDualList($value): string
+    {
+        ob_start();
+        $this->makeDualList()->render_unbound($value, 'columns', 'columns');
+        return ob_get_clean();
+    }
+
+    /** Order is the point, so the submitted order wins over the option order. */
+    public function test_dual_list_keeps_the_submitted_order(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame(['ticket', 'primary_info'], $setting->sanitize_value(['ticket', 'primary_info']));
+    }
+
+    /** A key that is not an option is not a choice. */
+    public function test_dual_list_rejects_keys_outside_the_options(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame(['ticket'], $setting->sanitize_value(['ticket', 'not_a_column']));
+    }
+
+    /** The same key twice is one choice. */
+    public function test_dual_list_drops_duplicates(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame(['ticket', 'email'], $setting->sanitize_value(['ticket', 'email', 'ticket']));
+    }
+
+    /** The empty sentinel the field posts is not a chosen key. */
+    public function test_dual_list_drops_the_empty_sentinel(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame(['ticket'], $setting->sanitize_value(['', 'ticket']));
+    }
+
+    /** Choosing nothing is a choice, and it has to be storable. */
+    public function test_dual_list_stores_an_empty_selection(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame([], $setting->sanitize_value(['']));
+        $this->assertSame([], $setting->sanitize_value([]));
+        $this->assertSame([], $setting->sanitize_value(null));
+    }
+
+    /**
+     * Unlike sortable, which merges every option back in because its membership
+     * is fixed, an option left out of a dual_list is simply off.
+     */
+    public function test_dual_list_does_not_merge_unchosen_options_back_in(): void
+    {
+        $setting = $this->makeDualList();
+
+        $this->assertSame(['email'], $setting->sanitize_value(['email']));
+    }
+
+    /**
+     * Options resolved through a callable can be unavailable at save time.
+     * Filtering against nothing would wipe a valid selection, so it is skipped.
+     */
+    public function test_dual_list_keeps_the_selection_when_options_cannot_be_resolved(): void
+    {
+        $setting = $this->makeDualList(null, ['options' => []]);
+
+        $this->assertSame(['ticket'], $setting->sanitize_value(['ticket']));
+    }
+
+    /** Chosen keys render on the chosen side, in order; the rest are available. */
+    public function test_dual_list_renders_each_key_on_the_right_side(): void
+    {
+        $output = $this->renderDualList(['ticket', 'primary_info']);
+
+        $chosen = substr($output, strpos($output, 'data-role="chosen"'));
+        $available = substr($output, strpos($output, 'data-role="available"'));
+
+        $this->assertStringContainsString('<option value="ticket">Ticket</option><option value="primary_info">', $chosen);
+        $this->assertStringContainsString('<option value="email">Email</option>', $available);
+        $this->assertStringNotContainsString('value="email"', substr($chosen, 0, strpos($chosen, '</select>')));
+    }
+
+    /**
+     * A <select multiple> submits only what the user highlighted, so the chosen
+     * side is mirrored into hidden inputs — those are what actually post.
+     */
+    public function test_dual_list_mirrors_the_chosen_side_into_hidden_inputs(): void
+    {
+        $output = $this->renderDualList(['ticket', 'primary_info']);
+
+        $this->assertStringContainsString('<input type="hidden" name="columns[]" value="ticket">', $output);
+        $this->assertStringContainsString('<input type="hidden" name="columns[]" value="primary_info">', $output);
+        $this->assertStringNotContainsString('name="columns[]" value="email"', $output);
+    }
+
+    /**
+     * The empty sentinel keeps the field present in $_POST when nothing is
+     * chosen, so "display nothing" saves instead of silently keeping the old
+     * value.
+     */
+    public function test_dual_list_always_posts_an_empty_sentinel(): void
+    {
+        $output = $this->renderDualList([]);
+
+        $this->assertStringContainsString('<input type="hidden" name="columns[]" value="">', $output);
+    }
+
+    /** Every move is reachable from the keyboard and says which list it moves. */
+    public function test_dual_list_move_buttons_are_named_after_the_field(): void
+    {
+        $output = $this->renderDualList(['ticket']);
+
+        foreach (['add', 'remove', 'up', 'down'] as $move) {
+            $this->assertStringContainsString('data-move="' . $move . '"', $output);
+        }
+        $this->assertStringContainsString('>Add to Attendee Columns<', $output);
+        $this->assertStringContainsString('>Move down in Attendee Columns<', $output);
+    }
+
+    /** Each side carries its own label, since neither select answers to the slug. */
+    public function test_dual_list_labels_each_side(): void
+    {
+        $output = $this->renderDualList(['ticket']);
+
+        $this->assertStringContainsString('<label for="columns_available">Available</label>', $output);
+        $this->assertStringContainsString('<label for="columns_chosen">Chosen</label>', $output);
+    }
+
+    /** The side labels are the consumer's words when they supply them. */
+    public function test_dual_list_side_labels_are_configurable(): void
+    {
+        ob_start();
+        $this->makeDualList(null, ['available_label' => 'Hidden', 'chosen_label' => 'Displayed'])
+            ->render_unbound(['ticket'], 'columns', 'columns');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('>Hidden</label>', $output);
+        $this->assertStringContainsString('>Displayed</label>', $output);
+    }
+
+    /** No options means no control worth rendering. */
+    public function test_dual_list_renders_nothing_without_options(): void
+    {
+        ob_start();
+        $this->makeDualList(null, ['options' => []])->render_unbound(['ticket'], 'columns', 'columns');
+
+        $this->assertSame('', ob_get_clean());
+    }
+
+    /** Two selects, so no single control answers to the field slug. */
+    public function test_dual_list_is_not_labelable_as_one_control(): void
+    {
+        $this->assertFalse($this->makeDualList()->renders_labelable_control());
+    }
 }

@@ -197,7 +197,7 @@ The directory is created with `wp_mkdir_p()`, so it honours `FS_CHMOD_DIR` (0755
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `table`, `field_map`
+Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `table`, `field_map`
 
 **Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
@@ -212,6 +212,8 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 **Field Map**: Dynamic add/remove rows for mapping source fields to destination fields.
 
 **Repeater**: Dynamic add/remove rows of child controls, stored in row order.
+
+**Dual List**: Two listboxes — Available on the left, chosen on the right — with buttons to move options across and to order the chosen side. Stores the chosen side as an ordered array of option keys.
 
 ### Input Attributes
 
@@ -419,6 +421,37 @@ new WP_Setting(
     )
 );
 ```
+
+### Dual List Field Example
+
+Which items appear, and in what order, is one decision. Expressing it as a `sortable` for order plus a checkbox per item for visibility makes it two settings that can disagree — and an item left out of the list is simply off.
+
+```php
+new WP_Setting(
+    'attendee_columns',
+    __( 'Attendee Columns', 'my-plugin' ),
+    'dual_list',
+    'exports',
+    'exports',
+    null,
+    __( 'Move columns into Displayed to show them, and order them there.', 'my-plugin' ),
+    false,
+    array( 'primary_info', 'ticket' ),   // default: the chosen side
+    null,
+    array(
+        'options'         => array( 'primary_info' => 'Attendee', 'ticket' => 'Ticket', 'email' => 'Email' ),
+        'available_label' => __( 'Available', 'my-plugin' ),
+        'chosen_label'    => __( 'Displayed', 'my-plugin' ),
+        'size'            => 8,
+    )
+);
+```
+
+The value is a `list<string>` of option keys in the chosen order. Unlike `sortable`, whose membership is fixed and which merges every option back in, an option left out here stays out — so `sortable` is the right field when only the order varies, and `dual_list` when membership does too.
+
+The selects are the interface, not the storage. A `<select multiple>` submits only the options a user highlighted, which is not what "chosen" means, so the chosen side is mirrored into hidden inputs on every change. One of those is an empty sentinel, which keeps the field present in `$_POST` when nothing is chosen — otherwise "display nothing" would silently keep the previous selection.
+
+Every move is a button, so ordering and moving across both work from the keyboard; double-clicking an option moves it to the other side. The buttons show arrows and carry their full name — `Add to Attendee Columns` — for assistive technology, because a page with two dual lists otherwise has four buttons all called "Add". Saving sanitizes against the declared option keys and preserves the submitted order.
 
 ### Table Field Example
 

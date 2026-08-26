@@ -1,0 +1,51 @@
+/* WordPress Settings Library - Dual List Field Styles */
+
+.wps-dual-list {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.wps-dual-list-side {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wps-dual-list-side label {
+    font-weight: 600;
+}
+
+.wps-dual-list-select {
+    min-width: 220px;
+}
+
+.wps-dual-list-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    /* Aligns the button stack with the selects rather than the side labels. */
+    padding-top: 26px;
+}
+
+/* The list is two columns of controls at desktop width; below that they stack,
+   and a horizontal button row between them reads as the wrong direction. */
+@media screen and (max-width: 782px) {
+    .wps-dual-list {
+        flex-direction: column;
+    }
+
+    .wps-dual-list-controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding-top: 0;
+    }
+
+    .wps-dual-list-select {
+        width: 100%;
+    }
+}
+
+.wps-dual-list-inputs {
+    display: none;
+}

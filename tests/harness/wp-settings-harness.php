@@ -17,13 +17,25 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// The library is the repo, mounted at the ddev project root rather than
-// installed into wp-content — so the autoloader is required by path.
-$wp_settings_harness_autoload = '/var/www/html/vendor/autoload.php';
-if (!file_exists($wp_settings_harness_autoload)) {
-    return;
+// Loaded through the wp-content/plugins bind mount, not the repo root: the
+// autoloader derives its base directory from its own location, so this is what
+// puts __FILE__ under wp-content for every class it registers — and
+// plugin_dir_url(__FILE__) is how the library builds its asset URLs.
+//
+// Skipped when the library is already reachable, which is the integration
+// suite: PHPUnit booted this project's autoloader from the repo root, and
+// Composer's bootstrap declares a class named after its own hash — so including
+// the same one again from a second path is a fatal redeclaration. The test is
+// "can this class be autoloaded", not "is any Composer loader present": wp-cli
+// ships its own, and that answer would skip the load and leave the class
+// missing. Asset URLs are moot in CLI anyway.
+$wp_settings_harness_autoload = '/var/www/html/.local/wp/wp-content/plugins/wp-settings-lib/vendor/autoload.php';
+if (!class_exists(WP_Settings::class)) {
+    if (!file_exists($wp_settings_harness_autoload)) {
+        return;
+    }
+    require_once $wp_settings_harness_autoload;
 }
-require_once $wp_settings_harness_autoload;
 
 /**
  * A settings page carrying one delimited text field, one delimited textarea and
@@ -78,6 +90,27 @@ final class WP_Settings_Harness extends WP_Settings
                 null,
                 null,
                 array('delimiter' => "\n", 'rows' => 4)
+            ),
+            'attendee_columns' => new WP_Setting(
+                'attendee_columns',
+                'Attendee Columns',
+                'dual_list',
+                'general',
+                'lists',
+                null,
+                'Move columns into Displayed to show them, and order them there.',
+                false,
+                array('primary_info', 'ticket'),
+                null,
+                array(
+                    'options' => array(
+                        'primary_info' => 'Attendee',
+                        'ticket'       => 'Ticket',
+                        'email'        => 'Email',
+                    ),
+                    'available_label' => 'Available',
+                    'chosen_label'    => 'Displayed',
+                )
             ),
             'plain_note' => new WP_Setting(
                 'plain_note',

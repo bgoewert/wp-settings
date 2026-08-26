@@ -487,6 +487,22 @@ class WP_Settings
             );
         }
 
+        if ($this->has_dual_list_settings()) {
+            \wp_enqueue_style(
+                "wp-settings-admin-dual-list",
+                \plugin_dir_url(__FILE__) . "assets/admin-dual-list.css",
+                [],
+                $this->version ?? false,
+            );
+            \wp_enqueue_script(
+                "wp-settings-admin-dual-list",
+                \plugin_dir_url(__FILE__) . "assets/admin-dual-list.js",
+                ["jquery"],
+                $this->version ?? false,
+                true,
+            );
+        }
+
         if ($this->has_richtext_settings()) {
             \wp_enqueue_editor();
         }
@@ -972,23 +988,37 @@ class WP_Settings
         return false;
     }
 
-    protected function has_sortable_settings()
+    /**
+     * Whether any field on the page is a dual_list, including inside a container.
+     *
+     * @return bool
+     */
+    protected function has_dual_list_settings()
+    {
+        return $this->has_setting_of_type("dual_list");
+    }
+
+    /**
+     * Whether any field on the page is of the given type, including one nested
+     * in an advanced container.
+     *
+     * @param string $type Field type to look for.
+     * @return bool
+     */
+    private function has_setting_of_type(string $type)
     {
         foreach ($this->settings as $setting) {
             if (!$setting instanceof WP_Setting) {
                 continue;
             }
 
-            if ($setting->type === "sortable") {
+            if ($setting->type === $type) {
                 return true;
             }
 
             if ($setting->type === "advanced" && !empty($setting->children)) {
                 foreach ($setting->children as $child) {
-                    if (
-                        $child instanceof WP_Setting &&
-                        $child->type === "sortable"
-                    ) {
+                    if ($child instanceof WP_Setting && $child->type === $type) {
                         return true;
                     }
                 }
@@ -996,6 +1026,11 @@ class WP_Settings
         }
 
         return false;
+    }
+
+    protected function has_sortable_settings()
+    {
+        return $this->has_setting_of_type("sortable");
     }
 
     protected function has_richtext_settings()

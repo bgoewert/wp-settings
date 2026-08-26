@@ -1,0 +1,13 @@
+# The library has to be reachable under wp-content/plugins, because
+# plugin_dir_url(__FILE__) is how it builds the URL for its own CSS and JS.
+# From the repo root that resolves to wp-content/plugins/var/www/html/src/ and
+# every asset 404s.
+#
+# Bind mounts rather than symlinks: PHP resolves symlinks in __FILE__, so a
+# symlinked src/ would report the repo path again and change nothing. A bind
+# mount is a real path, and the files stay live-edited on the host.
+services:
+  web:
+    volumes:
+      - "../src:/var/www/html/.local/wp/wp-content/plugins/wp-settings-lib/src:cached"
+      - "../vendor:/var/www/html/.local/wp/wp-content/plugins/wp-settings-lib/vendor:cached"

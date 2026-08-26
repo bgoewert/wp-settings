@@ -237,9 +237,27 @@ class WP_Setting
      *
      * @var string[]
      */
+    /**
+     * The dual_list move buttons, keyed by the move the script performs.
+     *
+     * Each entry is [dashicon, label template]. The button shows the arrow and
+     * carries the label as its accessible name, and the label takes the field
+     * title — a page with two dual lists otherwise has four buttons called
+     * "Add".
+     *
+     * @var array<string,array{0:string,1:string}>
+     */
+    public const DUAL_LIST_CONTROLS = array(
+        'add'    => array('dashicons-arrow-right-alt2', 'Add to %s'),
+        'remove' => array('dashicons-arrow-left-alt2', 'Remove from %s'),
+        'up'     => array('dashicons-arrow-up-alt2', 'Move up in %s'),
+        'down'   => array('dashicons-arrow-down-alt2', 'Move down in %s'),
+    );
+
     public const UNLABELABLE_TYPES = array(
         'radio',
         'sortable',
+        'dual_list',
         'table',
         'field_map',
         'repeater',
@@ -265,8 +283,9 @@ class WP_Setting
         ),
         'br'       => array(),
         'span'     => array(
-            'class' => array(),
-            'style' => array(),
+            'class'       => array(),
+            'style'       => array(),
+            'aria-hidden' => array(),
         ),
         'code'     => array(),
         'label'   => array(
@@ -323,6 +342,7 @@ class WP_Setting
         ),
         'select'   => array(
             'id'           => array(),
+            'data-role'    => array(),
             'autofocus'    => array(),
             'autocomplete' => array(),
             'name'         => array(),
@@ -373,6 +393,7 @@ class WP_Setting
             'aria-hidden'  => array(),
             'style'        => array(),
             'data-toggle'   => array(),
+            'data-move'     => array(),
         ),
         'details'  => array(
             'class' => array(),
@@ -389,6 +410,8 @@ class WP_Setting
             'id'         => array(),
             'data-field' => array(),
             'data-index' => array(),
+            'data-role'  => array(),
+            'data-name'  => array(),
         ),
         'template' => array(
             'class' => array(),
@@ -650,6 +673,10 @@ class WP_Setting
 
                 case 'repeater':
                     $this->sanitize_callback = array($this, 'sanitize_repeater');
+                    break;
+
+                case 'dual_list':
+                    $this->sanitize_callback = array($this, 'sanitize_dual_list');
                     break;
             }
         }
@@ -1200,6 +1227,9 @@ class WP_Setting
                 break;
             case 'sortable':
                 $this->render_sortable_value($name, $id, $value);
+                break;
+            case 'dual_list':
+                $this->render_dual_list_value($name, $id, $value);
                 break;
             case 'table':
                 $this->render_table_value($name, $id, $value);
@@ -1885,6 +1915,165 @@ class WP_Setting
 
         return $ordered;
     }
+
+    /**
+     * Reduce a submitted dual_list value to the chosen keys, in the chosen order.
+     *
+     * Order is the point of the field, so the submitted order wins over the
+     * option order — the opposite of normalize_sortable_value(), which merges
+     * every option back in because a sortable's membership is fixed. Here an
+     * option left out is simply off.
+     *
+     * @param mixed $value Raw submitted value, or an already-reduced list.
+     * @return list<string>
+     */
+    public function sanitize_dual_list($value): array
+    {
+        if (!is_array($value)) {
+            return array();
+        }
+
+        $options = $this->resolve_options();
+        $allowed_keys = array_map('strval', array_keys($options));
+
+        $chosen = array();
+        foreach ($value as $item) {
+            if (!is_scalar($item)) {
+                continue;
+            }
+            $item = \sanitize_text_field((string) $item);
+            if ('' === $item || in_array($item, $chosen, true)) {
+                continue;
+            }
+            // An empty option list means the options could not be resolved at
+            // save time (a callable that needs a later hook, say). Filtering
+            // against nothing would wipe a valid selection, so it is skipped.
+            if (!empty($allowed_keys) && !in_array($item, $allowed_keys, true)) {
+                continue;
+            }
+            $chosen[] = $item;
+        }
+
+        return $chosen;
+    }
+
+    /**
+     * Render a dual listbox: Available on the left, chosen on the right.
+     *
+     * The selects are the interface, not the storage. A `<select multiple>`
+     * submits only the options a user highlighted, which is not what "chosen"
+     * means, so the chosen side is mirrored into hidden inputs that the script
+     * rewrites on every change. One of those inputs is an empty sentinel: it
+     * keeps the field present in $_POST when nothing is chosen, so "display
+     * nothing" saves as an empty list instead of silently keeping the old one.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_dual_list_value($name, $id, $value): void
+    {
+        $options = $this->resolve_options();
+        if (empty($options)) {
+            return;
+        }
+
+        $chosen = $this->sanitize_dual_list(is_array($value) ? $value : array());
+        $available = array_values(array_diff(array_map('strval', array_keys($options)), $chosen));
+
+        $available_label = $this->args['available_label'] ?? 'Available';
+        $chosen_label    = $this->args['chosen_label'] ?? 'Chosen';
+        $size            = max(4, (int) ($this->args['size'] ?? 8));
+
+        echo \wp_kses(
+            sprintf(
+                '<div class="wps-dual-list" data-field="%s" data-name="%s">',
+                \esc_attr($id),
+                \esc_attr($name)
+            ),
+            self::$allowed_html
+        );
+
+        $this->render_dual_list_side($id . '_available', $name, 'available', $available_label, $available, $options, $size);
+
+        echo '<div class="wps-dual-list-controls">';
+        foreach (self::DUAL_LIST_CONTROLS as $move => $control) {
+            list($icon, $label) = $control;
+            echo \wp_kses(
+                sprintf(
+                    '<button type="button" class="button wps-dual-list-move" data-move="%s">' .
+                    '<span class="dashicons %s" aria-hidden="true"></span>' .
+                    '<span class="screen-reader-text">%s</span></button>',
+                    \esc_attr($move),
+                    \esc_attr($icon),
+                    \esc_html(sprintf($label, $this->title))
+                ),
+                self::$allowed_html
+            );
+        }
+        echo '</div>';
+
+        $this->render_dual_list_side($id . '_chosen', $name, 'chosen', $chosen_label, $chosen, $options, $size);
+
+        echo '<div class="wps-dual-list-inputs" data-role="inputs">';
+        echo \wp_kses(
+            sprintf('<input type="hidden" name="%s[]" value="">', \esc_attr($name)),
+            self::$allowed_html
+        );
+        foreach ($chosen as $key) {
+            echo \wp_kses(
+                sprintf('<input type="hidden" name="%s[]" value="%s">', \esc_attr($name), \esc_attr($key)),
+                self::$allowed_html
+            );
+        }
+        echo '</div>';
+
+        echo '</div>';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+    }
+
+    /**
+     * Render one side of a dual listbox.
+     *
+     * @param string $select_id Id of the <select>.
+     * @param string $name      Field name, used only to scope the visible label.
+     * @param string $role      'available' or 'chosen'.
+     * @param string $label     Visible label for the side.
+     * @param array  $keys      Option keys on this side, in display order.
+     * @param array  $options   All options, key => label.
+     * @param int    $size      Rows to show.
+     * @return void
+     */
+    private function render_dual_list_side($select_id, $name, $role, $label, array $keys, array $options, int $size): void
+    {
+        echo '<div class="wps-dual-list-side">';
+        echo \wp_kses(
+            sprintf('<label for="%s">%s</label>', \esc_attr($select_id), \esc_html($label)),
+            self::$allowed_html
+        );
+        echo \wp_kses(
+            sprintf(
+                '<select multiple id="%s" class="wps-dual-list-select" data-role="%s" size="%s">',
+                \esc_attr($select_id),
+                \esc_attr($role),
+                \esc_attr((string) $size)
+            ),
+            self::$allowed_html
+        );
+        foreach ($keys as $key) {
+            echo \wp_kses(
+                sprintf('<option value="%s">%s</option>', \esc_attr($key), \esc_html($options[$key] ?? $key)),
+                self::$allowed_html
+            );
+        }
+        echo '</select>';
+        echo '</div>';
+    }
+
 
     /**
      * Create an advanced collapsible field with child settings.
