@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.4.0] - 2026-08-26
+
+### Added
+
+- A `dual_list` field type for choosing which items appear and in what order ([#21](https://github.com/bgoewert/wp-settings/issues/21)). That is one decision, but expressing it took two fields — a `sortable` for order plus a checkbox per item for visibility — which read as two settings that could disagree, when an item left out of the list is simply off. `dual_list` renders Available on the left and the chosen side on the right, with buttons to move options across and to order the chosen side, and stores the chosen side as an ordered array of option keys. Pass the options as `'options'` in `$args`, the default as the chosen keys, and `'available_label'`/`'chosen_label'`/`'size'` to shape the control. Saving sanitizes against the declared option keys and preserves the submitted order — the opposite of `sortable`, which merges every option back in because its membership is fixed; an option list that cannot be resolved at save time is not treated as an empty one, so a callable waiting on a later hook cannot wipe a valid selection. The selects are the interface, not the storage: a `<select multiple>` submits only what the admin highlighted, so the chosen side is mirrored into hidden inputs on every change, one of which is an empty sentinel that keeps the field in `$_POST` when nothing is chosen — without it, "display nothing" would silently keep the previous selection. Every move is a button rather than a drag, so ordering and moving across work from the keyboard, and double-clicking an option moves it to the other side.
+
+### Fixed
+
+- Decorative icons are hidden from assistive technology again. `aria-hidden` was missing from the `span` entry in `WP_Setting::$allowed_html`, so `wp_kses()` stripped it from the sortable field's drag handle and the handle's dashicon was announced as content.
+
 ## [4.3.1] - 2026-08-25
 
 ### Fixed
