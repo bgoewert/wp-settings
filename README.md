@@ -41,6 +41,12 @@ class My_Settings extends WP_Settings
 
         $plugin_data = get_plugin_data(MY_PLUGIN_FILE, false, false);
 
+        // Parent first. It is what sets WP_Setting::$text_domain, and every
+        // WP_Setting fixes its option slug from that static at construction —
+        // build the fields above this line and they register unprefixed keys
+        // that WP_Setting::get() will never find.
+        parent::__construct($plugin_data);
+
         $this->sections = array(
             array(
                 'name'      => 'General Settings',
@@ -82,8 +88,6 @@ class My_Settings extends WP_Settings
                 )
             ),
         );
-
-        parent::__construct($plugin_data);
     }
 }
 
@@ -134,6 +138,17 @@ class My_Settings extends WP_Settings
 
         $plugin_data = get_plugin_data(MY_PLUGIN_FILE, false, false);
 
+        // logging() before the parent, fields after it: the parent reads the
+        // logging config to decide whether to build a logger, and it is also
+        // what sets the text domain each WP_Setting slugs itself from.
+        $this->logging(array(
+            'plugin_dir_path' => plugin_dir_path(MY_PLUGIN_FILE),
+            'retention_days_default' => 14,
+            'default_level' => 'error',
+        ));
+
+        parent::__construct($plugin_data);
+
         $this->sections = array(
             'general_settings' => array(
                 'name' => 'General Settings',
@@ -145,14 +160,6 @@ class My_Settings extends WP_Settings
         $this->settings = array(
             'my_option' => new WP_Setting('my_option', 'My Option', 'text', 'general', 'general_settings'),
         );
-
-        $this->logging(array(
-            'plugin_dir_path' => plugin_dir_path(MY_PLUGIN_FILE),
-            'retention_days_default' => 14,
-            'default_level' => 'error',
-        ));
-
-        parent::__construct($plugin_data);
     }
 }
 ```

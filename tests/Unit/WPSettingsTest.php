@@ -791,4 +791,62 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertStringContainsString('wps-repeater-row', $html);
         $this->assertStringNotContainsString('data-move=', $html);
     }
+
+    // -------------------------------------------------------------------------
+    // Construction order: parent first, then the fields
+    // -------------------------------------------------------------------------
+
+    /**
+     * Each WP_Setting fixes its option slug from WP_Setting::$text_domain at
+     * construction, and only WP_Settings::__construct() sets that static. Build
+     * the fields first and every option key is unprefixed while
+     * WP_Setting::get() goes looking for the prefixed one — so the documented
+     * order is a contract, not a style preference.
+     */
+    public function test_fields_built_after_the_parent_constructor_are_prefixed(): void
+    {
+        WP_Setting::$text_domain = null;
+
+        $page = new Test_WP_Settings_Ordered('my-plugin');
+
+        $this->assertSame('my_plugin_my_option', $page->get_settings()['my_option']->slug);
+    }
+
+    /** The inverted order is what the README used to show. Pinned so it stays wrong. */
+    public function test_fields_built_before_the_parent_constructor_are_unprefixed(): void
+    {
+        WP_Setting::$text_domain = null;
+
+        $page = new Test_WP_Settings_Unordered('my-plugin');
+
+        $this->assertSame('my_option', $page->get_settings()['my_option']->slug);
+    }
+}
+
+/**
+ * The documented order: parent constructor, then the fields.
+ */
+class Test_WP_Settings_Ordered extends WP_Settings
+{
+    public function __construct(string $domain)
+    {
+        parent::__construct($domain);
+
+        $this->sections = ['general' => ['name' => 'General', 'tab' => 'general', 'callback' => '__return_false']];
+        $this->settings = ['my_option' => new WP_Setting('my_option', 'My Option', 'text', 'general', 'general')];
+    }
+}
+
+/**
+ * The inverted order, kept only to pin what it produces.
+ */
+class Test_WP_Settings_Unordered extends WP_Settings
+{
+    public function __construct(string $domain)
+    {
+        $this->sections = ['general' => ['name' => 'General', 'tab' => 'general', 'callback' => '__return_false']];
+        $this->settings = ['my_option' => new WP_Setting('my_option', 'My Option', 'text', 'general', 'general')];
+
+        parent::__construct($domain);
+    }
 }
