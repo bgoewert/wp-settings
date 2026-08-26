@@ -3828,6 +3828,32 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame('', ob_get_clean());
     }
 
+    /**
+     * A consumer supplies the option keys, and nothing stops one arriving from a
+     * data source it does not control. A key holding a double quote has to stay
+     * inside the value attribute rather than closing it (#22).
+     */
+    public function test_dual_list_escapes_a_quote_in_an_option_key(): void
+    {
+        $setting = $this->makeDualList(null, ['options' => ['a"b' => 'Quoted', 'plain' => 'Plain']]);
+
+        ob_start();
+        $setting->render_unbound(['a"b'], 'columns', 'columns');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('<option value="a&quot;b">', $output);
+        $this->assertStringContainsString('name="columns[]" value="a&quot;b"', $output);
+        $this->assertStringNotContainsString('value="a"b"', $output);
+    }
+
+    /** The key still round-trips as itself through the sanitizer. */
+    public function test_dual_list_stores_a_quoted_key_unchanged(): void
+    {
+        $setting = $this->makeDualList(null, ['options' => ['a"b' => 'Quoted']]);
+
+        $this->assertSame(['a"b'], $setting->sanitize_value(['a"b']));
+    }
+
     /** Two selects, so no single control answers to the field slug. */
     public function test_dual_list_is_not_labelable_as_one_control(): void
     {

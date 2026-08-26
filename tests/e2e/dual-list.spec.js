@@ -19,11 +19,14 @@ const CHOSEN = `${FIELD} [data-role="chosen"]`;
 // Each test saves, so without this every test after the first would start from
 // whatever the previous one left behind.
 function resetField() {
-	execFileSync('ddev', [
-		'exec', '--dir', '/var/www/html/.local/wp',
-		'wp', 'option', 'update', 'wp_settings_harness_attendee_columns',
-		'["primary_info","ticket"]', '--format=json',
-	], { stdio: 'pipe' });
+	const reset = (option, json) =>
+		execFileSync('ddev', [
+			'exec', '--dir', '/var/www/html/.local/wp',
+			'wp', 'option', 'update', option, json, '--format=json',
+		], { stdio: 'pipe' });
+
+	reset('wp_settings_harness_attendee_columns', '["primary_info","ticket"]');
+	reset('wp_settings_harness_quoted_columns', '[]');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -77,6 +80,32 @@ test('double-clicking an option moves it across', async ({ page }) => {
 	await page.locator(`${AVAILABLE} option[value="email"]`).dblclick();
 
 	expect(await chosenKeys(page)).toEqual(['primary_info', 'ticket', 'email']);
+});
+
+/**
+ * The script used to build the hidden inputs as an HTML string with the key
+ * escaped as text, which leaves `"` alone — so a key holding one closed the
+ * value attribute early and the rest was parsed as markup (#22).
+ */
+test('an option key containing a double quote survives a save', async ({ page }) => {
+	const field = '.wps-dual-list[data-field="wp_settings_harness_quoted_columns"]';
+
+	await page.selectOption(`${field} [data-role="available"]`, 'a"b');
+	await page.click(`${field} [data-move="add"]`);
+
+	// The value has to reach the form as one input, not as broken markup.
+	const posted = await page
+		.locator(`${field} [data-role="inputs"] input`)
+		.evaluateAll((inputs) => inputs.map((i) => i.value));
+	expect(posted).toEqual(['', 'a"b']);
+
+	await save(page);
+	await page.goto(SETTINGS_URL);
+
+	const chosen = await page
+		.locator(`${field} [data-role="chosen"] option`)
+		.evaluateAll((options) => options.map((o) => o.value));
+	expect(chosen).toEqual(['a"b']);
 });
 
 test('the moves are reachable by keyboard alone', async ({ page }) => {

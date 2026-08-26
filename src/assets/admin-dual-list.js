@@ -1,19 +1,30 @@
 /* global jQuery */
 (function($) {
+    function hiddenInput(name, value) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name + '[]';
+        input.value = value;
+        return input;
+    }
+
     // The selects are the interface; these hidden inputs are what actually posts.
     // They are rewritten from the chosen <select> after every change, including
     // the empty sentinel, so "nothing chosen" still submits the field.
+    //
+    // Built as elements rather than an HTML string: setting .value assigns a
+    // property, so an option key is never parsed as markup and nothing has to be
+    // escaped. Escaping it as text would not have been enough anyway — that
+    // leaves `"` alone, and a key containing one closes the value attribute (#22).
     function syncInputs($field) {
         var name = $field.data('name');
-        var $inputs = $field.find('[data-role="inputs"]');
-        var html = '<input type="hidden" name="' + name + '[]" value="">';
+        var inputs = $field.find('[data-role="inputs"]').empty();
+
+        inputs.append(hiddenInput(name, ''));
 
         $field.find('[data-role="chosen"] option').each(function() {
-            html += '<input type="hidden" name="' + name + '[]" value="' +
-                $('<div>').text(this.value).html() + '">';
+            inputs.append(hiddenInput(name, this.value));
         });
-
-        $inputs.html(html);
     }
 
     // Every button acts on whatever is selected, so a move with nothing selected

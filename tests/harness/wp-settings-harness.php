@@ -112,6 +112,26 @@ final class WP_Settings_Harness extends WP_Settings
                     'chosen_label'    => 'Displayed',
                 )
             ),
+            // A separate field so the awkward key does not disturb the counts the
+            // other dual_list tests assert on.
+            'quoted_columns' => new WP_Setting(
+                'quoted_columns',
+                'Quoted Columns',
+                'dual_list',
+                'general',
+                'lists',
+                null,
+                'An option key holding a double quote (#22).',
+                false,
+                array(),
+                null,
+                array(
+                    'options' => array(
+                        'a"b'   => 'Quoted',
+                        'plain' => 'Plain',
+                    ),
+                )
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',
