@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.4.1] - 2026-08-26
+
+### Fixed
+
+- A `dual_list` option key containing a double quote stays inside the input it belongs to ([#22](https://github.com/bgoewert/wp-settings/issues/22)). The script that mirrors the chosen side into hidden inputs built them as an HTML string and escaped each key as text, which handles `&`, `<` and `>` but leaves `"` alone — so a key holding one closed the `value` attribute early and the rest was parsed as markup. The inputs are built as elements now, with the key assigned as a property, so nothing is parsed as markup and nothing has to be escaped. Keys are sanitized server-side and filtered against the declared option list, so this was never reachable from the browser; it mattered because the option keys are the consumer's, and one can arrive from a data source the consumer does not control.
+
 ## [4.4.0] - 2026-08-26
 
 ### Added
