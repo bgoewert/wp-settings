@@ -2,13 +2,24 @@
 # installs). Production consumers still receive src/, CHANGELOG.md, README.md,
 # LICENSE, and composer.json. export-ignore only affects generated archives and
 # takes effect on the next tagged release.
-/.github          export-ignore
-/openspec         export-ignore
-/tests            export-ignore
-/phpunit.xml.dist export-ignore
-/composer.lock    export-ignore
-/AGENTS.md        export-ignore
-/CLAUDE.md        export-ignore
-/CONTRIBUTING.md  export-ignore
-/.gitignore       export-ignore
-/.gitattributes   export-ignore
+/.github                      export-ignore
+/openspec                     export-ignore
+/tests                        export-ignore
+/phpunit.xml.dist             export-ignore
+/composer.lock                export-ignore
+/AGENTS.md                    export-ignore
+/CLAUDE.md                    export-ignore
+/CONTRIBUTING.md              export-ignore
+/.gitignore                   export-ignore
+/.gitattributes               export-ignore
+# The local WordPress the integration and e2e suites run against, and the
+# runners themselves. None of it is loadable by WordPress, but a consumer
+# opening vendor/ should not have to work out that ddev's admin/admin is a
+# throwaway container that does not exist on their host.
+/.ddev                        export-ignore
+/package.json                 export-ignore
+/bun.lock                     export-ignore
+/.npmrc                       export-ignore
+/playwright.config.js         export-ignore
+/infection.json5              export-ignore
+/phpunit-integration.xml.dist export-ignore
