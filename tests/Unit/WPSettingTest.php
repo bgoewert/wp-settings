@@ -3756,14 +3756,60 @@ class WPSettingTest extends WP_Settings_TestCase
         $chosen = substr($output, strpos($output, 'data-role="chosen"'));
         $available = substr($output, strpos($output, 'data-role="available"'));
 
-        $this->assertStringContainsString('<option value="ticket">Ticket</option><option value="primary_info">', $chosen);
-        $this->assertStringContainsString('<option value="email">Email</option>', $available);
-        $this->assertStringNotContainsString('value="email"', substr($chosen, 0, strpos($chosen, '</select>')));
+        $this->assertStringContainsString('data-key="ticket"', $chosen);
+        $this->assertStringContainsString('>Ticket</li><li', $chosen);
+        $this->assertStringContainsString('data-key="primary_info"', $chosen);
+        $this->assertStringContainsString('data-key="email" aria-selected="false" draggable="true">Email</li>', $available);
+        $this->assertStringNotContainsString('data-key="email"', substr($chosen, 0, strpos($chosen, '</ul>')));
     }
 
     /**
-     * A <select multiple> submits only what the user highlighted, so the chosen
-     * side is mirrored into hidden inputs — those are what actually post.
+     * An <option> fires no drag events in Firefox or Safari, so each side is a
+     * listbox of draggable items rather than a <select multiple> (#23).
+     */
+    public function test_dual_list_renders_each_side_as_a_draggable_listbox(): void
+    {
+        $output = $this->renderDualList(['ticket']);
+
+        $this->assertStringNotContainsString('<select', $output);
+        $this->assertSame(2, substr_count($output, 'role="listbox"'));
+        $this->assertSame(2, substr_count($output, 'aria-multiselectable="true"'));
+        $this->assertSame(2, substr_count($output, 'tabindex="0"'));
+        $this->assertSame(3, substr_count($output, 'role="option"'));
+        $this->assertSame(3, substr_count($output, 'draggable="true"'));
+    }
+
+    /**
+     * `size` was the <select>'s row count. A <ul> has no such attribute, so it
+     * becomes a height — otherwise the arg silently stopped doing anything.
+     */
+    public function test_dual_list_size_becomes_the_height_of_each_list(): void
+    {
+        ob_start();
+        $this->makeDualList(null, ['size' => 5])->render_unbound(['ticket'], 'columns', 'columns');
+        $output = ob_get_clean();
+
+        $this->assertSame(2, substr_count($output, 'style="height:9em"'));
+    }
+
+    /**
+     * Item ids come from the option's position rather than its key, so two dual
+     * lists on one page cannot collide — aria-activedescendant points at these.
+     */
+    public function test_dual_list_item_ids_are_unique_within_the_field(): void
+    {
+        $output = $this->renderDualList(['ticket', 'primary_info']);
+
+        preg_match_all('/<li [^>]*id="([^"]+)"/', $output, $matches);
+        $ids = $matches[1];
+        sort($ids);
+
+        $this->assertSame(['columns_opt_0', 'columns_opt_1', 'columns_opt_2'], $ids);
+    }
+
+    /**
+     * The chosen list — not a selection within it — is the value, so it is
+     * mirrored into hidden inputs; those are what actually post.
      */
     public function test_dual_list_mirrors_the_chosen_side_into_hidden_inputs(): void
     {
@@ -3798,13 +3844,30 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('>Move down in Attendee Columns<', $output);
     }
 
-    /** Each side carries its own label, since neither select answers to the slug. */
+    /**
+     * Each side carries its own name. A <ul> is not labelable, so the name is a
+     * <span> the list points at rather than a <label for> naming nothing.
+     */
     public function test_dual_list_labels_each_side(): void
     {
         $output = $this->renderDualList(['ticket']);
 
-        $this->assertStringContainsString('<label for="columns_available">Available</label>', $output);
-        $this->assertStringContainsString('<label for="columns_chosen">Chosen</label>', $output);
+        $this->assertStringContainsString('<span class="wps-dual-list-label" id="columns_available_label">Available</span>', $output);
+        $this->assertStringContainsString('<span class="wps-dual-list-label" id="columns_chosen_label">Chosen</span>', $output);
+        $this->assertStringContainsString('aria-labelledby="columns_available_label"', $output);
+        $this->assertStringContainsString('aria-labelledby="columns_chosen_label"', $output);
+    }
+
+    /**
+     * A listbox affords nothing on its own, so both lists point at one line
+     * saying an item can be dragged and which keys work.
+     */
+    public function test_dual_list_describes_how_to_work_it(): void
+    {
+        $output = $this->renderDualList(['ticket']);
+
+        $this->assertSame(2, substr_count($output, 'aria-describedby="columns_help"'));
+        $this->assertStringContainsString('<p class="screen-reader-text" id="columns_help">Drag an item', $output);
     }
 
     /** The side labels are the consumer's words when they supply them. */
@@ -3815,8 +3878,8 @@ class WPSettingTest extends WP_Settings_TestCase
             ->render_unbound(['ticket'], 'columns', 'columns');
         $output = ob_get_clean();
 
-        $this->assertStringContainsString('>Hidden</label>', $output);
-        $this->assertStringContainsString('>Displayed</label>', $output);
+        $this->assertStringContainsString('>Hidden</span>', $output);
+        $this->assertStringContainsString('>Displayed</span>', $output);
     }
 
     /** No options means no control worth rendering. */
@@ -3841,9 +3904,10 @@ class WPSettingTest extends WP_Settings_TestCase
         $setting->render_unbound(['a"b'], 'columns', 'columns');
         $output = ob_get_clean();
 
-        $this->assertStringContainsString('<option value="a&quot;b">', $output);
+        $this->assertStringContainsString('data-key="a&quot;b"', $output);
         $this->assertStringContainsString('name="columns[]" value="a&quot;b"', $output);
         $this->assertStringNotContainsString('value="a"b"', $output);
+        $this->assertStringNotContainsString('data-key="a"b"', $output);
     }
 
     /** The key still round-trips as itself through the sanitizer. */
@@ -3854,7 +3918,7 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertSame(['a"b'], $setting->sanitize_value(['a"b']));
     }
 
-    /** Two selects, so no single control answers to the field slug. */
+    /** Two lists, so no single control answers to the field slug. */
     public function test_dual_list_is_not_labelable_as_one_control(): void
     {
         $this->assertFalse($this->makeDualList()->renders_labelable_control());

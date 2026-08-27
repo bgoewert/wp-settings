@@ -12,23 +12,74 @@
     gap: 4px;
 }
 
-.wps-dual-list-side label {
+.wps-dual-list-label {
     font-weight: 600;
 }
 
-.wps-dual-list-select {
+/* The height comes from the field's `size` as an inline style, so the rows a
+   consumer asked for are what shows; everything past them scrolls. */
+.wps-dual-list-list {
+    box-sizing: border-box;
     min-width: 220px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+    font-size: 14px;
+    background: #fff;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+}
+
+/* A <ul> has no focus ring of its own, and without one a keyboard user cannot
+   tell which list the arrow keys are moving through. */
+.wps-dual-list-list:focus,
+.wps-dual-list-list:focus-visible {
+    outline: 2px solid #2271b1;
+    outline-offset: -1px;
+}
+
+.wps-dual-list-item {
+    margin: 0;
+    padding: 3px 8px;
+    cursor: grab;
+    user-select: none;
+}
+
+.wps-dual-list-item[aria-selected="true"] {
+    background: #2271b1;
+    color: #fff;
+}
+
+/* Selection and roving focus are different things: the active item is where the
+   next arrow press starts from, whether or not it is selected. */
+.wps-dual-list-item.is-active {
+    box-shadow: inset 2px 0 0 #2271b1;
+}
+
+.wps-dual-list-item.is-dragging {
+    opacity: 0.5;
+}
+
+.wps-dual-list-item.is-drop-target {
+    border-top: 2px solid #2271b1;
+}
+
+/* Dropping onto the list itself, rather than onto an item, appends. */
+.wps-dual-list-list.is-drop-into {
+    outline: 2px dashed #2271b1;
+    outline-offset: -2px;
 }
 
 .wps-dual-list-controls {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    /* Aligns the button stack with the selects rather than the side labels. */
+    /* Aligns the button stack with the lists rather than the side labels. */
     padding-top: 26px;
 }
 
-/* The list is two columns of controls at desktop width; below that they stack,
+/* The field is two columns of controls at desktop width; below that they stack,
    and a horizontal button row between them reads as the wrong direction. */
 @media screen and (max-width: 782px) {
     .wps-dual-list {
@@ -41,7 +92,11 @@
         padding-top: 0;
     }
 
-    .wps-dual-list-select {
+    .wps-dual-list-side {
+        width: 100%;
+    }
+
+    .wps-dual-list-list {
         width: 100%;
     }
 }

@@ -94,7 +94,37 @@ final class DualListTest extends IntegrationTestCase
         $output = ob_get_clean();
 
         $chosen = substr($output, strpos($output, 'data-role="chosen"'));
-        self::assertStringContainsString('<option value="ticket">Ticket</option><option value="email">', $chosen);
+        self::assertStringContainsString('data-key="ticket"', $chosen);
+        self::assertStringContainsString('>Ticket</li><li', $chosen);
+        self::assertStringContainsString('data-key="email"', $chosen);
         self::assertStringContainsString('name="' . self::OPTION . '[]" value="ticket"', $output);
+    }
+
+    /**
+     * The unit suite renders through a pass-through wp_kses stub, so it cannot
+     * see an attribute kses drops. Every attribute the listbox pattern needs has
+     * to survive the real filter, or the field renders as an inert <ul> (#23).
+     */
+    public function test_the_listbox_attributes_survive_kses(): void
+    {
+        ob_start();
+        $GLOBALS['wp_settings_harness']->get_settings()['attendee_columns']->init_type();
+        $output = ob_get_clean();
+
+        foreach (
+            [
+                'role="listbox"',
+                'aria-multiselectable="true"',
+                'aria-labelledby="' . self::OPTION . '_chosen_label"',
+                'aria-describedby="' . self::OPTION . '_help"',
+                'tabindex="0"',
+                'style="height:14.4em"',
+                'role="option"',
+                'draggable="true"',
+                'aria-selected="false"',
+            ] as $attribute
+        ) {
+            self::assertStringContainsString($attribute, $output);
+        }
     }
 }

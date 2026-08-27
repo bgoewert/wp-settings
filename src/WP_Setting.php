@@ -275,6 +275,7 @@ class WP_Setting
     public static $allowed_html = array(
         'p'        => array(
             'class' => array(),
+            'id'    => array(),
         ),
         'a'        => array(
             'href'   => array(),
@@ -284,6 +285,7 @@ class WP_Setting
         'br'       => array(),
         'span'     => array(
             'class'       => array(),
+            'id'          => array(),
             'style'       => array(),
             'aria-hidden' => array(),
         ),
@@ -425,16 +427,25 @@ class WP_Setting
             'style' => array(),
         ),
         'ul'       => array(
-            'class'      => array(),
-            'style'      => array(),
-            'id'         => array(),
-            'data-field' => array(),
+            'class'                 => array(),
+            'style'                 => array(),
+            'id'                    => array(),
+            'role'                  => array(),
+            'tabindex'              => array(),
+            'aria-multiselectable'  => array(),
+            'aria-labelledby'       => array(),
+            'aria-describedby'      => array(),
+            'data-field'            => array(),
+            'data-role'             => array(),
         ),
         'li'       => array(
-            'class'    => array(),
-            'style'    => array(),
-            'id'       => array(),
-            'data-key' => array(),
+            'class'         => array(),
+            'style'         => array(),
+            'id'            => array(),
+            'role'          => array(),
+            'aria-selected' => array(),
+            'draggable'     => array(),
+            'data-key'      => array(),
         ),
         'tr'       => array(
             'class'           => array(),
@@ -1960,12 +1971,18 @@ class WP_Setting
     /**
      * Render a dual listbox: Available on the left, chosen on the right.
      *
-     * The selects are the interface, not the storage. A `<select multiple>`
-     * submits only the options a user highlighted, which is not what "chosen"
-     * means, so the chosen side is mirrored into hidden inputs that the script
-     * rewrites on every change. One of those inputs is an empty sentinel: it
-     * keeps the field present in $_POST when nothing is chosen, so "display
-     * nothing" saves as an empty list instead of silently keeping the old one.
+     * The lists are the interface, not the storage: the chosen list — not a
+     * selection within it — is the value, so it is mirrored into hidden inputs
+     * that the script rewrites on every change. One of those inputs is an empty
+     * sentinel: it keeps the field present in $_POST when nothing is chosen, so
+     * "display nothing" saves as an empty list instead of silently keeping the
+     * old one.
+     *
+     * Each side is a `ul[role=listbox]` rather than a `select[multiple]` because
+     * an `<option>` cannot be dragged — Firefox and Safari fire no drag events
+     * on one — and dragging is how people order a list whose order is the data
+     * (#23). Selection, roving focus and the keyboard therefore belong to the
+     * script; what it implements is the WAI-ARIA listbox pattern.
      *
      * @param string $name  Field name.
      * @param string $id    Field id.
@@ -1986,6 +2003,14 @@ class WP_Setting
         $chosen_label    = $this->args['chosen_label'] ?? 'Chosen';
         $size            = max(4, (int) ($this->args['size'] ?? 8));
 
+        // Item ids come from the option's position, not its key: two fields on
+        // one page would otherwise share ids, and a key is arbitrary consumer
+        // text that aria-activedescendant has to point at.
+        $item_ids = array();
+        foreach (array_map('strval', array_keys($options)) as $index => $key) {
+            $item_ids[$key] = $id . '_opt_' . $index;
+        }
+
         echo \wp_kses(
             sprintf(
                 '<div class="wps-dual-list" data-field="%s" data-name="%s">',
@@ -1995,7 +2020,7 @@ class WP_Setting
             self::$allowed_html
         );
 
-        $this->render_dual_list_side($id . '_available', $name, 'available', $available_label, $available, $options, $size);
+        $this->render_dual_list_side($id, 'available', $available_label, $available, $options, $item_ids, $size);
 
         echo '<div class="wps-dual-list-controls">';
         foreach (self::DUAL_LIST_CONTROLS as $move => $control) {
@@ -2014,7 +2039,7 @@ class WP_Setting
         }
         echo '</div>';
 
-        $this->render_dual_list_side($id . '_chosen', $name, 'chosen', $chosen_label, $chosen, $options, $size);
+        $this->render_dual_list_side($id, 'chosen', $chosen_label, $chosen, $options, $item_ids, $size);
 
         echo '<div class="wps-dual-list-inputs" data-role="inputs">';
         echo \wp_kses(
@@ -2029,6 +2054,21 @@ class WP_Setting
         }
         echo '</div>';
 
+        // A listbox offers no affordance of its own, so the two ways to work it
+        // are stated once for anyone who cannot see the arrows.
+        echo \wp_kses(
+            sprintf(
+                '<p class="screen-reader-text" id="%s">%s</p>',
+                \esc_attr($id . '_help'),
+                \esc_html(
+                    'Drag an item, or select it and use the arrow buttons. ' .
+                    'Space toggles selection, up and down arrows move through the list, ' .
+                    'and Enter moves the selection to the other list.'
+                )
+            ),
+            self::$allowed_html
+        );
+
         echo '</div>';
 
         if ($this->description) {
@@ -2039,38 +2079,61 @@ class WP_Setting
     /**
      * Render one side of a dual listbox.
      *
-     * @param string $select_id Id of the <select>.
-     * @param string $name      Field name, used only to scope the visible label.
-     * @param string $role      'available' or 'chosen'.
-     * @param string $label     Visible label for the side.
-     * @param array  $keys      Option keys on this side, in display order.
-     * @param array  $options   All options, key => label.
-     * @param int    $size      Rows to show.
+     * The visible label is a `<span>` the list points at with
+     * `aria-labelledby`: a `<ul>` is not labelable, so `<label for>` would name
+     * nothing.
+     *
+     * @param string $id       Field id, which the side's own ids hang off.
+     * @param string $role     'available' or 'chosen'.
+     * @param string $label    Visible label for the side.
+     * @param array  $keys     Option keys on this side, in display order.
+     * @param array  $options  All options, key => label.
+     * @param array  $item_ids Option key => item id, shared by both sides.
+     * @param int    $size     Rows to show.
      * @return void
      */
-    private function render_dual_list_side($select_id, $name, $role, $label, array $keys, array $options, int $size): void
+    private function render_dual_list_side($id, $role, $label, array $keys, array $options, array $item_ids, int $size): void
     {
+        $list_id  = $id . '_' . $role;
+        $label_id = $list_id . '_label';
+
         echo '<div class="wps-dual-list-side">';
         echo \wp_kses(
-            sprintf('<label for="%s">%s</label>', \esc_attr($select_id), \esc_html($label)),
+            sprintf(
+                '<span class="wps-dual-list-label" id="%s">%s</span>',
+                \esc_attr($label_id),
+                \esc_html($label)
+            ),
             self::$allowed_html
         );
+        // The height is the `size` rows a <select size> used to show; a <ul> has
+        // no such attribute, so the rows are turned into a height here.
         echo \wp_kses(
             sprintf(
-                '<select multiple id="%s" class="wps-dual-list-select" data-role="%s" size="%s">',
-                \esc_attr($select_id),
+                '<ul class="wps-dual-list-list" id="%s" data-role="%s" role="listbox"' .
+                ' aria-multiselectable="true" aria-labelledby="%s" aria-describedby="%s"' .
+                ' tabindex="0" style="height:%sem">',
+                \esc_attr($list_id),
                 \esc_attr($role),
-                \esc_attr((string) $size)
+                \esc_attr($label_id),
+                \esc_attr($id . '_help'),
+                \esc_attr((string) round($size * 1.8, 1))
             ),
             self::$allowed_html
         );
         foreach ($keys as $key) {
             echo \wp_kses(
-                sprintf('<option value="%s">%s</option>', \esc_attr($key), \esc_html($options[$key] ?? $key)),
+                sprintf(
+                    '<li class="wps-dual-list-item" id="%s" role="option" data-key="%s"' .
+                    ' aria-selected="false" draggable="true">%s</li>',
+                    \esc_attr($item_ids[$key] ?? $list_id . '_opt'),
+                    \esc_attr($key),
+                    \esc_html($options[$key] ?? $key)
+                ),
                 self::$allowed_html
             );
         }
-        echo '</select>';
+        echo '</ul>';
         echo '</div>';
     }
 

@@ -449,9 +449,13 @@ new WP_Setting(
 
 The value is a `list<string>` of option keys in the chosen order. Unlike `sortable`, whose membership is fixed and which merges every option back in, an option left out here stays out — so `sortable` is the right field when only the order varies, and `dual_list` when membership does too.
 
-The selects are the interface, not the storage. A `<select multiple>` submits only the options a user highlighted, which is not what "chosen" means, so the chosen side is mirrored into hidden inputs on every change. One of those is an empty sentinel, which keeps the field present in `$_POST` when nothing is chosen — otherwise "display nothing" would silently keep the previous selection.
+The lists are the interface, not the storage. The chosen list — not a selection inside it — is the value, so it is mirrored into hidden inputs on every change. One of those is an empty sentinel, which keeps the field present in `$_POST` when nothing is chosen — otherwise "display nothing" would silently keep the previous selection.
 
-Every move is a button, so ordering and moving across both work from the keyboard; double-clicking an option moves it to the other side. The buttons show arrows and carry their full name — `Add to Attendee Columns` — for assistive technology, because a page with two dual lists otherwise has four buttons all called "Add". Saving sanitizes against the declared option keys and preserves the submitted order.
+Items are dragged within the chosen list to order them, or across to move them, and every move is also a button: `↑`/`↓` reorder, `→`/`←` move across, and double-clicking an item moves it. The buttons show arrows and carry their full name — `Add to Attendee Columns` — for assistive technology, because a page with two dual lists otherwise has four buttons all called "Add". Saving sanitizes against the declared option keys and preserves the arranged order.
+
+Each side is a `ul[role=listbox]` of `li[role=option]`, not a `select[multiple]`: an `<option>` fires no drag events in Firefox or Safari, so a select cannot be dragged at all. That means the selection model is the library's own, following the WAI-ARIA listbox pattern — click, ctrl/cmd-click and shift-click select, arrows move the active item with shift extending, space toggles, and Enter moves the selection to the other list. Consumer browser tests should drive the field by clicking `.wps-dual-list-item[data-key="…"]` rather than with a `selectOption` call.
+
+`size` is the number of rows a side shows before it scrolls, as it was on the `<select>` it replaced; it becomes the list's height.
 
 ### Table Field Example
 

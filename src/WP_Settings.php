@@ -497,7 +497,9 @@ class WP_Settings
             \wp_enqueue_script(
                 "wp-settings-admin-dual-list",
                 \plugin_dir_url(__FILE__) . "assets/admin-dual-list.js",
-                ["jquery"],
+                // The listbox is plain DOM — dragging, selection and the
+                // keyboard are all hand-rolled — so jQuery buys it nothing.
+                [],
                 $this->version ?? false,
                 true,
             );
