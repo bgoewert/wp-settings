@@ -4,6 +4,14 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.5.0] - 2026-08-27
+
+### Changed
+
+- `dual_list` items are dragged to move and reorder them ([#23](https://github.com/bgoewert/wp-settings/issues/23)). Order is the data on this field, and an admin arranging ten columns drags them — pressing the up arrow nine times is the fallback, not the interaction. A `select[multiple]` cannot offer it: an `<option>` fires no drag events in Firefox or Safari, so each side is now a `ul[role=listbox]` of `li[role=option][draggable=true]`, which is what Salesforce, Ant and MUI all do for this control. Dragging within the chosen list orders it and dragging across moves items, while every move stays a button. The selection model that a native select provided is now the library's own, following the WAI-ARIA listbox pattern: click, ctrl/cmd-click and shift-click tracked in `aria-selected`, roving focus through `aria-activedescendant` with arrows moving the active item and shift extending the selection, space toggling, Enter moving the selection across, the active item scrolled into view, and a focus ring on the list because a `<ul>` has none. `size` still means rows, applied as the list's height. The field's script no longer loads jQuery.
+
+  **Consumer note:** the rendered markup changed, so CSS on `.wps-dual-list-select` moves to `.wps-dual-list-list`, and browser tests driving the field with `selectOption` move to clicking `.wps-dual-list-item[data-key="…"]`. The PHP API, the `$args` and the stored value are unchanged.
+
 ## [4.4.1] - 2026-08-26
 
 ### Fixed
