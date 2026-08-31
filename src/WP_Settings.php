@@ -204,6 +204,7 @@ class WP_Settings
                 $section["name"] ?? "",
                 $section["callback"],
                 $this->text_domain . "_" . $section["tab"],
+                $this->section_args($slug, $section),
             );
         }
 
@@ -424,7 +425,9 @@ class WP_Settings
         }
 
         $has_tables = !empty($this->tables);
-        $has_conditionals = $this->has_conditional_settings();
+        $has_conditionals =
+            $this->has_conditional_settings() ||
+            $this->has_conditional_sections();
 
         if ($has_tables || $has_conditionals) {
             \wp_enqueue_style(
@@ -517,7 +520,7 @@ class WP_Settings
     }
 
     /**
-     * Get all field names that other fields depend on (controlling fields).
+     * Get all field names that fields or sections depend on (controlling fields).
      *
      * @return array Array of unique controlling field slugs.
      */
@@ -540,7 +543,7 @@ class WP_Settings
     }
 
     /**
-     * Every condition declared on a field on this page.
+     * Every condition declared on this page, on a field or on a section.
      *
      * @return array Flat list of condition arrays.
      */
@@ -561,6 +564,12 @@ class WP_Settings
                 if ($child->has_conditions()) {
                     $conditions = array_merge($conditions, $child->conditions);
                 }
+            }
+        }
+
+        foreach ((array) $this->sections as $section) {
+            if (!empty($section["conditions"]) && is_array($section["conditions"])) {
+                $conditions = array_merge($conditions, $section["conditions"]);
             }
         }
 
@@ -680,6 +689,41 @@ class WP_Settings
             : $prefix . $field_name;
     }
 
+    /**
+     * Build the `add_settings_section()` args for a section definition.
+     *
+     * A conditional section has to hide its heading along with its fields, so
+     * it needs one element wrapping both — which is what core's
+     * `before_section`/`after_section` (WP 5.3+) give without owning the
+     * rendering. `section_class` is deliberately left unset: core runs
+     * `before_section` through `sprintf()` when a class is present, and a `%`
+     * inside a condition value would be read as a placeholder.
+     *
+     * @param string $slug    Section slug.
+     * @param array  $section Section definition.
+     * @return array Args for add_settings_section().
+     */
+    protected function section_args($slug, array $section): array
+    {
+        if (
+            empty($section["conditions"]) ||
+            !is_array($section["conditions"])
+        ) {
+            return [];
+        }
+
+        $conditions = $this->resolve_conditions($section["conditions"]);
+
+        return [
+            "before_section" =>
+                '<div class="wps-section-wrapper" data-section="' .
+                \esc_attr($slug) .
+                '" data-conditions="' .
+                \esc_attr((string) \wp_json_encode($conditions)) .
+                '">',
+            "after_section" => "</div>",
+        ];
+    }
 
     /**
      * Empty section callback because it required for some reason.
@@ -1162,6 +1206,25 @@ class WP_Settings
         return false;
     }
 
+    /**
+     * Check if any section has conditional visibility rules.
+     *
+     * @return bool
+     */
+    protected function has_conditional_sections()
+    {
+        foreach ((array) $this->sections as $section) {
+            if (
+                is_array($section) &&
+                !empty($section["conditions"]) &&
+                is_array($section["conditions"])
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /**
      * Display custom footer text on left side of admin footer if on plugin's settings page.

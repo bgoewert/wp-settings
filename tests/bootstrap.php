@@ -195,7 +195,7 @@ if (!function_exists("add_settings_field")) {
 }
 
 if (!function_exists("add_settings_section")) {
-    function add_settings_section($id, $title, $callback, $page)
+    function add_settings_section($id, $title, $callback, $page, $args = [])
     {
         global $wp_test_settings_sections;
         $wp_test_settings_sections[$id] = compact(
@@ -203,6 +203,7 @@ if (!function_exists("add_settings_section")) {
             "title",
             "callback",
             "page",
+            "args",
         );
         return true;
     }

@@ -96,6 +96,7 @@ new My_Settings();
 
 Tab labels default to `ucwords(tab)` but you can override the display label per tab with `tab_name`.
 The tab strip renders only when there are two or more tabs, so a page whose sections all share one tab gets no nav.
+A section also accepts `conditions`, which shows it only for certain values of another field — see [Conditional Visibility](#conditional-visibility).
 
 ### Construct Unconditionally — Do Not Gate Behind `is_admin()`
 
@@ -706,6 +707,27 @@ new WP_Setting(
 Multiple conditions are combined with AND logic (all must be true for the field to be visible).
 
 `field` names the controlling field the way it was declared — the shorthand name, not the prefixed option slug — though the slug is accepted too.
+
+### Conditional Sections
+
+A section takes the same `conditions` key, with the same shape and the same operators. Use it when a whole group of fields belongs to one choice: repeating the condition on every field in the group hides the rows but leaves the heading above an empty table.
+
+```php
+$this->sections = array(
+    'vimeo_settings' => array(
+        'name'       => 'Vimeo',
+        'tab'        => 'general',
+        'callback'   => '__return_false',
+        'conditions' => array(
+            array('field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo'),
+        ),
+    ),
+);
+```
+
+The section's heading and its `form-table` are wrapped in one `div.wps-section-wrapper[data-section="{slug}"]`, so both hide together. The wrapper comes from `add_settings_section()`'s `before_section`/`after_section` args, which require WordPress 5.3 or newer.
+
+Visibility is presentation only, for a section as for a field: a hidden field is still on the page and still submits its value.
 
 ## Autoloading
 

@@ -57,6 +57,7 @@ class Test_WP_Settings_Exposer extends WP_Settings
     public function expose_has_password_settings(): bool           { return $this->has_password_settings(); }
     public function expose_has_sortable_settings(): bool           { return $this->has_sortable_settings(); }
     public function expose_has_conditional_settings(): bool        { return $this->has_conditional_settings(); }
+    public function expose_has_conditional_sections(): bool        { return $this->has_conditional_sections(); }
     public function expose_has_settings_for_tab(string $tab): bool { return $this->has_settings_for_tab($tab); }
     public function expose_has_any_sections_for_tab(string $tab): bool { return $this->has_any_sections_for_tab($tab); }
     public function expose_find_field_slug(string $name): string   { return $this->find_field_slug($name); }
@@ -388,6 +389,19 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertContains('test_plugin_flag', $page->expose_get_controlling_fields());
     }
 
+    public function test_get_controlling_fields_includes_section_conditions(): void
+    {
+        $page = new Test_WP_Settings_Exposer([make_setting('provider', 'select')], [
+            'vimeo' => [
+                'name'       => 'Vimeo',
+                'tab'        => 'general',
+                'callback'   => '__return_false',
+                'conditions' => [['field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo']],
+            ],
+        ]);
+
+        $this->assertSame(['test_plugin_provider'], $page->expose_get_controlling_fields());
+    }
 
     // -------------------------------------------------------------------------
     // Condition field references
@@ -436,6 +450,91 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertSame('test_plugin_unknown', $page->expose_find_field_slug('test_plugin_unknown'));
     }
 
+    // -------------------------------------------------------------------------
+    // Conditional sections
+    // -------------------------------------------------------------------------
+
+    /** Build a page whose second section is shown only for a provider value. */
+    private function make_conditional_section_page(): Test_WP_Settings_Exposer
+    {
+        return new Test_WP_Settings_Exposer([make_setting('provider', 'select')], [
+            'general_settings' => [
+                'name'     => 'General',
+                'tab'      => 'general',
+                'callback' => '__return_false',
+            ],
+            'vimeo_settings' => [
+                'name'       => 'Vimeo',
+                'tab'        => 'general',
+                'callback'   => '__return_false',
+                'conditions' => [['field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo']],
+            ],
+        ]);
+    }
+
+    /**
+     * The heading and the form-table both sit inside the wrapper, so hiding a
+     * section that does not apply leaves no empty heading behind.
+     */
+    public function test_init_wraps_a_conditional_section_with_its_conditions(): void
+    {
+        $page = $this->make_conditional_section_page();
+        $page->init();
+
+        $args = $this->getRegisteredSettingsSections()['test_plugin_section_vimeo_settings']['args'];
+
+        $this->assertStringContainsString('class="wps-section-wrapper"', $args['before_section']);
+        $this->assertStringContainsString('data-section="vimeo_settings"', $args['before_section']);
+        $this->assertStringContainsString(
+            '&quot;field&quot;:&quot;test_plugin_provider&quot;',
+            $args['before_section'],
+            'The section condition must name the input the browser sees, not the declared field name.'
+        );
+        $this->assertSame('</div>', $args['after_section']);
+    }
+
+    /** Core sprintf()s before_section when a class is set, which a `%` in a value would break. */
+    public function test_init_does_not_set_a_section_class(): void
+    {
+        $page = $this->make_conditional_section_page();
+        $page->init();
+
+        $args = $this->getRegisteredSettingsSections()['test_plugin_section_vimeo_settings']['args'];
+
+        $this->assertArrayNotHasKey('section_class', $args);
+    }
+
+    public function test_init_leaves_a_section_without_conditions_unwrapped(): void
+    {
+        $page = $this->make_conditional_section_page();
+        $page->init();
+
+        $args = $this->getRegisteredSettingsSections()['test_plugin_section_general_settings']['args'];
+
+        $this->assertSame([], $args);
+    }
+
+    public function test_has_conditional_sections_reports_a_section_condition(): void
+    {
+        $this->assertTrue($this->make_conditional_section_page()->expose_has_conditional_sections());
+        $this->assertFalse((new Test_WP_Settings_Exposer([], [
+            'general_settings' => ['name' => 'General', 'tab' => 'general', 'callback' => '__return_false'],
+        ]))->expose_has_conditional_sections());
+    }
+
+    /** The script has to load for a page whose only condition is on a section. */
+    public function test_enqueue_admin_loads_the_conditional_script_for_a_section_condition(): void
+    {
+        $page = $this->make_conditional_section_page();
+        $page->set_submenu_hook('settings_page_test-plugin');
+        $page->enqueue_admin('settings_page_test-plugin');
+
+        $this->assertContains('wp-settings-admin', $this->getEnqueuedScripts());
+        $this->assertStringContainsString(
+            '"test_plugin_provider"',
+            implode('', $this->getInlineScripts()['wp-settings-admin'] ?? [])
+        );
+    }
 
     // -------------------------------------------------------------------------
     // enqueue_admin()

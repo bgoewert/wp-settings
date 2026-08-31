@@ -62,6 +62,17 @@ final class WP_Settings_Harness extends WP_Settings
                 'tab_name' => 'General',
                 'callback' => '__return_false',
             ),
+            // Shown only for one provider, so the heading and its form-table
+            // have to disappear together when another one is chosen (#24).
+            'vimeo' => array(
+                'name'       => 'Vimeo',
+                'tab'        => 'general',
+                'tab_name'   => 'General',
+                'callback'   => '__return_false',
+                'conditions' => array(
+                    array('field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo'),
+                ),
+            ),
         );
 
         $this->settings = array(
@@ -132,7 +143,7 @@ final class WP_Settings_Harness extends WP_Settings
                     ),
                 )
             ),
-            // Drives the conditional field below.
+            // Drives both a conditional field and a conditional section.
             'provider' => new WP_Setting(
                 'provider',
                 'Video Provider',
@@ -169,6 +180,17 @@ final class WP_Settings_Harness extends WP_Settings
                         array('field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo'),
                     ),
                 )
+            ),
+            'vimeo_token' => new WP_Setting(
+                'vimeo_token',
+                'Vimeo Token',
+                'text',
+                'general',
+                'vimeo',
+                '300px',
+                'Lives in the conditional section.',
+                false,
+                null
             ),
             'plain_note' => new WP_Setting(
                 'plain_note',

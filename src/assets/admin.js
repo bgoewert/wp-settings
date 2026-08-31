@@ -98,10 +98,11 @@
     }
 
     /**
-     * Apply conditional visibility to all form rows with data-conditions.
-     * Handles both:
+     * Apply conditional visibility to everything in the form carrying data-conditions.
+     * Handles:
      * - tr[data-conditions] for WP_Settings_Table modals
      * - .wps-field-wrapper[data-conditions] for regular settings forms
+     * - .wps-section-wrapper[data-conditions] for whole sections
      *
      * @param {jQuery} $form - The form element.
      */
@@ -144,6 +145,24 @@
                 } else {
                     $wrapper.hide();
                 }
+            }
+        });
+
+        // Handle .wps-section-wrapper[data-conditions] (whole sections). The
+        // wrapper holds the heading and the form-table, so a section that does
+        // not apply leaves no empty heading behind.
+        $form.find('.wps-section-wrapper[data-conditions]').each(function() {
+            var $section = $(this);
+            var conditions;
+            try {
+                conditions = JSON.parse($section.attr('data-conditions'));
+            } catch (e) {
+                return;
+            }
+            if (evaluateConditions(conditions, $form)) {
+                $section.show();
+            } else {
+                $section.hide();
             }
         });
     }
@@ -406,7 +425,9 @@
         // Find all settings forms that might have conditional fields.
         $('form').each(function() {
             var $form = $(this);
-            var hasConditionals = $form.find('.wps-field-wrapper[data-conditions]').length > 0;
+            var hasConditionals = $form.find(
+                '.wps-field-wrapper[data-conditions], .wps-section-wrapper[data-conditions]'
+            ).length > 0;
 
             if (!hasConditionals) {
                 return;
