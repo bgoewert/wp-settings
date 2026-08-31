@@ -132,6 +132,44 @@ final class WP_Settings_Harness extends WP_Settings
                     ),
                 )
             ),
+            // Drives the conditional field below.
+            'provider' => new WP_Setting(
+                'provider',
+                'Video Provider',
+                'select',
+                'general',
+                'lists',
+                '200px',
+                'Chooses which provider settings apply.',
+                false,
+                'none',
+                null,
+                array(
+                    'options' => array(
+                        'none'  => 'None',
+                        'vimeo' => 'Vimeo',
+                    ),
+                )
+            ),
+            // The condition names the field the way it was declared, which is
+            // what the README has always shown.
+            'provider_note' => new WP_Setting(
+                'provider_note',
+                'Provider Note',
+                'text',
+                'general',
+                'lists',
+                '300px',
+                'Only for Vimeo.',
+                false,
+                null,
+                null,
+                array(
+                    'conditions' => array(
+                        array('field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo'),
+                    ),
+                )
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',

@@ -388,6 +388,55 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertContains('test_plugin_flag', $page->expose_get_controlling_fields());
     }
 
+
+    // -------------------------------------------------------------------------
+    // Condition field references
+    // -------------------------------------------------------------------------
+
+    /**
+     * A condition names a field the way it was declared, but the field renders
+     * under its prefixed slug — so an unresolved reference matches no input in
+     * the browser and the field it guards never appears.
+     */
+    public function test_init_resolves_a_field_condition_to_the_input_name(): void
+    {
+        WP_Setting::$text_domain = 'my_plugin';
+        $page = $this->make_multi_tab_page([
+            make_setting('enabled', 'checkbox'),
+            make_conditional_setting('value', 'enabled'),
+        ]);
+        $page->init();
+
+        $html = $this->render_registered_field('my_plugin_value');
+
+        $this->assertStringContainsString('&quot;field&quot;:&quot;my_plugin_enabled&quot;', $html);
+    }
+
+    /** A reference already naming the input is left alone rather than prefixed twice. */
+    public function test_init_leaves_a_condition_that_already_names_the_input_alone(): void
+    {
+        WP_Setting::$text_domain = 'my_plugin';
+        $page = $this->make_multi_tab_page([
+            make_setting('enabled', 'checkbox'),
+            make_conditional_setting('value', 'my_plugin_enabled'),
+        ]);
+        $page->init();
+        $page->init();
+
+        $html = $this->render_registered_field('my_plugin_value');
+
+        $this->assertStringContainsString('&quot;field&quot;:&quot;my_plugin_enabled&quot;', $html);
+        $this->assertStringNotContainsString('my_plugin_my_plugin_enabled', $html);
+    }
+
+    public function test_find_field_slug_leaves_an_already_prefixed_reference_alone(): void
+    {
+        $page = new Test_WP_Settings_Exposer([]);
+
+        $this->assertSame('test_plugin_unknown', $page->expose_find_field_slug('test_plugin_unknown'));
+    }
+
+
     // -------------------------------------------------------------------------
     // enqueue_admin()
     // -------------------------------------------------------------------------

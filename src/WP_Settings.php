@@ -189,6 +189,12 @@ class WP_Settings
      */
     public function init(): void
     {
+        // A condition names the field it watches the way that field was
+        // declared, but on a settings page every input renders under its
+        // prefixed slug — so the reference is rewritten to the name the browser
+        // will see before anything emits it.
+        $this->resolve_setting_condition_fields();
+
         foreach ($this->sections as $key => $section) {
             // Use array key as slug if slug property not defined (backward compatible).
             $slug = $section["slug"] ?? $key;
@@ -511,7 +517,7 @@ class WP_Settings
     }
 
     /**
-     * Get all field names that other fields depend on (controlling fields) from settings.
+     * Get all field names that other fields depend on (controlling fields).
      *
      * @return array Array of unique controlling field slugs.
      */
@@ -519,53 +525,14 @@ class WP_Settings
     {
         $controlling_fields = [];
 
-        foreach ($this->settings as $setting) {
-            if (!$setting instanceof WP_Setting) {
+        foreach ($this->all_conditions() as $condition) {
+            if (empty($condition["field"])) {
                 continue;
             }
 
-            if ($setting->has_conditions()) {
-                foreach ($setting->conditions as $condition) {
-                    if (!empty($condition["field"])) {
-                        // Try to find the full slug for this field.
-                        $field_slug = $this->find_field_slug(
-                            $condition["field"],
-                        );
-                        if (
-                            $field_slug &&
-                            !in_array($field_slug, $controlling_fields, true)
-                        ) {
-                            $controlling_fields[] = $field_slug;
-                        }
-                    }
-                }
-            }
-
-            if ($setting->type === "advanced" && !empty($setting->children)) {
-                foreach ($setting->children as $child) {
-                    if (
-                        $child instanceof WP_Setting &&
-                        $child->has_conditions()
-                    ) {
-                        foreach ($child->conditions as $condition) {
-                            if (!empty($condition["field"])) {
-                                $field_slug = $this->find_field_slug(
-                                    $condition["field"],
-                                );
-                                if (
-                                    $field_slug &&
-                                    !in_array(
-                                        $field_slug,
-                                        $controlling_fields,
-                                        true,
-                                    )
-                                ) {
-                                    $controlling_fields[] = $field_slug;
-                                }
-                            }
-                        }
-                    }
-                }
+            $field_slug = $this->find_field_slug($condition["field"]);
+            if ($field_slug && !in_array($field_slug, $controlling_fields, true)) {
+                $controlling_fields[] = $field_slug;
             }
         }
 
@@ -573,10 +540,111 @@ class WP_Settings
     }
 
     /**
-     * Find the full slug for a field by its name.
+     * Every condition declared on a field on this page.
+     *
+     * @return array Flat list of condition arrays.
+     */
+    protected function all_conditions(): array
+    {
+        $conditions = [];
+
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->has_conditions()) {
+                $conditions = array_merge($conditions, $setting->conditions);
+            }
+
+            foreach ($this->child_settings($setting) as $child) {
+                if ($child->has_conditions()) {
+                    $conditions = array_merge($conditions, $child->conditions);
+                }
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * The WP_Setting children a container field holds, if any.
+     *
+     * @param WP_Setting $setting Parent setting.
+     * @return WP_Setting[]
+     */
+    protected function child_settings(WP_Setting $setting): array
+    {
+        if (empty($setting->children) || !is_array($setting->children)) {
+            return [];
+        }
+
+        return array_values(
+            array_filter($setting->children, static function ($child) {
+                return $child instanceof WP_Setting;
+            }),
+        );
+    }
+
+    /**
+     * Rewrite every condition on a field so it names the input that field renders under.
+     *
+     * A settings page renders each field under its prefixed slug, so a
+     * condition written against the declared name — the way the README has
+     * always shown it — matches nothing in the browser and leaves the field
+     * hidden for good. Table modals render their own fields under the bare
+     * name and hold them outside `$this->settings`, so they are untouched.
+     */
+    protected function resolve_setting_condition_fields(): void
+    {
+        foreach ($this->settings as $setting) {
+            if (!$setting instanceof WP_Setting) {
+                continue;
+            }
+
+            if ($setting->has_conditions()) {
+                $setting->conditions = $this->resolve_conditions(
+                    $setting->conditions,
+                );
+            }
+
+            foreach ($this->child_settings($setting) as $child) {
+                if ($child->has_conditions()) {
+                    $child->conditions = $this->resolve_conditions(
+                        $child->conditions,
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolve each condition's field reference to the input name it renders under.
+     *
+     * Resolution is idempotent: a reference that already names an input comes
+     * back unchanged, so running it twice cannot double-prefix it.
+     *
+     * @param array $conditions Conditions as declared.
+     * @return array Conditions naming rendered inputs.
+     */
+    protected function resolve_conditions(array $conditions): array
+    {
+        foreach ($conditions as $index => $condition) {
+            if (!empty($condition["field"])) {
+                $conditions[$index]["field"] = $this->find_field_slug(
+                    $condition["field"],
+                );
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * Find the input name a field renders under, given its name or its slug.
      *
      * @param string $field_name The field name to find.
-     * @return string|null The full slug or null if not found.
+     * @return string The full slug.
      */
     protected function find_field_slug($field_name)
     {
@@ -585,25 +653,33 @@ class WP_Settings
                 continue;
             }
 
-            if ($setting->name === $field_name) {
+            if (
+                $setting->name === $field_name ||
+                $setting->slug === $field_name
+            ) {
                 return $setting->slug;
             }
 
-            if ($setting->type === "advanced" && !empty($setting->children)) {
-                foreach ($setting->children as $child) {
-                    if (
-                        $child instanceof WP_Setting &&
-                        $child->name === $field_name
-                    ) {
-                        return $child->slug;
-                    }
+            foreach ($this->child_settings($setting) as $child) {
+                if (
+                    $child->name === $field_name ||
+                    $child->slug === $field_name
+                ) {
+                    return $child->slug;
                 }
             }
         }
 
-        // If not found, return the field_name with text_domain prefix as fallback.
-        return $this->text_domain . "_" . $field_name;
+        // Nothing on the page answers to that reference — a condition may name
+        // a field this class never sees — so the naming convention is the best
+        // guess left, and a reference already carrying the prefix is one.
+        $prefix = $this->text_domain . "_";
+
+        return str_starts_with($field_name, $prefix)
+            ? $field_name
+            : $prefix . $field_name;
     }
+
 
     /**
      * Empty section callback because it required for some reason.
@@ -1085,6 +1161,7 @@ class WP_Settings
 
         return false;
     }
+
 
     /**
      * Display custom footer text on left side of admin footer if on plugin's settings page.

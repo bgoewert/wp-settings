@@ -705,6 +705,8 @@ new WP_Setting(
 
 Multiple conditions are combined with AND logic (all must be true for the field to be visible).
 
+`field` names the controlling field the way it was declared — the shorthand name, not the prefixed option slug — though the slug is accepted too.
+
 ## Autoloading
 
 WordPress stores options in the `wp_options` table, which has an `autoload` column. Options marked for autoloading are fetched in a single query on every page load. Autoloading too many options — especially large ones — degrades site performance.
