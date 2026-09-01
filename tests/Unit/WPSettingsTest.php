@@ -536,6 +536,22 @@ class WPSettingsTest extends WP_Settings_TestCase
         );
     }
 
+    /**
+     * admin.js reads the controlling fields at parse time, not on ready, so
+     * data printed after the tag arrives too late and nothing is ever bound.
+     */
+    public function test_enqueue_admin_prints_the_conditionals_before_the_script(): void
+    {
+        $page = $this->make_conditional_section_page();
+        $page->set_submenu_hook('settings_page_test-plugin');
+        $page->enqueue_admin('settings_page_test-plugin');
+
+        $this->assertSame(
+            ['before'],
+            $this->getInlineScriptPositions()['wp-settings-admin'] ?? []
+        );
+    }
+
     // -------------------------------------------------------------------------
     // enqueue_admin()
     // -------------------------------------------------------------------------

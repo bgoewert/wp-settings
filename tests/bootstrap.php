@@ -55,6 +55,7 @@ global $wp_test_options,
     $wp_test_registered_scripts,
     $wp_test_enqueued_styles,
     $wp_test_inline_scripts,
+    $wp_test_inline_script_positions,
     $wp_test_current_screen_id,
     $wp_test_doing_it_wrong_calls,
     $wp_test_upload_basedir,
@@ -71,6 +72,7 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_registered_scripts,
         $wp_test_enqueued_styles,
         $wp_test_inline_scripts,
+        $wp_test_inline_script_positions,
         $wp_test_current_screen_id,
         $wp_test_doing_it_wrong_calls,
         $wp_test_upload_basedir,
@@ -85,6 +87,7 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_registered_scripts = [];
     $wp_test_enqueued_styles = [];
     $wp_test_inline_scripts = [];
+    $wp_test_inline_script_positions = [];
     $wp_test_current_screen_id = null;
     $wp_test_doing_it_wrong_calls = [];
     $wp_test_upload_basedir = "";
@@ -566,8 +569,9 @@ if (!function_exists("wp_register_script")) {
 if (!function_exists("wp_add_inline_script")) {
     function wp_add_inline_script($handle, $data, $position = "after")
     {
-        global $wp_test_inline_scripts;
+        global $wp_test_inline_scripts, $wp_test_inline_script_positions;
         $wp_test_inline_scripts[$handle][] = $data;
+        $wp_test_inline_script_positions[$handle][] = $position;
         return true;
     }
 }
@@ -782,6 +786,12 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
     {
         global $wp_test_inline_scripts;
         return $wp_test_inline_scripts ?? [];
+    }
+
+    protected function getInlineScriptPositions(): array
+    {
+        global $wp_test_inline_script_positions;
+        return $wp_test_inline_script_positions ?? [];
     }
 
     protected function setCurrentScreen(?string $id): void

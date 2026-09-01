@@ -445,6 +445,10 @@ class WP_Settings
             );
 
             // If we have conditional settings (not in tables), add inline script for initialization.
+            //
+            // Printed before the script, not after it: admin.js reads this at
+            // parse time rather than on ready, so data appended after the tag
+            // arrives too late and the page loads with no listeners bound.
             if ($has_conditionals) {
                 $controlling_fields = $this->get_controlling_fields();
                 \wp_add_inline_script(
@@ -454,6 +458,7 @@ class WP_Settings
                             "controllingFields" => $controlling_fields,
                         ]) .
                         ";",
+                    "before",
                 );
             }
         }
