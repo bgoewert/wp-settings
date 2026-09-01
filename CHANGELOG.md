@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.6.0] - 2026-09-01
+
+### Added
+
+- A section is shown only when its `conditions` are met ([#24](https://github.com/bgoewert/wp-settings/issues/24)). Fields have had conditions since 2.6.0, but a page with a provider select owns a group of fields per provider, and repeating the same condition on every field in the group hid the rows while leaving the heading above an empty `form-table` — the group read as present and broken rather than absent. A section definition takes the same `conditions` key a field does, with the same shape, the same operators and the same AND logic across entries. The heading and the table are wrapped in one `div.wps-section-wrapper[data-section="{slug}"]` so they hide together, using `add_settings_section()`'s own `before_section`/`after_section` args rather than taking over the rendering — which is what makes WordPress 5.3 the floor for the wrapper. Visibility stays presentational, for a section as for a field: a hidden field is still on the page and still submits its value.
+
+### Fixed
+
+- A condition finds the field it names on a settings page. A condition names its controlling field the way that field was declared — the shorthand name, which is what the README has always shown — but a settings page renders every input under the prefixed option slug, so the reference matched nothing in the form and the field it guards stayed hidden whatever the admin chose. Spelling the slug instead corrected the initial state and nothing more, because the change listener was then bound to a name carrying the prefix twice. References resolve to the name the browser sees now, from either spelling.
+- Conditional fields and sections toggle as the admin works. The controlling fields were printed in an inline script after `admin.js`, and the script reads them as it parses rather than on ready, so it read an empty list and bound no listener — the page kept whatever state it loaded with. The data is printed before the script now. Fields inside a `WP_Settings_Table` modal were never affected: their payload is echoed into the page ahead of the script.
+
 ## [4.5.0] - 2026-08-27
 
 ### Changed
