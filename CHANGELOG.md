@@ -4,6 +4,19 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.7.0] - 2026-09-03
+
+### Added
+
+- A settings table can keep each row in its own database row ([#25](https://github.com/bgoewert/wp-settings/issues/25)). `WP_Settings_Table` stored every row in one option, and every mutation read the whole array, changed one key and wrote the whole array back — the right shape for a table an admin edits one row at a time through the modal, and the wrong shape for a table something else writes. A webhook mirroring records into WordPress fires once per record, so two requests arriving together each read the same array, each add their own row, and the second write drops the first; nothing errors, and nothing short of counting rows against the source notices. Rows now sit behind a `WP_Settings_Table_Storage` adapter. `'storage' => 'table'` gives each row its own database row, where a save is one `INSERT ... ON DUPLICATE KEY UPDATE` and a delete is one `DELETE`, so concurrent writes to different rows cannot lose each other — and a lookup by id becomes one `SELECT` instead of loading every row into PHP. The schema is created on first use and can be installed up front from an activation hook with `install_storage()`. `storage` also takes any object implementing the interface, for rows that belong somewhere else entirely.
+
+  **Consumer note:** the default is unchanged. A table with no `storage` argument keeps the same option array under the same name. Switching an existing table to `'storage' => 'table'` does not migrate the option — read the old option and feed the rows in yourself.
+
+### Fixed
+
+- Two settings table rows created in the same second under the same name are both kept. The generated row id was `sanitize_title($name) . '-' . time()`, so the second row took the id the first already held and silently overwrote it. Generated ids are checked against storage and take a numeric suffix when the id is already stored.
+- A settings table bulk action no longer rewrites rows outside the selection. Bulk delete and bulk status changes wrote the whole row set back, so a row another request had just added between the read and the write was lost even though the admin had not selected it.
+
 ## [4.6.0] - 2026-09-01
 
 ### Added
