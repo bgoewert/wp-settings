@@ -623,7 +623,7 @@ try {
 
 ## Settings Tables
 
-Use `WP_Settings_Table` to create a reusable table + modal editor stored as a single option array.
+Use `WP_Settings_Table` to create a reusable table + modal editor, stored by default as a single option array.
 
 ```php
 use BGoewert\WP_Settings\WP_Settings_Table;
@@ -664,6 +664,28 @@ $this->tables = array(
 ```
 
 Tables render in the specified tab, support AJAX CRUD, bulk actions, inline status toggles, and a non-JS fallback form.
+
+### Row Storage
+
+Rows live in one option by default, which is the right shape for a table an admin edits one row at a time. It is the wrong shape for a table something else writes: the option API has no per-key write, so two requests arriving together each read the same array and the second write drops the first row.
+
+Pass `'storage' => 'table'` to keep each row in its own database row instead. A save is one `INSERT ... ON DUPLICATE KEY UPDATE` and a delete is one `DELETE`, so concurrent writes to different rows cannot lose each other, and a lookup by id stops loading every row into PHP.
+
+```php
+new WP_Settings_Table(
+    array(
+        'id'      => 'accounts',
+        'tab'     => 'accounts',
+        'option'  => 'accounts',
+        'storage' => 'table',
+        // ...
+    )
+);
+```
+
+The schema is created on first use, guarded by a stored version so the check costs one autoloaded option read. Call `$table->install_storage()` from your activation hook to create it up front. Switching an existing table over does not migrate the option — read the old option and feed the rows in yourself.
+
+`storage` also accepts any object implementing `WP_Settings_Table_Storage`, for rows that belong somewhere else entirely.
 
 ## Conditional Visibility
 

@@ -118,6 +118,22 @@ class WP_Settings_Table
     protected $show_status_toggle;
 
     /**
+     * Row storage adapter, or null until it is resolved.
+     *
+     * @var WP_Settings_Table_Storage|null
+     */
+    protected $storage;
+
+    /**
+     * Adapter to build when the table resolves its own: 'option' or 'table'.
+     *
+     * Null when the consumer passed an adapter in, which is never replaced.
+     *
+     * @var string|null
+     */
+    protected $storage_type;
+
+    /**
      * Create a settings table.
      *
      * @param array $args Table configuration.
@@ -140,6 +156,16 @@ class WP_Settings_Table
         $this->row_id_key  = $args['row_id_key'] ?? 'id';
         $this->bulk_actions = $args['bulk_actions'] ?? null;
         $this->show_status_toggle = $args['show_status_toggle'] ?? false;
+
+        $storage = $args['storage'] ?? 'option';
+
+        if ($storage instanceof WP_Settings_Table_Storage) {
+            $this->storage      = $storage;
+            $this->storage_type = null;
+        } else {
+            $this->storage      = null;
+            $this->storage_type = $storage === 'table' ? 'table' : 'option';
+        }
     }
 
     /**
@@ -150,6 +176,45 @@ class WP_Settings_Table
     public function set_text_domain($text_domain)
     {
         $this->text_domain = $text_domain;
+
+        // The option and table names carry the text domain, so an adapter this
+        // table built for itself was built against the wrong name.
+        if ($this->storage_type !== null) {
+            $this->storage = null;
+        }
+    }
+
+    /**
+     * Create or upgrade the storage the table needs, for an activation hook.
+     *
+     * A no-op for the option adapter, which has no schema.
+     */
+    public function install_storage()
+    {
+        $storage = $this->get_storage();
+
+        if (method_exists($storage, 'install')) {
+            $storage->install();
+        }
+    }
+
+    /**
+     * Resolve the row storage adapter.
+     *
+     * Built on first use rather than in the constructor, because the name it
+     * addresses is only known once set_text_domain() has run.
+     *
+     * @return WP_Settings_Table_Storage
+     */
+    protected function get_storage()
+    {
+        if ($this->storage === null) {
+            $this->storage = $this->storage_type === 'table'
+                ? new WP_Settings_Table_Custom_Table_Storage($this->get_option_name(), $this->status_key)
+                : new WP_Settings_Table_Option_Storage($this->get_option_name(), $this->status_key);
+        }
+
+        return $this->storage;
     }
 
     public function set_logger($logger)
@@ -340,7 +405,6 @@ class WP_Settings_Table
      */
     protected function handle_save(array $data)
     {
-        $rows = $this->get_rows();
         $row_id = isset($data['row_id']) ? \sanitize_text_field(\wp_unslash($data['row_id'])) : '';
 
         $row = $this->sanitize_row($data);
@@ -350,9 +414,8 @@ class WP_Settings_Table
         }
 
         $row[$this->row_id_key] = $row_id;
-        $rows[$row_id] = $row;
 
-        $this->update_rows($rows);
+        $this->get_storage()->save_row($row_id, $row);
 
         return $row_id;
     }
@@ -364,12 +427,10 @@ class WP_Settings_Table
      */
     protected function handle_delete(array $data)
     {
-        $rows = $this->get_rows();
         $row_id = isset($data['row_id']) ? \sanitize_text_field(\wp_unslash($data['row_id'])) : '';
 
-        if ($row_id && isset($rows[$row_id])) {
-            unset($rows[$row_id]);
-            $this->update_rows($rows);
+        if ($row_id) {
+            $this->get_storage()->delete_row($row_id);
         }
     }
 
@@ -380,24 +441,22 @@ class WP_Settings_Table
      */
     protected function handle_toggle(array $data)
     {
-        $rows = $this->get_rows();
         $row_id = isset($data['row_id']) ? \sanitize_text_field(\wp_unslash($data['row_id'])) : '';
 
-        if (!$row_id || !isset($rows[$row_id])) {
+        if (!$row_id) {
             return;
         }
 
-        $row = $rows[$row_id];
-        $current = $this->normalize_status($row);
+        $storage = $this->get_storage();
+        $row = $storage->get_row($row_id);
 
-        if ($current === 'enabled') {
-            $row[$this->status_key] = $this->status_value_for('disabled', $row);
-        } else {
-            $row[$this->status_key] = $this->status_value_for('enabled', $row);
+        if ($row === null) {
+            return;
         }
 
-        $rows[$row_id] = $row;
-        $this->update_rows($rows);
+        $target = $this->normalize_status($row) === 'enabled' ? 'disabled' : 'enabled';
+
+        $storage->set_row_status($row_id, $this->status_value_for($target, $row));
     }
 
     /**
@@ -407,19 +466,21 @@ class WP_Settings_Table
      */
     protected function handle_toggle_status(array $data)
     {
-        $rows = $this->get_rows();
         $row_id = isset($data['row_id']) ? \sanitize_text_field(\wp_unslash($data['row_id'])) : '';
         $target_status = isset($data['target_status']) ? \sanitize_key(\wp_unslash($data['target_status'])) : '';
 
-        if (!$row_id || !isset($rows[$row_id]) || !$this->is_valid_status($target_status)) {
+        if (!$row_id || !$this->is_valid_status($target_status)) {
             return;
         }
 
-        $row = $rows[$row_id];
-        $row[$this->status_key] = $this->status_value_for($target_status, $row);
+        $storage = $this->get_storage();
+        $row = $storage->get_row($row_id);
 
-        $rows[$row_id] = $row;
-        $this->update_rows($rows);
+        if ($row === null) {
+            return;
+        }
+
+        $storage->set_row_status($row_id, $this->status_value_for($target_status, $row));
     }
 
     /**
@@ -429,7 +490,6 @@ class WP_Settings_Table
      */
     protected function handle_bulk(array $data)
     {
-        $rows = $this->get_rows();
         $action = isset($data['bulk_action']) ? \sanitize_key(\wp_unslash($data['bulk_action'])) : '';
         $selected = isset($data['selected']) ? (array) $data['selected'] : array();
         $selected = array_map('\sanitize_text_field', array_map('\wp_unslash', $selected));
@@ -438,22 +498,23 @@ class WP_Settings_Table
             return;
         }
 
+        $storage = $this->get_storage();
+
         if ($action === 'delete') {
             foreach ($selected as $row_id) {
-                unset($rows[$row_id]);
+                $storage->delete_row($row_id);
             }
-            $this->update_rows($rows);
             return;
         }
 
         if ($this->is_valid_status($action)) {
             foreach ($selected as $row_id) {
-                if (!isset($rows[$row_id])) {
+                $row = $storage->get_row($row_id);
+                if ($row === null) {
                     continue;
                 }
-                $rows[$row_id][$this->status_key] = $this->status_value_for($action, $rows[$row_id]);
+                $storage->set_row_status($row_id, $this->status_value_for($action, $row));
             }
-            $this->update_rows($rows);
         }
     }
 
@@ -904,22 +965,27 @@ class WP_Settings_Table
      */
     protected function get_rows()
     {
-        $rows = \get_option($this->get_option_name(), array());
-        return is_array($rows) ? $rows : array();
+        return $this->get_storage()->get_rows();
     }
 
     /**
-     * Persist rows.
+     * Replace every row.
+     *
+     * For imports and migrations. Editing goes through the handlers, which
+     * write only the rows they touch.
      *
      * @param array $rows Rows data.
      */
     protected function update_rows(array $rows)
     {
-        \update_option($this->get_option_name(), $rows);
+        $this->get_storage()->replace_rows($rows);
     }
 
     /**
      * Generate a row id.
+     *
+     * The timestamp alone collides for two rows created in the same second
+     * under the same name, and the second would overwrite the first.
      *
      * @param array $row Row data.
      * @return string
@@ -927,7 +993,17 @@ class WP_Settings_Table
     protected function generate_row_id(array $row)
     {
         $seed = $row['name'] ?? $row[$this->row_id_key] ?? 'item';
-        return \sanitize_title($seed) . '-' . time();
+        $base = \sanitize_title($seed) . '-' . time();
+
+        $storage = $this->get_storage();
+        $row_id  = $base;
+        $suffix  = 1;
+
+        while ($storage->get_row($row_id) !== null) {
+            $row_id = $base . '-' . $suffix++;
+        }
+
+        return $row_id;
     }
 
     /**

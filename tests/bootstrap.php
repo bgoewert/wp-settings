@@ -92,6 +92,11 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_doing_it_wrong_calls = [];
     $wp_test_upload_basedir = "";
     $wp_test_upload_error = false;
+
+    // Declared further down, once the class it builds exists.
+    if (function_exists("wp_settings_test_reset_wpdb")) {
+        wp_settings_test_reset_wpdb();
+    }
 }
 
 wp_settings_test_reset_stubs();
@@ -685,6 +690,169 @@ if (!function_exists("get_plugin_data")) {
             "Version" => "1.0.0",
             "TextDomain" => "test-plugin",
         ];
+    }
+}
+
+if (!defined("ARRAY_A")) {
+    define("ARRAY_A", "ARRAY_A");
+}
+
+/**
+ * In-memory stand-in for $wpdb, covering the statements the table storage issues.
+ *
+ * prepare() stashes its arguments behind a token rather than interpolating
+ * them, so the fake reads values back exactly as they were passed instead of
+ * unescaping JSON out of a SQL string.
+ */
+class WP_Settings_Test_WPDB
+{
+    public $prefix = "wp_";
+
+    /** @var string[] Every statement issued, in order. */
+    public $queries = [];
+
+    /** @var array<string, array<string, array>> Table name => row id => columns. */
+    public $tables = [];
+
+    /** @var array<string, array> Token => prepared arguments. */
+    protected $prepared = [];
+
+    public function prepare($query, ...$args)
+    {
+        $token = "wps_prep_" . count($this->prepared);
+        $this->prepared[$token] = $args;
+
+        return $query . " /*{$token}*/";
+    }
+
+    public function query($sql)
+    {
+        $this->queries[] = $sql;
+
+        $table = $this->table_of($sql);
+        $args = $this->args_of($sql);
+
+        if (stripos(ltrim($sql), "INSERT INTO") === 0) {
+            [$row_id, $status, $data, $created_at, $updated_at] = $args;
+
+            // ON DUPLICATE KEY UPDATE leaves created_at alone.
+            if (isset($this->tables[$table][$row_id])) {
+                $created_at = $this->tables[$table][$row_id]["created_at"];
+            }
+
+            $this->tables[$table][$row_id] = compact(
+                "row_id",
+                "status",
+                "data",
+                "created_at",
+                "updated_at",
+            );
+
+            return 1;
+        }
+
+        if (stripos(ltrim($sql), "DELETE FROM") === 0) {
+            $this->tables[$table] = [];
+            return 1;
+        }
+
+        return 1;
+    }
+
+    public function get_var($sql)
+    {
+        $this->queries[] = $sql;
+
+        $table = $this->table_of($sql);
+        $args = $this->args_of($sql);
+        $row_id = $args[0] ?? "";
+
+        return $this->tables[$table][$row_id]["data"] ?? null;
+    }
+
+    public function get_results($sql, $output = null)
+    {
+        $this->queries[] = $sql;
+
+        $rows = array_values($this->tables[$this->table_of($sql)] ?? []);
+
+        usort($rows, function ($a, $b) {
+            return [$a["created_at"], $a["row_id"]] <=> [
+                $b["created_at"],
+                $b["row_id"],
+            ];
+        });
+
+        return $rows;
+    }
+
+    public function delete($table, $where, $formats = null)
+    {
+        $this->queries[] = "DELETE ROW `{$table}`";
+
+        $row_id = $where["row_id"] ?? "";
+        if (!isset($this->tables[$table][$row_id])) {
+            return 0;
+        }
+
+        unset($this->tables[$table][$row_id]);
+        return 1;
+    }
+
+    public function get_charset_collate()
+    {
+        return "DEFAULT CHARSET=utf8mb4";
+    }
+
+    /**
+     * Create the table dbDelta was handed, if it does not exist yet.
+     */
+    public function create_table($name)
+    {
+        if (!isset($this->tables[$name])) {
+            $this->tables[$name] = [];
+        }
+    }
+
+    protected function table_of($sql)
+    {
+        return preg_match("/`([a-z0-9_]+)`/i", $sql, $matches) ? $matches[1] : "";
+    }
+
+    protected function args_of($sql)
+    {
+        return preg_match('/\/\*(wps_prep_\d+)\*\//', $sql, $matches)
+            ? $this->prepared[$matches[1]] ?? []
+            : [];
+    }
+}
+
+global $wpdb, $wp_test_dbdelta_queries;
+
+function wp_settings_test_reset_wpdb(): void
+{
+    global $wpdb, $wp_test_dbdelta_queries;
+
+    $wpdb = new WP_Settings_Test_WPDB();
+    $wp_test_dbdelta_queries = [];
+}
+
+wp_settings_test_reset_wpdb();
+
+if (!function_exists("dbDelta")) {
+    function dbDelta($queries = "", $execute = true)
+    {
+        global $wpdb, $wp_test_dbdelta_queries;
+
+        foreach ((array) $queries as $query) {
+            $wp_test_dbdelta_queries[] = $query;
+
+            if (preg_match("/CREATE TABLE `([a-z0-9_]+)`/i", $query, $matches)) {
+                $wpdb->create_table($matches[1]);
+            }
+        }
+
+        return [];
     }
 }
 
