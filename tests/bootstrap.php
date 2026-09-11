@@ -733,20 +733,29 @@ class WP_Settings_Test_WPDB
         $args = $this->args_of($sql);
 
         if (stripos(ltrim($sql), "INSERT INTO") === 0) {
-            [$row_id, $status, $data, $created_at, $updated_at] = $args;
+            $columns = $this->insert_columns_of($sql);
+            $values = [];
 
-            // ON DUPLICATE KEY UPDATE leaves created_at alone.
-            if (isset($this->tables[$table][$row_id])) {
-                $created_at = $this->tables[$table][$row_id]["created_at"];
+            foreach ($columns as $index => $column) {
+                $values[$column] = $args[$index] ?? "";
             }
 
-            $this->tables[$table][$row_id] = compact(
-                "row_id",
-                "status",
-                "data",
-                "created_at",
-                "updated_at",
-            );
+            // The adapter writes the id first, whatever it is called.
+            $row_id = reset($values);
+            $stored = $this->tables[$table][$row_id] ?? null;
+
+            if ($stored !== null) {
+                // Columns left out of ON DUPLICATE KEY UPDATE keep what they had.
+                $updates = $this->update_columns_of($sql);
+
+                foreach ($values as $column => $value) {
+                    if (!in_array($column, $updates, true)) {
+                        $values[$column] = $stored[$column] ?? $value;
+                    }
+                }
+            }
+
+            $this->tables[$table][$row_id] = $values;
 
             return 1;
         }
@@ -770,17 +779,34 @@ class WP_Settings_Test_WPDB
         return $this->tables[$table][$row_id]["data"] ?? null;
     }
 
+    public function get_row($sql, $output = null)
+    {
+        $this->queries[] = $sql;
+
+        $table = $this->table_of($sql);
+        $args = $this->args_of($sql);
+        $row_id = $args[0] ?? "";
+
+        return $this->tables[$table][$row_id] ?? null;
+    }
+
     public function get_results($sql, $output = null)
     {
         $this->queries[] = $sql;
 
         $rows = array_values($this->tables[$this->table_of($sql)] ?? []);
+        $order = $this->order_columns_of($sql);
 
-        usort($rows, function ($a, $b) {
-            return [$a["created_at"], $a["row_id"]] <=> [
-                $b["created_at"],
-                $b["row_id"],
-            ];
+        usort($rows, function ($a, $b) use ($order) {
+            $left = [];
+            $right = [];
+
+            foreach ($order as $column) {
+                $left[] = $a[$column] ?? "";
+                $right[] = $b[$column] ?? "";
+            }
+
+            return $left <=> $right;
         });
 
         return $rows;
@@ -790,7 +816,7 @@ class WP_Settings_Test_WPDB
     {
         $this->queries[] = "DELETE ROW `{$table}`";
 
-        $row_id = $where["row_id"] ?? "";
+        $row_id = reset($where);
         if (!isset($this->tables[$table][$row_id])) {
             return 0;
         }
@@ -817,6 +843,41 @@ class WP_Settings_Test_WPDB
     protected function table_of($sql)
     {
         return preg_match("/`([a-z0-9_]+)`/i", $sql, $matches) ? $matches[1] : "";
+    }
+
+    /** Column names in an INSERT's column list, in order. */
+    protected function insert_columns_of($sql)
+    {
+        preg_match('/\(([^)]*)\)\s*VALUES/is', $sql, $matches);
+
+        return array_map("trim", explode(",", $matches[1] ?? ""));
+    }
+
+    /** Column names an ON DUPLICATE KEY UPDATE clause writes. */
+    protected function update_columns_of($sql)
+    {
+        preg_match_all(
+            '/([a-z0-9_]+)\s*=\s*VALUES\(/i',
+            (string) strstr($sql, "ON DUPLICATE KEY UPDATE"),
+            $matches,
+        );
+
+        return $matches[1];
+    }
+
+    /** Column names in an ORDER BY clause, in order. */
+    protected function order_columns_of($sql)
+    {
+        if (!preg_match('/ORDER BY (.+?)(?:\s+LIMIT|\s*$)/is', $sql, $matches)) {
+            return [];
+        }
+
+        $columns = [];
+        foreach (explode(",", $matches[1]) as $term) {
+            $columns[] = trim(preg_replace('/\s+(ASC|DESC).*$/i', "", trim($term)));
+        }
+
+        return $columns;
     }
 
     protected function args_of($sql)

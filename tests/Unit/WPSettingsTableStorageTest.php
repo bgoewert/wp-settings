@@ -278,6 +278,183 @@ class WPSettingsTableStorageTest extends WP_Settings_TestCase
         $this->assertSame(array('fee-2'), array_keys($storage->get_rows()));
     }
 
+    // Database table adapter, mapped columns.
+
+    private function mapped_storage(array $args = array()): WP_Settings_Table_Custom_Table_Storage
+    {
+        return new WP_Settings_Table_Custom_Table_Storage('plugin_mail_log', 'enabled', array_merge(array(
+            'columns' => array('recipients', 'subject', 'created'),
+        ), $args));
+    }
+
+    public function test_mapped_columns_are_written_to_their_own_columns(): void
+    {
+        global $wpdb;
+
+        $storage = $this->mapped_storage();
+
+        $storage->save_row('log-1', array(
+            'recipients' => 'someone@example.com',
+            'subject' => 'Order shipped',
+            'created' => '2026-09-01 12:00:00',
+        ));
+
+        $stored = $wpdb->tables['wp_plugin_mail_log']['log-1'];
+        $this->assertSame('someone@example.com', $stored['recipients']);
+        $this->assertSame('Order shipped', $stored['subject']);
+        $this->assertSame('2026-09-01 12:00:00', $stored['created']);
+        $this->assertSame('[]', $stored['data']);
+    }
+
+    public function test_mapped_columns_round_trip(): void
+    {
+        $storage = $this->mapped_storage();
+        $row = array(
+            'recipients' => 'someone@example.com',
+            'subject' => 'Order shipped',
+            'created' => '2026-09-01 12:00:00',
+        );
+
+        $storage->save_row('log-1', $row);
+
+        $this->assertSame($row, $storage->get_row('log-1'));
+        $this->assertSame(array('log-1' => $row), $storage->get_rows());
+    }
+
+    public function test_unmapped_keys_still_fall_back_to_the_data_column(): void
+    {
+        $storage = $this->mapped_storage();
+
+        $storage->save_row('log-1', array('subject' => 'Order shipped', 'reason' => 'blocked'));
+
+        $this->assertSame('blocked', $storage->get_row('log-1')['reason']);
+    }
+
+    public function test_a_value_too_large_for_a_column_round_trips_through_the_data_column(): void
+    {
+        global $wpdb;
+
+        $storage = $this->mapped_storage();
+
+        $storage->save_row('log-1', array('recipients' => array('a@example.com', 'b@example.com')));
+
+        $this->assertSame('', $wpdb->tables['wp_plugin_mail_log']['log-1']['recipients']);
+        $this->assertSame(
+            array('a@example.com', 'b@example.com'),
+            $storage->get_row('log-1')['recipients']
+        );
+    }
+
+    public function test_dropping_the_data_column_stores_only_mapped_columns(): void
+    {
+        global $wpdb, $wp_test_dbdelta_queries;
+
+        $storage = $this->mapped_storage(array('data_column' => null));
+
+        $storage->save_row('log-1', array('subject' => 'Order shipped', 'reason' => 'blocked'));
+
+        $this->assertStringNotContainsString('data longtext', $wp_test_dbdelta_queries[0]);
+        $this->assertArrayNotHasKey('data', $wpdb->tables['wp_plugin_mail_log']['log-1']);
+        $this->assertSame(
+            array('recipients' => '', 'subject' => 'Order shipped', 'created' => ''),
+            $storage->get_row('log-1')
+        );
+    }
+
+    public function test_the_generated_schema_covers_the_mapped_columns(): void
+    {
+        global $wp_test_dbdelta_queries;
+
+        $this->mapped_storage()->get_rows();
+
+        $this->assertStringContainsString('recipients longtext NOT NULL', $wp_test_dbdelta_queries[0]);
+        $this->assertStringContainsString('subject longtext NOT NULL', $wp_test_dbdelta_queries[0]);
+    }
+
+    public function test_a_supplied_schema_is_installed_verbatim(): void
+    {
+        global $wp_test_dbdelta_queries;
+
+        $storage = $this->mapped_storage(array(
+            'schema' => "id varchar(191) NOT NULL,\nsubject text NOT NULL,\nPRIMARY KEY  (id)",
+            'id_column' => 'id',
+        ));
+
+        $storage->get_rows();
+
+        $this->assertStringContainsString('subject text NOT NULL', $wp_test_dbdelta_queries[0]);
+        $this->assertStringNotContainsString('longtext', $wp_test_dbdelta_queries[0]);
+    }
+
+    public function test_a_consumer_owned_table_is_never_installed(): void
+    {
+        global $wp_test_dbdelta_queries;
+
+        $storage = $this->mapped_storage(array('install' => false));
+
+        $storage->get_rows();
+        $storage->install();
+
+        $this->assertSame(array(), $wp_test_dbdelta_queries);
+    }
+
+    public function test_a_renamed_id_column_is_used_for_every_statement(): void
+    {
+        global $wpdb;
+
+        $storage = $this->mapped_storage(array('id_column' => 'log_id'));
+
+        $storage->save_row('log-1', array('subject' => 'Order shipped'));
+        $storage->save_row('log-2', array('subject' => 'Order canceled'));
+        $storage->delete_row('log-2');
+
+        $this->assertSame('log-1', $wpdb->tables['wp_plugin_mail_log']['log-1']['log_id']);
+        $this->assertSame(array('log-1'), array_keys($storage->get_rows()));
+        $this->assertSame('Order shipped', $storage->get_row('log-1')['subject']);
+    }
+
+    public function test_a_mapped_status_key_replaces_the_mirror_column(): void
+    {
+        global $wpdb, $wp_test_dbdelta_queries;
+
+        $storage = new WP_Settings_Table_Custom_Table_Storage('plugin_fees', 'state', array(
+            'columns' => array('state'),
+        ));
+
+        $storage->save_row('fee-1', array('name' => 'Delivery', 'state' => 'paused'));
+
+        $this->assertStringNotContainsString('KEY status', $wp_test_dbdelta_queries[0]);
+        $this->assertArrayNotHasKey('status', $wpdb->tables['wp_plugin_fees']['fee-1']);
+        $this->assertSame('paused', $wpdb->tables['wp_plugin_fees']['fee-1']['state']);
+
+        $storage->set_row_status('fee-1', 'running');
+
+        $this->assertSame('running', $wpdb->tables['wp_plugin_fees']['fee-1']['state']);
+    }
+
+    public function test_dropping_the_timestamps_orders_rows_by_id(): void
+    {
+        $storage = $this->mapped_storage(array(
+            'created_column' => null,
+            'updated_column' => null,
+        ));
+
+        $storage->save_row('zeta', array('subject' => 'Zeta'));
+        $storage->save_row('alpha', array('subject' => 'Alpha'));
+
+        $this->assertSame(array('alpha', 'zeta'), array_keys($storage->get_rows()));
+    }
+
+    public function test_changing_the_shape_reinstalls_the_schema(): void
+    {
+        global $wp_test_dbdelta_queries;
+
+        $this->mapped_storage()->get_rows();
+        $this->mapped_storage(array('columns' => array('recipients')))->get_rows();
+
+        $this->assertCount(2, $wp_test_dbdelta_queries);
+    }
+
     // Wiring.
 
     public function test_table_defaults_to_the_option_adapter(): void

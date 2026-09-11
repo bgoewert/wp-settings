@@ -687,6 +687,33 @@ The schema is created on first use, guarded by a stored version so the check cos
 
 `storage` also accepts any object implementing `WP_Settings_Table_Storage`, for rows that belong somewhere else entirely.
 
+#### Typed Columns
+
+The default schema keeps the whole row as JSON in a `data` column, which means SQL cannot reach the fields inside it — no `WHERE recipients LIKE`, no `DELETE ... WHERE created < %s` for retention. Construct the adapter yourself with a column map to give a field its own column, and pass the instance as `storage`.
+
+```php
+new WP_Settings_Table_Custom_Table_Storage('plugin_mail_log', 'enabled', array(
+    'columns' => array('recipients', 'subject', 'created'),
+    'schema'  => "row_id varchar(191) NOT NULL,
+        recipients text NOT NULL,
+        subject varchar(255) NOT NULL DEFAULT '',
+        created datetime NOT NULL,
+        data longtext NOT NULL,
+        PRIMARY KEY  (row_id),
+        KEY created (created)",
+));
+```
+
+`columns` is a list of row keys used as column names, or a `row key => column name` map when the two differ. Mapped fields are written to and read from their own column; everything else keeps going into `data`, so an existing table gains columns without losing rows. A value that is not a scalar stays in `data` — a column holds one value.
+
+The rest of the shape is configurable with the same argument array:
+
+- `schema` — the `CREATE TABLE` body, used verbatim. Without it, the adapter generates one, giving each mapped column `longtext`.
+- `install` — `false` when the table already exists and you own its schema. Nothing is created, and `install_storage()` becomes a no-op.
+- `id_column`, `status_column`, `data_column`, `created_column`, `updated_column` — rename a column, or pass `null` to drop it. Only the id column is required. Dropping `data_column` makes the mapped columns the whole row; dropping `created_column` orders rows by id.
+
+Naming the status key as a mapped column drops the mirrored `status` column, since the status then has a real one of its own.
+
 ## Conditional Visibility
 
 Fields can be conditionally shown/hidden based on other field values using the `conditions` key in the args array. This works for both regular settings forms and `WP_Settings_Table` modals.
