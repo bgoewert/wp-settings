@@ -13,6 +13,7 @@ The format is based on [Common Changelog](https://common-changelog.org/), and th
 ### Added
 
 - A value that cannot be decrypted says whether the encryption key changed. openssl payloads now carry a fingerprint of the key that wrote them, so `WP_Setting::try_decrypt()` sets the exception code to `WP_Setting::CRYPT_KEY_CHANGED`, and `WP_Setting::decrypt_failure_message()` returns "the encryption key changed, re-enter this value" instead of a message that sends the admin to check the far end.
+- A field can declare `'encrypted' => true` and the library ciphers it on save and deciphers it on render, including the key-change notice when the value will not decrypt. Encryption used to be a per-call flag on `WP_Setting::get()` and `set()`, so every caller had to remember it in both directions — a `set()` missing the flag wrote the secret in plaintext, a `get()` missing it rendered base64 into the input, and neither failed. Declaring it on the field settles it once. The per-call flags still work for values that aren't fields.
 - `WP_Setting::rewrap_encrypted()` re-encrypts named settings that were written under a different key. Call it from an upgrade hook with the legacy key to move stored values onto the current one — for a plugin sunsetting its own key constant in favour of the salts, or moving between constants. Repeating the pass is a no-op, and a value that will not decrypt under the legacy key is left untouched.
 
 ### Fixed

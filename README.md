@@ -587,7 +587,15 @@ The split is about what each layer can reach. The unit suite calls a sanitizer d
 
 ## Encryption
 
-Fields marked for encryption are stored ciphered. The key and nonce are resolved from a constant, then an environment variable of the same name, then the WordPress salts.
+Declare `'encrypted' => true` on a field and its value is stored ciphered:
+
+```php
+WP_Setting::make( 'api_token', 'API Token', 'password', 'general', 'keys', [ 'encrypted' => true ] );
+```
+
+Sanitization still runs first, then the value is encrypted on save and decrypted on render. Say it once at registration and a read and a write cannot disagree about a setting — the per-call `WP_Setting::set( $name, $value, true )` / `get( $name, false, true )` flags remain for values that aren't fields, but a forgotten flag there writes a secret in plaintext and nothing fails.
+
+The key and nonce are resolved from a constant, then an environment variable of the same name, then the WordPress salts.
 
 ### Key material
 

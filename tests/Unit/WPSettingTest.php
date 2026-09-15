@@ -3923,4 +3923,60 @@ class WPSettingTest extends WP_Settings_TestCase
     {
         $this->assertFalse($this->makeDualList()->renders_labelable_control());
     }
+
+    /**
+     * A field declaring `encrypted` renders the plaintext, so the admin edits a
+     * value rather than a wall of base64.
+     */
+    public function test_an_encrypted_field_renders_the_decrypted_value(): void
+    {
+        if (!\BGoewert\WP_Settings\WP_Setting_Encryption::is_available()) {
+            $this->markTestSkipped('Neither openssl nor sodium is loaded');
+        }
+
+        $setting = new WP_Setting('secret_note', 'Secret Note', 'text', 'general', 'main', null, null, false, null, null, ['encrypted' => true]);
+        WP_Setting::set('secret_note', WP_Setting::encrypt('kept-in-the-clear-nowhere'));
+
+        ob_start();
+        $setting->init_type();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringContainsString('value="kept-in-the-clear-nowhere"', $output);
+    }
+
+    /**
+     * A value written under a key the site no longer resolves renders empty with
+     * the key-change notice rather than as a rejected credential.
+     */
+    public function test_an_encrypted_field_reports_a_changed_key(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $other = new \BGoewert\WP_Settings\WP_Setting_Encryption(null, null, null, null, null, str_repeat('R', 32), str_repeat('N', 24));
+        $setting = new WP_Setting('stale_note', 'Stale Note', 'text', 'general', 'main', null, null, false, null, null, ['encrypted' => true]);
+        WP_Setting::set('stale_note', $other->encrypt('kept-in-the-clear-nowhere'));
+
+        ob_start();
+        $setting->init_type();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringContainsString('encryption key changed', $output);
+        $this->assertStringContainsString('value=""', $output);
+        $this->assertStringNotContainsString('kept-in-the-clear-nowhere', $output);
+    }
+
+    /** A field that never declared it is read and rendered verbatim. */
+    public function test_an_undeclared_field_is_not_decrypted_on_render(): void
+    {
+        $setting = new WP_Setting('plain_note', 'Plain Note', 'text', 'general', 'main');
+        WP_Setting::set('plain_note', 'not a secret');
+
+        ob_start();
+        $setting->init_type();
+        $output = (string) ob_get_clean();
+
+        $this->assertStringContainsString('value="not a secret"', $output);
+    }
 }

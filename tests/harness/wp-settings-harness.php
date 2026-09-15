@@ -192,6 +192,19 @@ final class WP_Settings_Harness extends WP_Settings
                 false,
                 null
             ),
+            'api_token' => new WP_Setting(
+                'api_token',
+                'API Token',
+                'password',
+                'general',
+                'lists',
+                '300px',
+                'Stored ciphered.',
+                false,
+                null,
+                null,
+                array('encrypted' => true)
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',

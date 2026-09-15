@@ -115,6 +115,8 @@ class WP_Setting
      * - options => _array{value:string,label:string}_ Array of options to use for the select or radio inputs.
      * - children => _WP_Setting[]_ Array of child settings for advanced field type.
      * - sanitize_callback => _callable_ Sanitization callback for register_setting.
+     * - encrypted => _bool_ Store the value ciphered. Sanitization still runs first;
+     *   reads and renders decrypt.
      * - delimiter => _string_ On `text`/`textarea`, the separator that makes the single
      *   input hold a list: the value is stored and returned as `list<string>`.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
@@ -157,6 +159,25 @@ class WP_Setting
      * @var bool
      */
     protected $renders_as_settings_row = false;
+
+    /**
+     * Whether this field's value is stored ciphered.
+     *
+     * Declared once at registration rather than passed per call, so a read and a
+     * write cannot disagree about a setting — a forgotten flag on
+     * {@see self::set()} writes a secret in plaintext, and neither direction
+     * fails loudly.
+     *
+     * @var bool
+     */
+    public $encrypted = false;
+
+    /**
+     * Message to show in place of a value that would not decrypt, or null.
+     *
+     * @var string|null
+     */
+    protected $decrypt_failure = null;
 
     /**
      * Whether to autoload this option when WordPress loads.
@@ -606,6 +627,8 @@ class WP_Setting
         // Extract autoload from args or use the dedicated param
         $this->autoload = isset($args['autoload']) ? $args['autoload'] : $autoload;
 
+        $this->encrypted = !empty($args['encrypted']);
+
         // Extract sanitize_callback from args if provided
         $this->sanitize_callback = isset($args['sanitize_callback']) ? $args['sanitize_callback'] : null;
 
@@ -789,6 +812,10 @@ class WP_Setting
             $register_args['sanitize_callback'] = $this->sanitize_callback;
         }
 
+        if ($this->encrypted) {
+            $register_args['sanitize_callback'] = $this->encrypting_sanitizer($this->sanitize_callback);
+        }
+
         \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
 
         if (!$register_field) {
@@ -805,6 +832,36 @@ class WP_Setting
             $this->renders_as_settings_row = true;
             \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
+    }
+
+    /**
+     * Wrap a sanitizer so the sanitized value is stored ciphered.
+     *
+     * Sanitizing first keeps the declared rules meaningful — an email field
+     * still rejects a non-email — and ciphertext is opaque to every sanitizer
+     * anyway. The pass is skipped for a value already under the current key, so
+     * a resave, or a migration writing ciphertext back, cannot double-encrypt.
+     *
+     * @param callable|null $sanitize The field's own sanitizer, if any.
+     * @return callable
+     */
+    private function encrypting_sanitizer($sanitize): callable
+    {
+        return static function ($value) use ($sanitize) {
+            if (is_callable($sanitize)) {
+                $value = call_user_func($sanitize, $value);
+            }
+
+            if (!is_scalar($value) || '' === (string) $value) {
+                return $value;
+            }
+
+            if (WP_Setting_Encryption::KEY_CURRENT === self::encryption()->key_state((string) $value)) {
+                return $value;
+            }
+
+            return self::encrypt((string) $value);
+        };
     }
 
     /**
@@ -1032,13 +1089,39 @@ class WP_Setting
     }
 
     /**
+     * The stored value as the field should render it.
+     *
+     * An encrypted field that will not decrypt renders empty with a notice: the
+     * ciphertext is not a value the admin can edit, and the usual cause is a
+     * rotated key, not a bad password on the far end.
+     *
+     * @return mixed
+     */
+    protected function current_value(): mixed
+    {
+        $value = self::get($this->slug, $this->default_value);
+
+        if (!$this->encrypted || empty($value) || $value === $this->default_value) {
+            return $value;
+        }
+
+        try {
+            $this->decrypt_failure = null;
+            return self::try_decrypt($value);
+        } catch (\RuntimeException $e) {
+            $this->decrypt_failure = self::decrypt_failure_message($value);
+            return '';
+        }
+    }
+
+    /**
      * Create an input using a defined type.
      *
      * @return void
      */
     public function init_type(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
     /**
@@ -1048,7 +1131,7 @@ class WP_Setting
      */
     public function init_textarea(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1059,7 +1142,7 @@ class WP_Setting
      */
     public function init_richtext(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1070,7 +1153,7 @@ class WP_Setting
      */
     public function init_checkbox(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1081,7 +1164,7 @@ class WP_Setting
      */
     public function init_select(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1092,7 +1175,7 @@ class WP_Setting
      */
     public function init_radio(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1103,7 +1186,7 @@ class WP_Setting
      */
     public function init_hidden(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
     }
 
@@ -1230,6 +1313,10 @@ class WP_Setting
      */
     protected function render_with_value($name, $id, $value): void
     {
+        if (null !== $this->decrypt_failure) {
+            echo \wp_kses(sprintf('<p class="description wps-decrypt-failure">%s</p>', $this->decrypt_failure), self::$allowed_html);
+        }
+
         switch ($this->type) {
             case 'textarea':
                 $this->render_textarea_value($name, $id, $value);
@@ -2357,7 +2444,7 @@ class WP_Setting
      */
     public function init_field_map(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         $this->render_field_map($value, $this->slug, $this->slug);
     }
 
@@ -2368,7 +2455,7 @@ class WP_Setting
      */
     public function init_repeater(): void
     {
-        $value = self::get($this->slug, $this->default_value);
+        $value = $this->current_value();
         if (is_string($value)) {
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {
