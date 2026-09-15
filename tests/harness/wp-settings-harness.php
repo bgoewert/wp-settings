@@ -205,6 +205,32 @@ final class WP_Settings_Harness extends WP_Settings
                 null,
                 array('encrypted' => true)
             ),
+            'secret_note' => new WP_Setting(
+                'secret_note',
+                'Secret Note',
+                'text',
+                'general',
+                'lists',
+                '300px',
+                'Stored ciphered, rendered in the clear.',
+                false,
+                null,
+                null,
+                array('encrypted' => true)
+            ),
+            'secret_block' => new WP_Setting(
+                'secret_block',
+                'Secret Block',
+                'textarea',
+                'general',
+                'lists',
+                '300px',
+                'Stored ciphered, rendered in the clear.',
+                false,
+                null,
+                null,
+                array('encrypted' => true, 'rows' => 4)
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',
