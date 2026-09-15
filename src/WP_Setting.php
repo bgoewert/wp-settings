@@ -179,6 +179,13 @@ class WP_Setting
     protected static $logger = null;
 
     /**
+     * Exception code marking a decrypt failure as a changed key rather than a
+     * corrupt value. The two need different messages: one is recoverable by
+     * re-entering the value, the other points at the stored data.
+     */
+    public const CRYPT_KEY_CHANGED = 1;
+
+    /**
      * Attributes a text-like input (text, email, url, number, password, …) accepts
      * through $args and renders verbatim.
      *
@@ -3265,10 +3272,12 @@ class WP_Setting
      *
      * @param string     $operation Either 'encrypt' or 'decrypt'.
      * @param \Throwable $e         The failure to wrap.
+     * @param int        $code      self::CRYPT_KEY_CHANGED when the value was written
+     *                              under another key, 0 otherwise.
      *
      * @return \RuntimeException
      */
-    private static function crypt_failure(string $operation, \Throwable $e): \RuntimeException
+    private static function crypt_failure(string $operation, \Throwable $e, int $code = 0): \RuntimeException
     {
         $label = 'decrypt' === $operation ? 'Decryption failed' : 'Encryption failed';
 
@@ -3276,7 +3285,7 @@ class WP_Setting
             self::$logger->warning($label, array('operation' => $operation));
         }
 
-        return new \RuntimeException($label . ': ' . $e->getMessage(), 0, $e);
+        return new \RuntimeException($label . ': ' . $e->getMessage(), $code, $e);
     }
 
     /**
@@ -3314,7 +3323,9 @@ class WP_Setting
      * @return string The decrypted value. An empty value is returned as-is.
      *
      * @throws \RuntimeException When decryption fails. The underlying failure,
-     *                           which may be an \Error, is the previous exception.
+     *                           which may be an \Error, is the previous exception,
+     *                           and the code is self::CRYPT_KEY_CHANGED when the
+     *                           value was written under a different key.
      */
     public static function try_decrypt($value): mixed
     {
@@ -3322,13 +3333,96 @@ class WP_Setting
             return $value;
         }
 
+        $encryption = null;
+
         try {
             // Construct inside the try: a missing extension or constant can fail
             // here too, and that must surface as a \RuntimeException like the rest.
-            return self::encryption()->decrypt($value);
+            $encryption = self::encryption();
+            return $encryption->decrypt($value);
         } catch (\Throwable $e) {
-            throw self::crypt_failure('decrypt', $e);
+            $key_changed = null !== $encryption
+                && WP_Setting_Encryption::KEY_DIFFERENT === $encryption->key_state($value);
+
+            throw self::crypt_failure('decrypt', $e, $key_changed ? self::CRYPT_KEY_CHANGED : 0);
         }
+    }
+
+    /**
+     * A message fit to show an administrator whose stored value will not decrypt.
+     *
+     * A value written under a rotated salt is unrecoverable, so the only useful
+     * instruction is to re-enter it — telling the admin their credential was
+     * rejected sends them to the wrong system entirely.
+     *
+     * @param string $value The stored value that failed to decrypt.
+     *
+     * @return string A translated, human-readable explanation.
+     */
+    public static function decrypt_failure_message($value): string
+    {
+        $key_changed = false;
+
+        try {
+            $key_changed = WP_Setting_Encryption::KEY_DIFFERENT === self::encryption()->key_state($value);
+        } catch (\Throwable $e) {
+            // No usable key at all is its own kind of unreadable; fall through.
+        }
+
+        if ($key_changed) {
+            return \__('The encryption key changed, so this value can no longer be read. Re-enter it to save it under the current key.', self::$text_domain);
+        }
+
+        return \__('This value could not be decrypted. It may be corrupt; re-enter it to replace it.', self::$text_domain);
+    }
+
+    /**
+     * Re-encrypt stored values that were written under a different key.
+     *
+     * For a plugin sunsetting its own key constant in favour of the WordPress
+     * salts, or moving between constants. Call it from an upgrade hook with the
+     * key material the values were written under; it is a one-shot pass, but
+     * safe to repeat, since a value already under the current key is recognized
+     * before any crypto runs.
+     *
+     * @param array       $settings     Setting names to migrate.
+     * @param string      $legacy_key   The key the values were encrypted with.
+     * @param string|null $legacy_nonce The nonce they were encrypted with. Only
+     *                                  read for sodium-era payloads.
+     *
+     * @return array Setting name => 'rewrapped', 'current', 'empty' or 'failed'.
+     */
+    public static function rewrap_encrypted(array $settings, string $legacy_key, ?string $legacy_nonce = null): array
+    {
+        $current = self::encryption();
+        $legacy = new WP_Setting_Encryption(null, null, null, null, null, $legacy_key, (string) $legacy_nonce);
+        $results = array();
+
+        foreach ($settings as $setting) {
+            $stored = self::get($setting);
+
+            if (empty($stored)) {
+                $results[$setting] = 'empty';
+                continue;
+            }
+
+            if (WP_Setting_Encryption::KEY_CURRENT === $current->key_state($stored)) {
+                $results[$setting] = 'current';
+                continue;
+            }
+
+            try {
+                $plaintext = $legacy->decrypt($stored);
+            } catch (\Throwable $e) {
+                // Leave it alone: a value we cannot read is still the only copy.
+                $results[$setting] = 'failed';
+                continue;
+            }
+
+            $results[$setting] = self::set($setting, $current->encrypt($plaintext)) ? 'rewrapped' : 'failed';
+        }
+
+        return $results;
     }
 
     /**

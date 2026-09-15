@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.8.0] - 2026-09-15
+
+### Changed
+
+- Encryption keys are resolved from a constant, an environment variable of the same name, or the WordPress salts, and the library no longer reads or writes `wp-config.php` ([#27](https://github.com/bgoewert/wp-settings/issues/27)). It used to grep the file for a `define()` and, failing that, write one — neither works on Bedrock, Trellis, or any deploy where the file is read-only or generated, so the write silently no-opped and the site fell back to `LOGGED_IN_KEY` / `NONCE_KEY` without saying so. Rotating salts then made every stored credential unreadable and the plugin reported it as a rejected credential. Sites that already define their own constant are unaffected.
+
+### Added
+
+- A value that cannot be decrypted says whether the encryption key changed. openssl payloads now carry a fingerprint of the key that wrote them, so `WP_Setting::try_decrypt()` sets the exception code to `WP_Setting::CRYPT_KEY_CHANGED`, and `WP_Setting::decrypt_failure_message()` returns "the encryption key changed, re-enter this value" instead of a message that sends the admin to check the far end.
+- `WP_Setting::rewrap_encrypted()` re-encrypts named settings that were written under a different key. Call it from an upgrade hook with the legacy key to move stored values onto the current one — for a plugin sunsetting its own key constant in favour of the salts, or moving between constants. Repeating the pass is a no-op, and a value that will not decrypt under the legacy key is left untouched.
+
+### Fixed
+
+- The sodium backend works on a site whose key or nonce is not exactly the length secretbox demands. Key material shorter than 32 bytes made every sodium encrypt throw; it is now derived to the required length, leaving correctly-sized keys — and every payload written under them — untouched.
+
 ## [4.7.0] - 2026-09-03
 
 ### Added

@@ -4,10 +4,9 @@ use BGoewert\WP_Settings\WP_Setting_Encryption;
 
 /**
  * Tests for WP_Setting_Encryption class
- * 
- * These tests expose two critical bugs:
- * 1. Greedy regex captures closing `');` when reading constants from wp-config.php
- * 2. FILE_APPEND places auto-generated constants AFTER `require_once wp-settings.php`
+ *
+ * Covers key resolution, the three ciphertext formats, and the key fingerprint
+ * that tells a rotated key apart from a corrupt value.
  */
 class WPSettingEncryptionTest extends WP_Settings_TestCase
 {
@@ -34,183 +33,100 @@ class WPSettingEncryptionTest extends WP_Settings_TestCase
     }
 
     /**
-     * BUG 1: Test that key is read correctly from config file
-     * 
-     * FAILS against current code because greedy regex `[\w\W\d]{N,}` captures
-     * the closing `');` when reading the constant value, causing base64_decode
-     * to fail and wrong key bytes to be used.
+     * Read the resolved key or nonce out of an instance.
      */
-    public function test_key_read_from_config_file_decodes_correctly(): void
+    private function resolved(WP_Setting_Encryption $crypt, string $property): string
     {
-        // Create a temp wp-config with a known key
-        $test_key_value = 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=';
-        $test_nonce_value = 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW';
-        
-        $config_content = <<<'PHP'
-<?php
-define('TEST_ENC_KEY_BUG1', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
-define('TEST_ENC_NONCE_BUG1', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
-require_once ABSPATH . 'wp-settings.php';
-PHP;
-
-        file_put_contents($this->config_file, $config_content);
-
-        // Instantiate encryption with test constants
-        $crypt = new WP_Setting_Encryption('TEST_ENC_KEY_BUG1', 'TEST_ENC_NONCE_BUG1');
-
-        // Use Reflection to read the private $key property
         $reflection = new ReflectionClass($crypt);
-        $key_property = $reflection->getProperty('key');
-        $key_property->setAccessible(true);
-        $actual_key = $key_property->getValue($crypt);
+        $value = $reflection->getProperty($property);
+        $value->setAccessible(true);
 
-        // The expected key is the base64-decoded value
-        $expected_key = base64_decode($test_key_value);
-
-        // This assertion FAILS with current code because the regex captures `=');`
-        // causing base64_decode to fail, and the raw polluted string is used instead
-        $this->assertSame($expected_key, $actual_key, 
-            'Key should be correctly decoded from base64 in wp-config.php');
+        return (string) $value->getValue($crypt);
     }
 
     /**
-     * BUG 1: Test encrypt/decrypt roundtrip with keys read from config file
-     * 
-     * FAILS against current code because the greedy regex corrupts the key value,
-     * causing sodium_crypto_secretbox_open to fail and return an Error object.
+     * A defined constant outranks every other source.
      */
-    public function test_encrypt_decrypt_roundtrip_with_config_file_keys(): void
+    public function test_a_defined_constant_supplies_the_key(): void
     {
-        // Create a temp wp-config with known key/nonce
-        $config_content = <<<'PHP'
-<?php
-define('TEST_ENC_KEY_ROUNDTRIP', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
-define('TEST_ENC_NONCE_ROUNDTRIP', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
-require_once ABSPATH . 'wp-settings.php';
-PHP;
+        $key = base64_encode(str_repeat('c', 32));
+        define('WPS_DEFINED_KEY', $key);
 
-        file_put_contents($this->config_file, $config_content);
+        $crypt = new WP_Setting_Encryption('WPS_DEFINED_KEY', 'WPS_DEFINED_NONCE');
 
-        // Instantiate encryption with test constants
-        $crypt = new WP_Setting_Encryption('TEST_ENC_KEY_ROUNDTRIP', 'TEST_ENC_NONCE_ROUNDTRIP');
-
-        // Encrypt a test value
-        $plaintext = 'my-secret-value';
-        $encrypted = $crypt->encrypt($plaintext);
-
-        // Verify encryption succeeded (should be a string, not an Error)
-        $this->assertIsString($encrypted, 'Encryption should succeed and return a string');
-
-        // Decrypt and verify roundtrip
-        $decrypted = $crypt->decrypt($encrypted);
-
-        // This assertion FAILS with current code because wrong key bytes cause
-        // sodium_crypto_secretbox_open to return false, which becomes an Error object
-        $this->assertSame($plaintext, $decrypted,
-            'Decryption should return original plaintext when using correct key from config');
+        $this->assertSame(base64_decode($key), $this->resolved($crypt, 'key'));
+        $this->assertSame('constant', $crypt->key_source());
     }
 
     /**
-     * BUG 2: Test that generated constant is inserted BEFORE require_once wp-settings.php
-     * 
-     * FAILS against current code because FILE_APPEND places the define AFTER
-     * the require_once, making it unavailable during WordPress execution.
+     * An environment variable of the same name covers .env, Docker and hosting
+     * panels, where a constant cannot be defined without editing a config file.
      */
-    public function test_generated_constant_inserted_before_wp_settings_require(): void
+    public function test_an_environment_variable_supplies_the_key_when_no_constant_is_defined(): void
     {
-        // Create a minimal wp-config with only require_once
-        $config_content = <<<'PHP'
-<?php
-// WordPress config
-require_once ABSPATH . 'wp-settings.php';
-PHP;
+        $key = base64_encode(str_repeat('k', 32));
+        putenv('WPS_ENV_ONLY_KEY=' . $key);
 
-        file_put_contents($this->config_file, $config_content);
+        try {
+            $crypt = new WP_Setting_Encryption('WPS_ENV_ONLY_KEY', 'WPS_ENV_ONLY_NONCE');
 
-        // Instantiate encryption with a non-existent constant
-        // This triggers the auto-generation path
-        $crypt = new WP_Setting_Encryption('NONEXISTENT_KEY_ABCXYZ_BUG2', 'NONEXISTENT_NONCE_ABCXYZ_BUG2');
-
-        // Read the updated config file
-        $updated_content = file_get_contents($this->config_file);
-
-        // Find positions of the define and require_once
-        $define_pos = strpos($updated_content, "define('NONEXISTENT_KEY_ABCXYZ_BUG2'");
-        $require_pos = strpos($updated_content, "require_once ABSPATH . 'wp-settings.php'");
-
-        // Both should exist
-        $this->assertNotFalse($define_pos, 'Generated constant should be in wp-config.php');
-        $this->assertNotFalse($require_pos, 'require_once should still be in wp-config.php');
-
-        // The define MUST come BEFORE require_once
-        // This assertion FAILS with current code because FILE_APPEND puts it AFTER
-        $this->assertLessThan($require_pos, $define_pos,
-            'Generated constant must be inserted BEFORE require_once wp-settings.php');
+            $this->assertSame(base64_decode($key), $this->resolved($crypt, 'key'));
+            $this->assertSame('env', $crypt->key_source());
+        } finally {
+            putenv('WPS_ENV_ONLY_KEY');
+        }
     }
 
     /**
-     * BUG 2: Test that generated constant is appended when no require_once exists
-     * 
-     * This test PASSES against current code because FILE_APPEND works correctly
-     * when there's no require_once to worry about.
+     * The salts are the documented default: they need no provisioning and exist
+     * on every install.
      */
-    public function test_generated_constant_appended_when_no_wp_settings_require(): void
+    public function test_the_salts_supply_the_key_when_nothing_else_does(): void
     {
-        // Create a minimal wp-config WITHOUT require_once
-        $config_content = <<<'PHP'
-<?php
-// Non-standard config
-PHP;
+        $crypt = new WP_Setting_Encryption('WPS_ABSENT_KEY', 'WPS_ABSENT_NONCE');
 
-        file_put_contents($this->config_file, $config_content);
-
-        // Instantiate encryption with a non-existent constant
-        $crypt = new WP_Setting_Encryption('NONEXISTENT_KEY_FALLBACK_BUG2', 'NONEXISTENT_NONCE_FALLBACK_BUG2');
-
-        // Read the updated config file
-        $updated_content = file_get_contents($this->config_file);
-
-        // The define should be present (appended)
-        $this->assertStringContainsString("define('NONEXISTENT_KEY_FALLBACK_BUG2'", $updated_content,
-            'Generated constant should be appended to wp-config.php when no require_once exists');
+        $this->assertSame(defined('LOGGED_IN_KEY') ? 'salt' : 'fallback', $crypt->key_source());
+        $this->assertNotSame('', $this->resolved($crypt, 'key'));
     }
 
     /**
-     * BUG 1 + BUG 2: Full roundtrip with keys defined AFTER require_once
-     * 
-     * FAILS against current code due to Bug 1 (greedy regex corrupts key).
-     * Even if Bug 2 were fixed, this would still fail because of Bug 1.
+     * A constant that exists only as unexecuted text in wp-config.php is not a
+     * defined constant, and the library no longer reads the file to find it.
      */
-    public function test_full_roundtrip_with_keys_after_wp_settings_require(): void
+    public function test_a_constant_only_present_as_config_text_is_ignored(): void
     {
-        // Create a wp-config with keys defined AFTER require_once
-        // (This is the broken state that Bug 2 creates)
-        $config_content = <<<'PHP'
-<?php
-require_once ABSPATH . 'wp-settings.php';
-define('TEST_LATE_KEY_BUG12', 'K8t+FzSc1D/rL4xgHIrGHMXIT8dhvNzMeeX7njFNe2k=');
-define('TEST_LATE_NONCE_BUG12', 'GwoEWSFBbok/aT+eOF0ZckCnZBAU04MW');
-PHP;
+        $this->assertStringContainsString("define('MY_UNEXECUTED_KEY'", $this->write_config(
+            "<?php\ndefine('MY_UNEXECUTED_KEY', 'AAAA');\nrequire_once ABSPATH . 'wp-settings.php';"
+        ));
 
-        file_put_contents($this->config_file, $config_content);
+        $crypt = new WP_Setting_Encryption('MY_UNEXECUTED_KEY', 'MY_UNEXECUTED_NONCE');
 
-        // Instantiate encryption
-        $crypt = new WP_Setting_Encryption('TEST_LATE_KEY_BUG12', 'TEST_LATE_NONCE_BUG12');
+        $this->assertNotSame('constant', $crypt->key_source());
+        $this->assertNotSame('AAAA', $this->resolved($crypt, 'key'));
+    }
 
-        // Try to encrypt and decrypt
-        $plaintext = 'test-value';
-        $encrypted = $crypt->encrypt($plaintext);
+    /**
+     * The library writes no config file, even when it could: a regex rewrite of
+     * wp-config.php does not survive an atomic deploy and surprises every host.
+     */
+    public function test_a_writable_config_file_is_never_modified(): void
+    {
+        $before = $this->write_config("<?php\nrequire_once ABSPATH . 'wp-settings.php';");
+        $this->assertTrue(is_writable($this->config_file), 'The fixture config must be writable for this test to mean anything');
 
-        // Verify encryption succeeded
-        $this->assertIsString($encrypted, 'Encryption should succeed');
+        new WP_Setting_Encryption('WPS_UNPROVISIONED_KEY', 'WPS_UNPROVISIONED_NONCE');
 
-        // Decrypt
-        $decrypted = $crypt->decrypt($encrypted);
+        $this->assertSame($before, file_get_contents($this->config_file));
+    }
 
-        // This assertion FAILS with current code because Bug 1 (greedy regex)
-        // corrupts the key value read from the file
-        $this->assertSame($plaintext, $decrypted,
-            'Roundtrip should work with keys read from config file');
+    /**
+     * Write fixture config content and hand it back for comparison.
+     */
+    private function write_config(string $content): string
+    {
+        file_put_contents($this->config_file, $content);
+
+        return $content;
     }
 
     /**
@@ -383,7 +299,7 @@ PHP;
         $crypt = new WP_Setting_Encryption('TEST_PREF_KEY', 'TEST_PREF_NONCE');
         $encrypted = $crypt->encrypt('sensitive-api-token-12345');
 
-        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX_V2, $encrypted,
             'encrypt() should write an openssl payload even when sodium is available');
         $this->assertSame('sensitive-api-token-12345', $crypt->decrypt($encrypted));
     }
@@ -448,7 +364,7 @@ PHP;
 
         $encrypted = $encrypt->invoke($crypt, $plaintext);
 
-        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX_V2, $encrypted,
             'openssl payloads must carry the format marker so decrypt() can dispatch on it');
         $this->assertNotSame($plaintext, $encrypted);
         $this->assertSame($plaintext, $crypt->decrypt($encrypted),
@@ -473,7 +389,7 @@ PHP;
             return [$encrypted, $crypt->decrypt($encrypted)];
         });
 
-        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX, $encrypted,
+        $this->assertStringStartsWith(WP_Setting_Encryption::OPENSSL_PREFIX_V2, $encrypted,
             'Without sodium, encrypt() should produce an openssl payload');
         $this->assertSame($plaintext, $decrypted);
 
@@ -574,7 +490,8 @@ PHP;
         $encrypt->setAccessible(true);
 
         $encrypted = $encrypt->invoke($crypt, 'sensitive-api-token-12345');
-        $payload = base64_decode(substr($encrypted, strlen(WP_Setting_Encryption::OPENSSL_PREFIX)));
+        $marker  = substr($encrypted, 0, strrpos($encrypted, ':') + 1);
+        $payload = base64_decode(substr($encrypted, strlen($marker)));
         // Flip a bit in the ciphertext body, past the IV and tag.
         $offset = WP_Setting_Encryption::OPENSSL_IV_LENGTH + WP_Setting_Encryption::DEFAULT_MAC_LENGTH;
         $payload[$offset] = chr(ord($payload[$offset]) ^ 0x01);
@@ -582,7 +499,7 @@ PHP;
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('tampered');
 
-        $crypt->decrypt(WP_Setting_Encryption::OPENSSL_PREFIX . base64_encode($payload));
+        $crypt->decrypt($marker . base64_encode($payload));
     }
 
     /**
@@ -846,5 +763,192 @@ PHP;
             $this->assertIsString($result,
                 "{$name}(null) must return a string, never null.");
         }
+    }
+
+    /**
+     * The fingerprint names the key, so it must be identical for two instances
+     * resolving the same material and different for two that do not.
+     */
+    public function test_the_fingerprint_follows_the_key(): void
+    {
+        $same = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('a', 32), str_repeat('n', 24));
+        $also = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('a', 32), str_repeat('n', 24));
+        $other = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('b', 32), str_repeat('n', 24));
+
+        $this->assertSame($same->key_fingerprint(), $also->key_fingerprint());
+        $this->assertNotSame($same->key_fingerprint(), $other->key_fingerprint());
+        $this->assertSame(WP_Setting_Encryption::FINGERPRINT_LENGTH, strlen($same->key_fingerprint()));
+    }
+
+    /**
+     * A value written under a rotated key has to be distinguishable from one
+     * that is merely corrupt, without decrypting it.
+     */
+    public function test_a_payload_reports_which_key_wrote_it(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $original = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('a', 32), str_repeat('n', 24));
+        $rotated = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('b', 32), str_repeat('n', 24));
+
+        $encrypted = $original->encrypt('sensitive-api-token-12345');
+
+        $this->assertSame(WP_Setting_Encryption::KEY_CURRENT, $original->key_state($encrypted));
+        $this->assertSame(WP_Setting_Encryption::KEY_DIFFERENT, $rotated->key_state($encrypted));
+    }
+
+    /**
+     * Values written before fingerprinting say nothing about their key, and must
+     * not be mistaken for values written under a different one.
+     */
+    public function test_a_payload_without_a_fingerprint_is_unknown(): void
+    {
+        $crypt = new WP_Setting_Encryption('TEST_STATE_KEY', 'TEST_STATE_NONCE');
+
+        $this->assertSame(WP_Setting_Encryption::KEY_UNKNOWN, $crypt->key_state(WP_Setting_Encryption::OPENSSL_PREFIX . base64_encode('anything')));
+        $this->assertSame(WP_Setting_Encryption::KEY_UNKNOWN, $crypt->key_state(base64_encode('a sodium-era payload')));
+        $this->assertSame(WP_Setting_Encryption::KEY_UNKNOWN, $crypt->key_state(''));
+    }
+
+    /**
+     * A v1 payload was written by 3.1.x and must still read back.
+     */
+    public function test_v1_payloads_still_decrypt(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $crypt = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('a', 32), str_repeat('n', 24));
+        $plaintext = 'sensitive-api-token-12345';
+
+        // Rebuild a v1 payload from a v2 one: same key, same body, older marker.
+        $encrypted = $crypt->encrypt($plaintext);
+        $v1 = WP_Setting_Encryption::OPENSSL_PREFIX . substr($encrypted, strrpos($encrypted, ':') + 1);
+
+        $this->assertSame($plaintext, $crypt->decrypt($v1));
+    }
+
+    /**
+     * Point WP_Setting at a text domain, and hand back a handle on the key it
+     * would resolve for that domain.
+     */
+    private function settingsUnderDomain(string $domain): WP_Setting_Encryption
+    {
+        $text_domain = (new ReflectionClass(\BGoewert\WP_Settings\WP_Setting::class))->getProperty('text_domain');
+        $text_domain->setAccessible(true);
+        $text_domain->setValue(null, $domain);
+
+        $encryption = (new ReflectionClass(\BGoewert\WP_Settings\WP_Setting::class))->getMethod('encryption');
+        $encryption->setAccessible(true);
+
+        return $encryption->invoke(null);
+    }
+
+    /**
+     * The migration a plugin runs from its upgrade hook when it sunsets its own
+     * key constant: values written under the old key become readable again.
+     */
+    public function test_rewrap_moves_values_onto_the_current_key(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $current = $this->settingsUnderDomain('rewrap-plugin');
+        $legacy_key = str_repeat('L', 32);
+        $legacy = new WP_Setting_Encryption(null, null, null, null, null, $legacy_key, str_repeat('N', 24));
+
+        \BGoewert\WP_Settings\WP_Setting::set('api_token', $legacy->encrypt('sensitive-api-token-12345'));
+
+        $results = \BGoewert\WP_Settings\WP_Setting::rewrap_encrypted(['api_token'], $legacy_key, str_repeat('N', 24));
+
+        $this->assertSame(['api_token' => 'rewrapped'], $results);
+        $this->assertSame(WP_Setting_Encryption::KEY_CURRENT, $current->key_state(\BGoewert\WP_Settings\WP_Setting::get('api_token')));
+        $this->assertSame('sensitive-api-token-12345', \BGoewert\WP_Settings\WP_Setting::get('api_token', false, true));
+    }
+
+    /**
+     * An upgrade hook can fire more than once, and a value must never be
+     * encrypted twice.
+     */
+    public function test_rewrap_is_idempotent(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $this->settingsUnderDomain('rewrap-twice');
+        $legacy_key = str_repeat('L', 32);
+        $legacy = new WP_Setting_Encryption(null, null, null, null, null, $legacy_key, str_repeat('N', 24));
+
+        \BGoewert\WP_Settings\WP_Setting::set('api_token', $legacy->encrypt('sensitive-api-token-12345'));
+        \BGoewert\WP_Settings\WP_Setting::rewrap_encrypted(['api_token'], $legacy_key, str_repeat('N', 24));
+        $after_first = \BGoewert\WP_Settings\WP_Setting::get('api_token');
+
+        $results = \BGoewert\WP_Settings\WP_Setting::rewrap_encrypted(['api_token'], $legacy_key, str_repeat('N', 24));
+
+        $this->assertSame(['api_token' => 'current'], $results);
+        $this->assertSame($after_first, \BGoewert\WP_Settings\WP_Setting::get('api_token'));
+        $this->assertSame('sensitive-api-token-12345', \BGoewert\WP_Settings\WP_Setting::get('api_token', false, true));
+    }
+
+    /**
+     * One unreadable value must not cost the rest of the pass, and must not be
+     * overwritten — the stored copy is the only copy.
+     */
+    public function test_rewrap_leaves_an_unreadable_value_alone_and_continues(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $this->settingsUnderDomain('rewrap-partial');
+        $legacy_key = str_repeat('L', 32);
+        $legacy = new WP_Setting_Encryption(null, null, null, null, null, $legacy_key, str_repeat('N', 24));
+
+        \BGoewert\WP_Settings\WP_Setting::set('good_token', $legacy->encrypt('readable'));
+        \BGoewert\WP_Settings\WP_Setting::set('bad_token', 'not-actually-encrypted');
+        \BGoewert\WP_Settings\WP_Setting::set('blank_token', '');
+
+        $results = \BGoewert\WP_Settings\WP_Setting::rewrap_encrypted(
+            ['good_token', 'bad_token', 'blank_token'],
+            $legacy_key,
+            str_repeat('N', 24)
+        );
+
+        $this->assertSame(
+            ['good_token' => 'rewrapped', 'bad_token' => 'failed', 'blank_token' => 'empty'],
+            $results
+        );
+        $this->assertSame('not-actually-encrypted', \BGoewert\WP_Settings\WP_Setting::get('bad_token'));
+        $this->assertSame('readable', \BGoewert\WP_Settings\WP_Setting::get('good_token', false, true));
+    }
+
+    /**
+     * A rotated salt is unrecoverable, so the admin has to be told to re-enter
+     * the value rather than sent to chase a rejected credential.
+     */
+    public function test_a_changed_key_is_reported_as_a_changed_key(): void
+    {
+        if (!extension_loaded('openssl')) {
+            $this->markTestSkipped('openssl extension not loaded');
+        }
+
+        $this->settingsUnderDomain('rotated-plugin');
+        $other = new WP_Setting_Encryption(null, null, null, null, null, str_repeat('R', 32), str_repeat('N', 24));
+        $stored = $other->encrypt('sensitive-api-token-12345');
+
+        try {
+            \BGoewert\WP_Settings\WP_Setting::try_decrypt($stored);
+            $this->fail('A value written under another key must not decrypt');
+        } catch (\RuntimeException $e) {
+            $this->assertSame(\BGoewert\WP_Settings\WP_Setting::CRYPT_KEY_CHANGED, $e->getCode());
+        }
+
+        $this->assertStringContainsString('encryption key changed', \BGoewert\WP_Settings\WP_Setting::decrypt_failure_message($stored));
+        $this->assertStringContainsString('could not be decrypted', \BGoewert\WP_Settings\WP_Setting::decrypt_failure_message('not-actually-encrypted'));
     }
 }

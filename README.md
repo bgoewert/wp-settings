@@ -587,13 +587,33 @@ The split is about what each layer can reach. The unit suite calls a sanitizer d
 
 ## Encryption
 
-Fields marked for encryption are stored ciphered, with the key and nonce kept in `wp-config.php` constants (falling back to `LOGGED_IN_KEY` / `NONCE_KEY`).
+Fields marked for encryption are stored ciphered. The key and nonce are resolved from a constant, then an environment variable of the same name, then the WordPress salts.
+
+### Key material
+
+The constant names are derived from your text domain — `MY_PLUGIN_KEY` and `MY_PLUGIN_NONCE` for the text domain `my-plugin`. Resolution stops at the first source that has a value:
+
+1. A defined PHP constant.
+2. An environment variable of the same name, which covers `.env`, Docker and hosting panels.
+3. `LOGGED_IN_KEY` / `NONCE_KEY`.
+
+The salts are the default and need no setup. Define your own only if you rotate salts — a rotation makes every value encrypted under them unreadable. Generate one with `openssl rand -base64 32`, then either:
+
+```php
+define( 'MY_PLUGIN_KEY', 'base64-value-here' );
+```
+
+```bash
+MY_PLUGIN_KEY=base64-value-here
+```
+
+The library never reads or writes `wp-config.php`. A `define()` there works because the file is executed, not because it is parsed.
 
 Two backends are supported, chosen automatically:
 
 | Backend | Cipher | Stored format |
 | --- | --- | --- |
-| `ext-openssl` (preferred) | AES-256-GCM | `wps.aesgcm.v1:` + `base64(iv . tag . ciphertext)` |
+| `ext-openssl` (preferred) | AES-256-GCM | `wps.aesgcm.v2:` + key fingerprint + `base64(iv . tag . ciphertext)` |
 | `ext-sodium` (fallback) | XSalsa20-Poly1305 (`sodium_crypto_secretbox`) | `base64(nonce . ciphertext)` |
 
 openssl is the default writer: WordPress leans on it for HTTPS, whereas sodium is only *bundled* with PHP and still has to be enabled at build time (`--with-sodium`), so it is routinely absent from minimal and cross-compiled builds. The openssl path also derives a fresh IV per value, where the sodium path reuses the configured nonce.
@@ -620,6 +640,18 @@ try {
 ```
 
 `try_encrypt()` is the one to use where storing an unencrypted secret is unacceptable — `encrypt()`'s fallback persists plaintext.
+
+An openssl payload carries a fingerprint of the key that wrote it, so a value encrypted under a key the site no longer resolves is reported as a key change rather than a bad credential. `WP_Setting::try_decrypt()` sets the exception code to `WP_Setting::CRYPT_KEY_CHANGED` in that case, and `WP_Setting::decrypt_failure_message()` returns the message to show the admin.
+
+### Moving to a different key
+
+Sunsetting your own key constant in favour of the salts — or moving between constants — leaves stored values encrypted under the old one. Re-encrypt them from an upgrade hook, while the old key is still available:
+
+```php
+WP_Setting::rewrap_encrypted( [ 'api_token', 'webhook_secret' ], MY_PLUGIN_LEGACY_KEY, MY_PLUGIN_LEGACY_NONCE );
+```
+
+The names are yours to supply — the library has no registry of which settings are encrypted. Each comes back as `rewrapped`, `current`, `empty` or `failed`; a value that will not decrypt under the legacy key is left untouched, so the pass is safe to repeat. Downgrading the library after a rewrap is not supported: versions before 4.8.0 do not read the fingerprinted format.
 
 ## Settings Tables
 
