@@ -25,6 +25,12 @@ Then require the package:
 composer require bgoewert/wp-settings
 ```
 
+### Scope your vendored copy
+
+A plugin that ships this library in its own `vendor/` must rename the namespace, with [php-scoper](https://github.com/humbug/php-scoper) or Mozart. Two plugins vendoring it unscoped on one site is unsupported, and it fails quietly rather than loudly: the `class_exists()` guards mean one copy wins, both plugins get its classes, and both share one `WP_Setting::$text_domain`. Whichever plugin constructs its `WP_Settings` subclass last owns every `get()`, `set()` and `register_setting()` — the other's fields register under the wrong prefix and its reads resolve the wrong options. Autoload order also decides which version both plugins run.
+
+The library reports the collision with `_doing_it_wrong()` on `admin_init`, naming the path and version of each copy, but it cannot fix it. The same requirement applies to any library a plugin vendors — Guzzle and the AWS SDK carry it too.
+
 ## Usage
 
 ```php

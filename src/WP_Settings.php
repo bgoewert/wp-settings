@@ -136,6 +136,7 @@ class WP_Settings
         );
         $this->initialize_logging_support();
 
+        \add_action("admin_init", [__CLASS__, "warn_duplicate_copies"], 0);
         \add_action("admin_init", [$this, "init"]);
         \add_action("admin_menu", [$this, "admin_menu"]);
         \add_filter("set-screen-option", [$this, "set_screen_option"], 10, 3);
@@ -182,6 +183,121 @@ class WP_Settings
             $this,
             "load_menu_screen",
         ]);
+    }
+
+    /**
+     * Whether the duplicate-copy notice has already gone out this request.
+     *
+     * @var bool
+     */
+    private static $duplicate_copies_reported = false;
+
+    /**
+     * Report a second unscoped copy of this library on the same site.
+     *
+     * Two consumers that each vendor this library unscoped share one class and
+     * one `WP_Setting::$text_domain`, so whichever constructed last owns every
+     * `get()`, `set()` and `register_setting()` — one plugin's fields register
+     * under the other's prefix and nothing errors (#28). Scoping the vendored
+     * copy is the fix; this only makes the collision visible on the first admin
+     * page load instead of months later.
+     *
+     * The `class_exists()` guards cannot report it themselves: under PSR-4 the
+     * losing copy's file is never included, because PHP only calls an
+     * autoloader for a class that is not already declared.
+     *
+     * @return void
+     */
+    public static function warn_duplicate_copies(): void
+    {
+        if (self::$duplicate_copies_reported) {
+            return;
+        }
+        self::$duplicate_copies_reported = true;
+
+        $copies = self::registered_copies();
+
+        if (count($copies) < 2) {
+            return;
+        }
+
+        $active = realpath(dirname(__DIR__));
+        $others = array_values(array_diff($copies, array($active)));
+
+        \_doing_it_wrong(
+            __METHOD__,
+            sprintf(
+                'More than one unscoped copy of bgoewert/wp-settings is installed on this site, so both ' .
+                'consumers share one class and one WP_Setting::$text_domain — whichever constructs last owns ' .
+                'every get(), set() and register_setting(), and the other plugin\'s options resolve under the ' .
+                'wrong prefix. In use: %s. Also installed: %s. Scope your vendored copy with php-scoper, or ' .
+                'require the library as a shared dependency.',
+                self::describe_copy($active),
+                implode('; ', array_map(array(__CLASS__, 'describe_copy'), $others))
+            ),
+            '4.8.0'
+        );
+    }
+
+    /**
+     * Every distinct directory registering this library's namespace.
+     *
+     * Asks the registered autoloaders rather than the filesystem: a copy nobody
+     * loaded is not a collision, and a copy outside wp-content still is.
+     * Canonicalized, so one directory registered by two autoloaders — or
+     * reached through a symlink — counts once.
+     *
+     * @return string[] Absolute package directories.
+     */
+    private static function registered_copies(): array
+    {
+        $namespace = __NAMESPACE__ . '\\';
+        $copies = array();
+
+        foreach (spl_autoload_functions() ?: array() as $autoloader) {
+            $loader = is_array($autoloader) ? ($autoloader[0] ?? null) : null;
+
+            if (!is_object($loader) || !method_exists($loader, 'getPrefixesPsr4')) {
+                continue;
+            }
+
+            foreach ($loader->getPrefixesPsr4()[$namespace] ?? array() as $source_dir) {
+                // The registered directory is src/; the package is its parent.
+                $package = realpath(dirname($source_dir));
+
+                if (false !== $package) {
+                    $copies[$package] = true;
+                }
+            }
+        }
+
+        return array_keys($copies);
+    }
+
+    /**
+     * A copy's directory and version, for the duplicate notice.
+     *
+     * The version comes from the manifest rather than a constant in the source:
+     * a losing copy's classes are never loaded, so its manifest is the only
+     * place its version can be read at all.
+     *
+     * @param string $package_dir Absolute package directory.
+     * @return string
+     */
+    private static function describe_copy(string $package_dir): string
+    {
+        $manifest = $package_dir . '/composer.json';
+        $version = 'unknown version';
+
+        if (is_readable($manifest)) {
+            $decoded = json_decode((string) file_get_contents($manifest), true);
+
+            if (is_array($decoded) && !empty($decoded['version'])) {
+                $version = 'v' . $decoded['version'];
+            }
+        }
+
+        return $package_dir . ' (' . $version . ')';
     }
 
     /**

@@ -111,12 +111,36 @@ function make_advanced_setting(string $name, array $children): WP_Setting
 
 class WPSettingsTest extends WP_Settings_TestCase
 {
+    /** @var array Autoloaders registered by a test, unregistered in tearDown. */
+    private $registered_loaders = [];
+
+    /** @var array Fake package directories created by a test. */
+    private $registered_copies = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         // Ensure text_domain is consistent when WP_Settings are constructed
         // before the page object (which calls parent::__construct internally).
         WP_Setting::$text_domain = 'test_plugin';
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->registered_loaders as $loader) {
+            spl_autoload_unregister($loader);
+        }
+
+        foreach ($this->registered_copies as $package) {
+            @unlink($package . '/composer.json');
+            @rmdir($package . '/src');
+            @rmdir($package);
+        }
+
+        $this->registered_loaders = [];
+        $this->registered_copies = [];
+
+        parent::tearDown();
     }
 
     // -------------------------------------------------------------------------
@@ -984,6 +1008,128 @@ class WPSettingsTest extends WP_Settings_TestCase
         $page = new Test_WP_Settings_Unordered('my-plugin');
 
         $this->assertSame('my_option', $page->get_settings()['my_option']->slug);
+    }
+
+    /**
+     * Register a fake vendored copy of the library and return its package dir.
+     *
+     * Mirrors what Composer registers: the package holds `src/`, and `src/` is
+     * what the PSR-4 prefix points at.
+     */
+    private function registerCopy(string $name, ?string $version = '9.9.9'): string
+    {
+        $package = sys_get_temp_dir() . '/wps-copy-' . $name . '-' . getmypid();
+
+        if (!is_dir($package . '/src')) {
+            mkdir($package . '/src', 0777, true);
+        }
+
+        if (null !== $version) {
+            file_put_contents($package . '/composer.json', json_encode(['version' => $version]));
+        }
+
+        $loader = new Test_WP_Settings_Fake_Class_Loader($package . '/src');
+        spl_autoload_register([$loader, 'loadClass']);
+        $this->registered_loaders[] = [$loader, 'loadClass'];
+        $this->registered_copies[] = $package;
+
+        return realpath($package);
+    }
+
+    /** The duplicate notice is what the copies produced, if any. */
+    private function duplicateNotice(): ?string
+    {
+        (new ReflectionClass(WP_Settings::class))->setStaticPropertyValue('duplicate_copies_reported', false);
+        WP_Settings::warn_duplicate_copies();
+
+        foreach ($this->getDoingItWrongCalls() as $call) {
+            if (str_contains($call['message'], 'unscoped copy')) {
+                return $call['message'];
+            }
+        }
+
+        return null;
+    }
+
+    /** Two consumers vendoring it unscoped is the case that silently swaps their options. */
+    public function test_two_copies_are_reported_with_paths_and_versions(): void
+    {
+        $other = $this->registerCopy('other', '4.6.0');
+
+        $message = $this->duplicateNotice();
+
+        $this->assertNotNull($message);
+        $this->assertStringContainsString($other, $message);
+        $this->assertStringContainsString('v4.6.0', $message);
+        $this->assertStringContainsString(realpath(dirname(__DIR__, 2)), $message);
+    }
+
+    /** One copy is the normal case and must stay quiet. */
+    public function test_a_single_copy_is_not_reported(): void
+    {
+        $this->assertNull($this->duplicateNotice());
+    }
+
+    /** One directory reached through two autoloaders is still one copy. */
+    public function test_the_same_directory_registered_twice_is_one_copy(): void
+    {
+        $loader = new Test_WP_Settings_Fake_Class_Loader(dirname(__DIR__, 2) . '/src');
+        spl_autoload_register([$loader, 'loadClass']);
+        $this->registered_loaders[] = [$loader, 'loadClass'];
+
+        $this->assertNull($this->duplicateNotice());
+    }
+
+    /** A copy whose manifest is missing is still worth naming. */
+    public function test_a_copy_without_a_readable_version_reports_unknown(): void
+    {
+        $other = $this->registerCopy('versionless', null);
+
+        $message = $this->duplicateNotice();
+
+        $this->assertNotNull($message);
+        $this->assertStringContainsString($other . ' (unknown version)', $message);
+    }
+
+    /** The notice goes out once, however many times admin_init fires it. */
+    public function test_the_notice_is_reported_once_per_request(): void
+    {
+        $this->registerCopy('once', '4.6.0');
+
+        $this->duplicateNotice();
+        WP_Settings::warn_duplicate_copies();
+
+        $notices = array_filter(
+            $this->getDoingItWrongCalls(),
+            static fn($call) => str_contains($call['message'], 'unscoped copy')
+        );
+
+        $this->assertCount(1, $notices);
+    }
+}
+
+/**
+ * The shape the detection looks for: any autoloader object exposing Composer's
+ * `getPrefixesPsr4()`. Registering a real ClassLoader would mean a second
+ * vendor tree on disk.
+ */
+class Test_WP_Settings_Fake_Class_Loader
+{
+    private $source_dir;
+
+    public function __construct(string $source_dir)
+    {
+        $this->source_dir = $source_dir;
+    }
+
+    public function getPrefixesPsr4(): array
+    {
+        return ['BGoewert\\WP_Settings\\' => [$this->source_dir]];
+    }
+
+    public function loadClass($class)
+    {
+        return null;
     }
 }
 
