@@ -4,6 +4,26 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.8.0] - 2026-09-15
+
+### Changed
+
+- Encryption keys are resolved from a constant, an environment variable of the same name, or the WordPress salts, and the library no longer reads or writes `wp-config.php` ([#27](https://github.com/bgoewert/wp-settings/issues/27)). It used to grep the file for a `define()` and, failing that, write one — neither works on Bedrock, Trellis, or any deploy where the file is read-only or generated, so the write silently no-opped and the site fell back to `LOGGED_IN_KEY` / `NONCE_KEY` without saying so. Rotating salts then made every stored credential unreadable and the plugin reported it as a rejected credential. Sites that already define their own constant are unaffected, because a `define()` in an executed `wp-config.php` was always what satisfied the lookup.
+
+### Added
+
+- A settings table backed by its own database table can map fields to real columns ([#26](https://github.com/bgoewert/wp-settings/issues/26)). `WP_Settings_Table_Custom_Table_Storage` hardcoded its schema, so a consumer with a typed table could not use it, and a consumer adopting it gave up SQL on its own fields — retention by date and search by recipient both became "decode every row in PHP". Pass `columns` as a list of row keys, or a `row key => column name` map where the two differ, and those fields are written to and read from their own columns. `id_column`, `status_column`, `data_column`, `created_column` and `updated_column` rename a column or take `null` to drop it. For a table the consumer already owns, pass a `CREATE TABLE` body to install verbatim, or turn installation off entirely. Unmapped keys still go into the JSON column, and a non-scalar value stays there too, so the defaults are the schema it shipped with.
+- A field can declare `'encrypted' => true` and the library ciphers it on save and deciphers it on render. Encryption used to be a per-call flag on `WP_Setting::get()` and `set()`, so every caller had to remember it in both directions — a `set()` missing the flag wrote the secret in plaintext, a `get()` missing it rendered base64 into the input, and neither failed. Declaring it on the field settles it once. The per-call flags still work for values that aren't fields.
+- A value that cannot be decrypted says whether the encryption key changed. openssl payloads now carry a fingerprint of the key that wrote them, so `WP_Setting::try_decrypt()` sets the exception code to `WP_Setting::CRYPT_KEY_CHANGED`, and `WP_Setting::decrypt_failure_message()` returns "the encryption key changed, re-enter this value" instead of a message that sends the admin to check the far end.
+- `WP_Setting::rewrap_encrypted()` re-encrypts named settings that were written under a different key. Call it from an upgrade hook with the legacy key to move stored values onto the current one — for a plugin sunsetting its own key constant in favor of the salts, or moving between constants. Repeating the pass is a no-op, and a value that will not decrypt under the legacy key is left untouched.
+- A second unscoped copy of this library on the same site is reported ([#28](https://github.com/bgoewert/wp-settings/issues/28)). Two plugins that each vendor it share one class and one `WP_Setting::$text_domain`, so whichever constructs last owns every `get()`, `set()` and `register_setting()` — the other plugin's fields register under the wrong prefix and its reads resolve the wrong options, silently. The library now asks the registered autoloaders which directories claim its namespace and, when there is more than one, names the path and version of each with `_doing_it_wrong()` on `admin_init`. The `class_exists()` guards could not report this themselves: under PSR-4 the losing copy's file is never included, because PHP only calls an autoloader for a class that is not already declared.
+
+  **Consumer note:** a plugin vendoring this library must scope it with php-scoper or Mozart. Two unscoped consumers on one site remain unsupported — the notice makes the collision visible, it cannot fix it.
+
+### Fixed
+
+- The sodium backend works on a site whose key or nonce is not exactly the length secretbox demands. Key material shorter than 32 bytes made every sodium encrypt throw; it is now derived to the required length, leaving correctly-sized keys — and every payload written under them — untouched.
+
 ## [4.7.0] - 2026-09-03
 
 ### Added
