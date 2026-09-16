@@ -429,13 +429,21 @@ class WP_Settings
 
         <?php // A lone tab links to the page already on screen, so there is nothing to navigate. ?>
         <?php if (count($tabs) > 1): ?>
+            <?php // Build from the current request: a page registered under a CPT menu
+            // resolves its links against edit.php, so dropping post_type 404s (#29).
+            $tab_base = \remove_query_arg([
+                "settings-updated",
+                "sbp_nonce",
+                "_wpnonce",
+                "_wp_http_referer",
+            ]); ?>
             <nav class="nav-tab-wrapper">
                 <?php foreach ($tabs as $t): ?>
                     <?php $tab_class =
                         "nav-tab" . ($t === $tab ? " nav-tab-active" : ""); ?>
-                    <a href="?page=<?php echo rawurlencode(
-                        $this->text_domain,
-                    ); ?>&tab=<?php echo $t; ?>" class="<?php echo $tab_class; ?>"><?php echo \esc_html(
+                    <a href="<?php echo \esc_url(
+                        \add_query_arg("tab", $t, $tab_base),
+                    ); ?>" class="<?php echo $tab_class; ?>"><?php echo \esc_html(
     $tab_labels[$t] ?? ucwords($t),
 ); ?></a>
                 <?php endforeach; ?>

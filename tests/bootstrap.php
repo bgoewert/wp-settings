@@ -615,12 +615,50 @@ if (!function_exists("esc_js")) {
     }
 }
 
-if (!function_exists("add_query_arg")) {
-    function add_query_arg($args, $url = "")
+if (!function_exists("wp_test_split_url")) {
+    /** Split a url into [base, query array], the way the query-arg helpers need it. */
+    function wp_test_split_url($url)
     {
-        $base = $url ?: "http://example.com";
-        $query = http_build_query($args);
-        return $base . (strpos($base, "?") === false ? "?" : "&") . $query;
+        $url = (string) ($url ?: ($_SERVER["REQUEST_URI"] ?? "http://example.com"));
+        $base = $url;
+        $query = [];
+
+        if (($pos = strpos($url, "?")) !== false) {
+            $base = substr($url, 0, $pos);
+            parse_str(substr($url, $pos + 1), $query);
+        }
+
+        return [$base, $query];
+    }
+}
+
+if (!function_exists("add_query_arg")) {
+    function add_query_arg($args, $url = "", $legacy_url = "")
+    {
+        // WordPress accepts both add_query_arg( $array, $url )
+        // and add_query_arg( $key, $value, $url ).
+        if (!is_array($args)) {
+            $args = [$args => $url];
+            $url = $legacy_url;
+        }
+
+        [$base, $query] = wp_test_split_url($url);
+        $query = array_merge($query, $args);
+
+        return $query === [] ? $base : $base . "?" . http_build_query($query);
+    }
+}
+
+if (!function_exists("remove_query_arg")) {
+    function remove_query_arg($keys, $url = "")
+    {
+        [$base, $query] = wp_test_split_url($url);
+
+        foreach ((array) $keys as $key) {
+            unset($query[$key]);
+        }
+
+        return $query === [] ? $base : $base . "?" . http_build_query($query);
     }
 }
 

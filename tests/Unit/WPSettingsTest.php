@@ -876,6 +876,50 @@ class WPSettingsTest extends WP_Settings_TestCase
             'The tab being viewed must still be marked active.');
     }
 
+    public function test_menu_page_tab_links_keep_the_parent_menu_query_vars(): void
+    {
+        $previous = $_SERVER['REQUEST_URI'] ?? null;
+        $_SERVER['REQUEST_URI'] =
+            '/wp-admin/edit.php?post_type=seiler-support&page=support_portal';
+
+        try {
+            $html = $this->render_menu_page(new Test_WP_Settings_Multi_Tab([]));
+        } finally {
+            if ($previous === null) {
+                unset($_SERVER['REQUEST_URI']);
+            } else {
+                $_SERVER['REQUEST_URI'] = $previous;
+            }
+        }
+
+        $this->assertStringContainsString('post_type=seiler-support', $html,
+            'A page under a CPT menu 404s on every tab once post_type is dropped (#29).');
+        $this->assertStringContainsString('page=support_portal', $html,
+            'The tab link must use the registered page slug, not the text domain.');
+        $this->assertStringContainsString('tab=advanced', $html);
+    }
+
+    public function test_menu_page_tab_links_drop_the_save_notice_args(): void
+    {
+        $previous = $_SERVER['REQUEST_URI'] ?? null;
+        $_SERVER['REQUEST_URI'] =
+            '/wp-admin/options-general.php?page=test_plugin&settings-updated=true&sbp_nonce=abc123';
+
+        try {
+            $html = $this->render_menu_page(new Test_WP_Settings_Multi_Tab([]));
+        } finally {
+            if ($previous === null) {
+                unset($_SERVER['REQUEST_URI']);
+            } else {
+                $_SERVER['REQUEST_URI'] = $previous;
+            }
+        }
+
+        $this->assertStringNotContainsString('settings-updated', $html,
+            'Carrying the save args onto a tab link replays "Saved" on a tab that saved nothing.');
+        $this->assertStringNotContainsString('sbp_nonce', $html);
+    }
+
     // -------------------------------------------------------------------------
     // Integration: a reorderable repeater from registration to save (#19)
     // -------------------------------------------------------------------------
