@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.8.1] - 2026-09-16
+
+### Fixed
+
+- Tab links on a settings page registered under a post type's menu keep the parent's query vars ([#29](https://github.com/bgoewert/wp-settings/issues/29)). Each tab was a bare `?page=<text domain>&tab=<tab>`, which the browser resolved against `edit.php`, dropping `post_type` — every tab but the first landed on a page WordPress does not recognize and was refused. The href is now built from the current request, so a top-level page is unaffected and the page slug no longer has to equal the text domain.
+
 ## [4.8.0] - 2026-09-15
 
 ### Changed
