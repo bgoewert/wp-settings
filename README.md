@@ -104,6 +104,23 @@ Tab labels default to `ucwords(tab)` but you can override the display label per 
 The tab strip renders only when there are two or more tabs, so a page whose sections all share one tab gets no nav.
 A section also accepts `conditions`, which shows it only for certain values of another field — see [Conditional Visibility](#conditional-visibility).
 
+### Where the Page Lives
+
+The page is registered under **Settings** and requires `manage_options`. Both come from the plugin data, so a page that belongs somewhere else says so instead of overriding `admin_menu()`:
+
+```php
+parent::__construct(array(
+    'Name'       => 'Support Portal',
+    'TextDomain' => 'seiler-support-portal',
+    'Parent'     => 'edit.php?post_type=seiler-support',
+    'Capability' => 'edit_posts',
+));
+```
+
+`Parent` is any parent slug `add_submenu_page()` accepts; `Capability` gates both the menu entry and the page render. Log viewing and clearing still require `manage_options`.
+
+Overriding `admin_menu()` to move the page is what these keys replace. The override leaves the library's submenu page hook empty, and the hook is what the stylesheet, the scripts and every screen check key off — the password field's *Show* button renders and does nothing, with no error. A page whose hook is empty at `admin_enqueue_scripts` now reports it with `_doing_it_wrong()` (visible under `WP_DEBUG`).
+
 ### Construct Unconditionally — Do Not Gate Behind `is_admin()`
 
 Always construct your `WP_Settings` subclass unconditionally, as in the example above (`new My_Settings();` at file scope) — never gate it behind `if ( is_admin() )`. The class's own `admin_init` hook is already inert outside wp-admin regardless of when it's registered, so gating construction yourself buys nothing there. What it *does* break: `WP_Setting::$text_domain` is only ever set as a side effect of that construction, and `WP_Setting::get()`/`::set()` need it set on **every** request — frontend, REST, WP-CLI — not just admin ones. Gate the construction and those calls silently fall through to reading/writing an unprefixed, nonexistent option key, always returning your hardcoded default instead of the admin-configured value, with no error or warning to indicate why.

@@ -65,6 +65,44 @@ class Test_WP_Settings_Exposer extends WP_Settings
 }
 
 /**
+ * Takes plugin data verbatim, so a test can pass Parent and Capability.
+ */
+class Test_WP_Settings_Placed extends WP_Settings
+{
+    public function __construct(array $plugin_data)
+    {
+        $this->settings = [];
+        $this->sections = [];
+        parent::__construct($plugin_data);
+    }
+}
+
+/**
+ * A consumer that registers the page itself, as #30 describes.
+ */
+class Test_WP_Settings_Overridden_Menu extends WP_Settings
+{
+    public function __construct()
+    {
+        $this->settings = [];
+        $this->sections = [];
+        parent::__construct('overridden-plugin');
+    }
+
+    public function admin_menu(): void
+    {
+        \add_submenu_page(
+            'edit.php?post_type=seiler-support',
+            'Overridden',
+            'Overridden',
+            'manage_options',
+            'overridden_plugin',
+            [$this, 'menu_page_callback']
+        );
+    }
+}
+
+/**
  * Subclass used to test the null + pre-set text_domain constructor path.
  */
 class Test_WP_Settings_Predefined extends WP_Settings
@@ -1149,6 +1187,107 @@ class WPSettingsTest extends WP_Settings_TestCase
         );
 
         $this->assertCount(1, $notices);
+    }
+
+    // -------------------------------------------------------------------------
+    // admin_menu() placement
+    // -------------------------------------------------------------------------
+
+    public function test_admin_menu_defaults_to_settings_and_manage_options(): void
+    {
+        (new Test_WP_Settings_Exposer())->admin_menu();
+
+        $page = $this->getSubmenuPages()[0];
+        $this->assertSame('options-general.php', $page['parent_slug']);
+        $this->assertSame('manage_options', $page['capability']);
+        $this->assertSame('test_plugin', $page['menu_slug']);
+    }
+
+    public function test_admin_menu_uses_the_parent_and_capability_from_plugin_data(): void
+    {
+        (new Test_WP_Settings_Placed([
+            'Name'       => 'Support Portal',
+            'TextDomain' => 'seiler-support-portal',
+            'Parent'     => 'edit.php?post_type=seiler-support',
+            'Capability' => 'edit_posts',
+        ]))->admin_menu();
+
+        $page = $this->getSubmenuPages()[0];
+        $this->assertSame('edit.php?post_type=seiler-support', $page['parent_slug']);
+        $this->assertSame('edit_posts', $page['capability']);
+    }
+
+    public function test_admin_menu_ignores_an_empty_parent_or_capability(): void
+    {
+        (new Test_WP_Settings_Placed([
+            'Name'       => 'Support Portal',
+            'TextDomain' => 'support-portal',
+            'Parent'     => '',
+            'Capability' => null,
+        ]))->admin_menu();
+
+        $page = $this->getSubmenuPages()[0];
+        $this->assertSame('options-general.php', $page['parent_slug']);
+        $this->assertSame('manage_options', $page['capability']);
+    }
+
+    public function test_admin_menu_skips_a_slug_already_registered_under_a_custom_parent(): void
+    {
+        global $submenu;
+        $submenu = ['edit.php?post_type=seiler-support' => [[ 'Support Portal', 'edit_posts', 'support_portal' ]]];
+
+        (new Test_WP_Settings_Placed([
+            'Name'       => 'Support Portal',
+            'TextDomain' => 'support-portal',
+            'Parent'     => 'edit.php?post_type=seiler-support',
+        ]))->admin_menu();
+
+        $submenu = [];
+
+        $this->assertEmpty($this->getSubmenuPages());
+    }
+
+    public function test_enqueue_admin_reports_a_page_registered_without_the_library(): void
+    {
+        $page = new Test_WP_Settings_Overridden_Menu();
+        $page->admin_menu();
+        $page->enqueue_admin('some_other_hook');
+        $page->enqueue_admin('some_other_hook');
+
+        $notices = array_filter(
+            $this->getDoingItWrongCalls(),
+            static fn($call) => str_contains($call['message'], 'submenu page hook is empty')
+        );
+
+        $this->assertCount(1, $notices);
+    }
+
+    public function test_enqueue_admin_is_silent_when_the_library_registered_the_page(): void
+    {
+        $page = new Test_WP_Settings_Exposer();
+        $page->admin_menu();
+        $page->enqueue_admin('some_other_hook');
+
+        $this->assertSame([], array_filter(
+            $this->getDoingItWrongCalls(),
+            static fn($call) => str_contains($call['message'], 'submenu page hook is empty')
+        ));
+    }
+
+    public function test_enqueue_admin_is_silent_when_the_slug_was_already_registered(): void
+    {
+        global $submenu;
+        $submenu = ['options-general.php' => [[ 'Test Plugin', 'manage_options', 'test_plugin' ]]];
+
+        $page = new Test_WP_Settings_Exposer();
+        $page->admin_menu();
+        $submenu = [];
+        $page->enqueue_admin('some_other_hook');
+
+        $this->assertSame([], array_filter(
+            $this->getDoingItWrongCalls(),
+            static fn($call) => str_contains($call['message'], 'submenu page hook is empty')
+        ));
     }
 }
 

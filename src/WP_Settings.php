@@ -67,6 +67,34 @@ class WP_Settings
     protected $text_domain;
 
     /**
+     * Admin menu the settings page is registered under.
+     *
+     * @var string
+     */
+    protected $parent_slug = "options-general.php";
+
+    /**
+     * Capability required to view and save the settings page.
+     *
+     * @var string
+     */
+    protected $capability = "manage_options";
+
+    /**
+     * Whether admin_menu() declined to register because the slug was taken.
+     *
+     * @var bool
+     */
+    private $menu_already_registered = false;
+
+    /**
+     * Whether the missing-hook notice has already gone out this request.
+     *
+     * @var bool
+     */
+    private $missing_hook_reported = false;
+
+    /**
      * Plugin version to display in footer.
      *
      * @var string|null
@@ -92,7 +120,8 @@ class WP_Settings
      * Initialize plugin settings.
      *
      * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
-     *                                   or a simple text domain string.
+     *                                   optionally 'Parent' and 'Capability' to place the page
+     *                                   somewhere other than Settings, or a simple text domain string.
      */
     protected function __construct($plugin_data = null)
     {
@@ -128,6 +157,23 @@ class WP_Settings
             );
         }
 
+        // Placement is data, not behavior: a page that belongs under a post
+        // type's menu used to mean overriding admin_menu(), which drops the
+        // submenu hook and silently disables the asset enqueue and every
+        // screen check that reads it (#30).
+        foreach (
+            ["Parent" => "parent_slug", "Capability" => "capability"]
+            as $key => $property
+        ) {
+            if (
+                isset($this->plugin_data[$key]) &&
+                is_string($this->plugin_data[$key]) &&
+                $this->plugin_data[$key] !== ""
+            ) {
+                $this->$property = $this->plugin_data[$key];
+            }
+        }
+
         // Set static text_domain for all WP_Setting instances
         WP_Setting::$text_domain = $this->text_domain;
         new WP_Setting_Encryption(
@@ -156,7 +202,7 @@ class WP_Settings
         global $submenu;
 
         $slug = $this->text_domain;
-        $parent = "options-general.php";
+        $parent = $this->parent_slug;
 
         // Check if a submenu with this slug already exists under this parent
         if (isset($submenu[$parent])) {
@@ -164,6 +210,7 @@ class WP_Settings
                 // $item[2] is the menu slug (see WordPress core add_submenu_page)
                 if (isset($item[2]) && $item[2] === $slug) {
                     // Menu already registered, skip to prevent duplicates
+                    $this->menu_already_registered = true;
                     return;
                 }
             }
@@ -174,7 +221,7 @@ class WP_Settings
             $parent,
             $this->plugin_data["Name"],
             $this->plugin_data["Name"],
-            "manage_options",
+            $this->capability,
             $slug,
             [$this, "menu_page_callback"],
         );
@@ -347,7 +394,7 @@ class WP_Settings
     public function menu_page_callback(): void
     {
         // Check user capabilities.
-        if (!\current_user_can("manage_options")) {
+        if (!\current_user_can($this->capability)) {
             return;
         }
 
@@ -538,11 +585,48 @@ class WP_Settings
     }
 
     /**
+     * Report a settings page registered without the library's own admin_menu().
+     *
+     * An override that calls `add_submenu_page()` itself leaves
+     * `$submenu_page_hook` empty, which turns off the stylesheet, the scripts
+     * and every screen check without a word — the password field's Show button
+     * still renders and does nothing (#30). Pass `Parent` and `Capability` to
+     * the constructor instead of overriding.
+     *
+     * @return void
+     */
+    protected function warn_missing_submenu_hook(): void
+    {
+        if (
+            $this->missing_hook_reported ||
+            $this->menu_already_registered ||
+            !empty($this->submenu_page_hook)
+        ) {
+            return;
+        }
+        $this->missing_hook_reported = true;
+
+        \_doing_it_wrong(
+            __METHOD__,
+            sprintf(
+                'The settings page for %s was registered without WP_Settings::admin_menu(), so the submenu ' .
+                'page hook is empty and this page gets no stylesheet, no scripts and no screen checks — the ' .
+                'password field\'s Show button renders and does nothing. Pass Parent and Capability in the ' .
+                'constructor\'s plugin data instead of overriding admin_menu().',
+                $this->plugin_data["Name"] ?? $this->text_domain
+            ),
+            '4.9.0'
+        );
+    }
+
+    /**
      * Enqueue the styles/scripts for the admin panel.
      * @param string $hook The current admin page.
      */
     public function enqueue_admin($hook): void
     {
+        $this->warn_missing_submenu_hook();
+
         // Only load on the plugin's admin page.
         if ($hook !== $this->submenu_page_hook) {
             return;

@@ -58,6 +58,7 @@ global $wp_test_options,
     $wp_test_inline_script_positions,
     $wp_test_current_screen_id,
     $wp_test_doing_it_wrong_calls,
+    $wp_test_submenu_pages,
     $wp_test_upload_basedir,
     $wp_test_upload_error;
 
@@ -75,6 +76,7 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_inline_script_positions,
         $wp_test_current_screen_id,
         $wp_test_doing_it_wrong_calls,
+        $wp_test_submenu_pages,
         $wp_test_upload_basedir,
         $wp_test_upload_error;
 
@@ -90,6 +92,7 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_inline_script_positions = [];
     $wp_test_current_screen_id = null;
     $wp_test_doing_it_wrong_calls = [];
+    $wp_test_submenu_pages = [];
     $wp_test_upload_basedir = "";
     $wp_test_upload_error = false;
 
@@ -227,6 +230,14 @@ if (!function_exists("add_submenu_page")) {
         $callback = "",
         $position = null,
     ) {
+        global $wp_test_submenu_pages;
+        $wp_test_submenu_pages[] = compact(
+            "parent_slug",
+            "page_title",
+            "menu_title",
+            "capability",
+            "menu_slug",
+        );
         return "settings_page_" . $menu_slug;
     }
 }
@@ -991,6 +1002,17 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
     {
         global $wp_test_doing_it_wrong_calls;
         return $wp_test_doing_it_wrong_calls ?? [];
+    }
+
+    /**
+     * Retrieve every add_submenu_page() call recorded since the last reset.
+     *
+     * @return array
+     */
+    protected function getSubmenuPages(): array
+    {
+        global $wp_test_submenu_pages;
+        return $wp_test_submenu_pages ?? [];
     }
 
     protected function getRegisteredSettingsFields(): array
