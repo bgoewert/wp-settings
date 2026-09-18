@@ -4,6 +4,15 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.9.0] - 2026-09-18
+
+### Added
+
+- The settings page can be registered under any admin menu and gated on any capability ([#30](https://github.com/bgoewert/wp-settings/issues/30)). `admin_menu()` built both from locals, so a page belonging under a post type's menu meant overriding the whole method — and the line the override replaces is what assigns the submenu page hook. Without it the page still renders and still saves, with no stylesheet, no scripts and no screen checks: the password field's *Show* button renders, because its markup is unconditional, and does nothing, because its handler was never enqueued. Pass `Parent` and `Capability` alongside `Name` and `TextDomain` instead, and registration stays the library's. The capability now also gates the page render, which was hardcoded and would have turned away the users a narrower capability was chosen for. Log viewing and clearing still require `manage_options`.
+
+  **Consumer note:** the defaults are unchanged — a consumer passing neither key keeps Settings and `manage_options`.
+- A settings page whose submenu hook is empty when the admin enqueue runs is reported with `_doing_it_wrong()`, naming the assets and screen checks it silently lost. A consumer that registers the page itself gets the notice on the first admin page load instead of finding out when somebody presses *Show*. The intended duplicate-slug skip stays silent.
+
 ## [4.8.1] - 2026-09-16
 
 ### Fixed
