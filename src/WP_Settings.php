@@ -727,6 +727,26 @@ class WP_Settings
             );
         }
 
+        if ($this->has_media_settings()) {
+            // Registers the modal's views, templates and settings, and only
+            // then is wp.media defined. It is heavy, so it stays off pages
+            // without a picker.
+            \wp_enqueue_media();
+            \wp_enqueue_style(
+                "wp-settings-admin-media",
+                \plugin_dir_url(__FILE__) . "assets/admin-media.css",
+                [],
+                $this->version ?? false,
+            );
+            \wp_enqueue_script(
+                "wp-settings-admin-media",
+                \plugin_dir_url(__FILE__) . "assets/admin-media.js",
+                ["media-editor"],
+                $this->version ?? false,
+                true,
+            );
+        }
+
         if ($this->has_richtext_settings()) {
             \wp_enqueue_editor();
         }
@@ -1361,6 +1381,16 @@ class WP_Settings
         }
 
         return false;
+    }
+
+    /**
+     * Whether any field on the page is a media picker, including inside a container.
+     *
+     * @return bool
+     */
+    protected function has_media_settings()
+    {
+        return $this->has_setting_of_type("media");
     }
 
     protected function has_sortable_settings()

@@ -231,6 +231,19 @@ final class WP_Settings_Harness extends WP_Settings
                 null,
                 array('encrypted' => true, 'rows' => 4)
             ),
+            'site_logo' => new WP_Setting(
+                'site_logo',
+                'Site Logo',
+                'media',
+                'general',
+                'lists',
+                null,
+                'Stored as an attachment id.',
+                false,
+                null,
+                null,
+                array('size' => 'thumbnail')
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',

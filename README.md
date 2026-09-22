@@ -221,7 +221,7 @@ The directory is created with `wp_mkdir_p()`, so it honours `FS_CHMOD_DIR` (0755
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `table`, `field_map`
+Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `media`, `table`, `field_map`
 
 **Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
@@ -238,6 +238,8 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 **Repeater**: Dynamic add/remove rows of child controls, stored in row order.
 
 **Dual List**: Two listboxes — Available on the left, chosen on the right — with buttons to move options across and to order the chosen side. Stores the chosen side as an ordered array of option keys.
+
+**Media**: A media library picker — Choose and Remove buttons over the `wp.media` modal, with a preview. Stores the attachment id.
 
 ### Input Attributes
 
@@ -307,7 +309,7 @@ Without it, storing an array in a string-typed setting is a silent data loss —
 
 WordPress renders each settings row as `<tr><th>title</th><td>field</td></tr>`, and `do_settings_fields()` wraps that `<th>` text in `<label for="…">` only when the field declares `label_for` in its `$args`. Fields set it for you, pointing at the control's own id (the field slug), so the visible title is the control's accessible name — without it every control on the screen has a heading assistive technology cannot associate with its input (WCAG 1.3.1, 4.1.2; axe `label`, and `select-name` for selects).
 
-This applies to every type rendered as one control carrying the slug: the text-like inputs, `textarea`, `select`, `checkbox`, and any custom input type. It is skipped for the types listed in `WP_Setting::UNLABELABLE_TYPES`, where no single control answers to the slug and a label would be an orphan — `radio` (one wrapped label per option), `sortable`, `table`, `field_map`, `repeater` (a control per row), `advanced`, `fieldset` (children label themselves), `hidden`, and `richtext` (TinyMCE hides the textarea the id belongs to).
+This applies to every type rendered as one control carrying the slug: the text-like inputs, `textarea`, `select`, `checkbox`, and any custom input type. It is skipped for the types listed in `WP_Setting::UNLABELABLE_TYPES`, where no single control answers to the slug and a label would be an orphan — `radio` (one wrapped label per option), `sortable`, `table`, `field_map`, `repeater` (a control per row), `advanced`, `fieldset` (children label themselves), `hidden`, `richtext` (TinyMCE hides the textarea the id belongs to), and `media` (the value is a hidden input; its Choose and Remove buttons carry the field title instead).
 
 To point the row label somewhere else, pass your own `label_for`; to suppress it, pass an empty string:
 
@@ -480,6 +482,38 @@ Items are dragged within the chosen list to order them, or across to move them, 
 Each side is a `ul[role=listbox]` of `li[role=option]`, not a `select[multiple]`: an `<option>` fires no drag events in Firefox or Safari, so a select cannot be dragged at all. That means the selection model is the library's own, following the WAI-ARIA listbox pattern — click, ctrl/cmd-click and shift-click select, arrows move the active item with shift extending, space toggles, and Enter moves the selection to the other list. Consumer browser tests should drive the field by clicking `.wps-dual-list-item[data-key="…"]` rather than with a `selectOption` call.
 
 `size` is the number of rows a side shows before it scrolls, as it was on the `<select>` it replaced; it becomes the list's height.
+
+### Media Field Example
+
+A logo, an email masthead or a default og:image is a choice from the media library, not a URL someone pastes in.
+
+```php
+new WP_Setting(
+    'email_logo',
+    __( 'Email Logo', 'my-plugin' ),
+    'media',
+    'email',
+    'branding',
+    null,
+    __( 'Shown at the top of every notification.', 'my-plugin' ),
+    false,
+    null,
+    null,
+    array(
+        'mime_types' => 'image',   // default; a family, an exact type, or a list of either
+        'size'       => 'medium',  // default; the registered size the preview renders
+    )
+);
+
+// Reading it back:
+$url = WP_Setting::get_attachment_url( 'email_logo', 'full' );
+```
+
+The value is the attachment id, as an `int`, or `''` when nothing is chosen. An id survives a domain change and a CDN move where a URL does not, which is why core stores `custom_logo` the same way. `WP_Setting::get_attachment_url( $name, $size = 'full' )` turns it back into a URL — the image at that size, or the file URL for a non-image — and returns `''` when nothing is chosen or the attachment is gone.
+
+`mime_types` takes a family (`image`, which accepts `image/png`), an exact type (`application/pdf`), or an array of either; an empty array accepts any attachment. It filters the modal's library and is checked again on save, so an id of the wrong type, one that is not an attachment, or one whose attachment was deleted saves as `''` rather than as a broken image. A stored id whose attachment has since been deleted renders as no choice, and the next save clears it.
+
+The preview's alt text is the attachment's own, falling back to its title — the field title says what the slot is for, not what fills it. A non-image previews as its file name. `wp_enqueue_media()` and the field's script load only on a page that has a `media` field, including one inside an `advanced` container.
 
 ### Table Field Example
 

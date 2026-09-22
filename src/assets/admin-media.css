@@ -1,0 +1,29 @@
+/* WordPress Settings Library - Media Field */
+
+.wps-media {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.wps-media-preview {
+    flex-basis: 100%;
+}
+
+.wps-media-preview:empty {
+    display: none;
+}
+
+.wps-media-image {
+    display: block;
+    max-width: 300px;
+    max-height: 150px;
+    height: auto;
+    border: 1px solid #c3c4c7;
+}
+
+/* .button sets display, which would otherwise win over the hidden attribute. */
+.wps-media [hidden] {
+    display: none;
+}

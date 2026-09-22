@@ -255,8 +255,9 @@ class WP_Setting
      * wrapped label per option (its inputs have no id at all), `sortable`,
      * `table`, `field_map` and `repeater` render a control per row, `advanced`
      * and `fieldset` delegate to children that label themselves, `hidden`
-     * renders no visible control, and `richtext` hands its id to a textarea that
-     * TinyMCE hides behind an iframe. Pointing a label at an id nothing carries
+     * renders no visible control, `richtext` hands its id to a textarea that
+     * TinyMCE hides behind an iframe, and `media` keeps its value in a hidden
+     * input, which no label can name — its buttons carry the title instead. Pointing a label at an id nothing carries
      * trades a missing label for an orphan one, so these keep a plain heading.
      *
      * Every other type — the text-like inputs, `textarea`, `select`, `checkbox`,
@@ -293,6 +294,7 @@ class WP_Setting
         'advanced',
         'fieldset',
         'hidden',
+        'media',
     );
 
     /**
@@ -424,6 +426,7 @@ class WP_Setting
             'style'        => array(),
             'data-toggle'   => array(),
             'data-move'     => array(),
+            'hidden'        => array(),
         ),
         'details'  => array(
             'class' => array(),
@@ -442,6 +445,14 @@ class WP_Setting
             'data-index' => array(),
             'data-role'  => array(),
             'data-name'  => array(),
+            'data-mime-types'  => array(),
+            'data-size'        => array(),
+            'data-frame-title' => array(),
+        ),
+        'img'      => array(
+            'src'   => array(),
+            'alt'   => array(),
+            'class' => array(),
         ),
         'template' => array(
             'class' => array(),
@@ -718,6 +729,10 @@ class WP_Setting
 
                 case 'dual_list':
                     $this->sanitize_callback = array($this, 'sanitize_dual_list');
+                    break;
+
+                case 'media':
+                    $this->sanitize_callback = array($this, 'sanitize_media');
                     break;
             }
         }
@@ -997,6 +1012,33 @@ class WP_Setting
             $setting = str_replace(self::$text_domain . '_', $normalized_domain . '_', $setting);
         }
         return \delete_option($setting);
+    }
+
+    /**
+     * The URL of the attachment a `media` setting holds.
+     *
+     * The stored value is an attachment id; this is the read a consumer wants.
+     *
+     * @param string       $setting The name of the setting.
+     * @param string|int[] $size    Registered image size, or [width, height]. Ignored for non-images.
+     * @return string The URL, or '' when nothing is chosen or the attachment is gone.
+     */
+    public static function get_attachment_url($setting, $size = 'full'): string
+    {
+        $value = self::get($setting, '');
+        $attachment_id = is_scalar($value)
+            ? filter_var($value, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)))
+            : false;
+
+        if (false === $attachment_id || 'attachment' !== \get_post_type($attachment_id)) {
+            return '';
+        }
+
+        $url = \wp_attachment_is_image($attachment_id)
+            ? \wp_get_attachment_image_url($attachment_id, $size)
+            : \wp_get_attachment_url($attachment_id);
+
+        return is_string($url) ? $url : '';
     }
 
     /**
@@ -1335,6 +1377,9 @@ class WP_Setting
                 break;
             case 'dual_list':
                 $this->render_dual_list_value($name, $id, $value);
+                break;
+            case 'media':
+                $this->render_media_value($name, $id, $value);
                 break;
             case 'table':
                 $this->render_table_value($name, $id, $value);
@@ -2229,6 +2274,163 @@ class WP_Setting
         }
         echo '</ul>';
         echo '</div>';
+    }
+
+    /**
+     * The MIME types a `media` field accepts, as `wp.media` takes them.
+     *
+     * An entry without a slash is a family (`image` accepts `image/png`); an
+     * empty list accepts any attachment.
+     *
+     * @return list<string>
+     */
+    private function media_mime_types(): array
+    {
+        $types = $this->args['mime_types'] ?? array('image');
+
+        return array_values(array_filter(
+            array_map(static fn($type) => strtolower(trim((string) $type)), (array) $types),
+            static fn($type) => '' !== $type
+        ));
+    }
+
+    /**
+     * Whether an attachment id still resolves, to a type this field accepts.
+     *
+     * @param int $attachment_id Attachment post id.
+     * @return bool
+     */
+    private function media_accepts(int $attachment_id): bool
+    {
+        if ('attachment' !== \get_post_type($attachment_id)) {
+            return false;
+        }
+
+        $accepted = $this->media_mime_types();
+        if (empty($accepted)) {
+            return true;
+        }
+
+        $mime = strtolower((string) \get_post_mime_type($attachment_id));
+        foreach ($accepted as $type) {
+            if ($mime === $type || (!str_contains($type, '/') && str_starts_with($mime, $type . '/'))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reduce a submitted `media` value to an attachment id this field accepts.
+     *
+     * A deleted attachment, or one of a type the field does not take, reads as
+     * no choice — an id pointing at nothing would render as a broken image.
+     *
+     * @param mixed $value Raw submitted value.
+     * @return int|string The attachment id, or '' for none.
+     */
+    public function sanitize_media($value): int|string
+    {
+        $attachment_id = is_scalar($value)
+            ? filter_var($value, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)))
+            : false;
+
+        if (false === $attachment_id || !$this->media_accepts($attachment_id)) {
+            return '';
+        }
+
+        return $attachment_id;
+    }
+
+    /**
+     * The markup previewing an attachment: the image, or the file name.
+     *
+     * The image's alt text is the attachment's own, falling back to its title,
+     * because the field title says what the slot is for, not what fills it.
+     *
+     * @param int $attachment_id Attachment post id.
+     * @return string
+     */
+    private function media_preview(int $attachment_id): string
+    {
+        if (\wp_attachment_is_image($attachment_id)) {
+            $alt = (string) \get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+
+            return sprintf(
+                '<img class="wps-media-image" src="%s" alt="%s">',
+                \esc_url((string) \wp_get_attachment_image_url($attachment_id, $this->args['size'] ?? 'medium')),
+                \esc_attr('' !== $alt ? $alt : \get_the_title($attachment_id))
+            );
+        }
+
+        return sprintf(
+            '<span class="wps-media-filename">%s</span>',
+            \esc_html(\wp_basename((string) \get_attached_file($attachment_id)))
+        );
+    }
+
+    /**
+     * Render a media library picker storing an attachment id.
+     *
+     * The id is the value, not the URL, so the setting survives a domain or CDN
+     * change. A stored id that no longer resolves renders as no choice, so the
+     * next save clears it.
+     *
+     * @param string $name  Field name.
+     * @param string $id    Field id.
+     * @param mixed  $value Field value.
+     * @return void
+     */
+    protected function render_media_value($name, $id, $value): void
+    {
+        $attachment_id = $this->sanitize_media($value);
+
+        echo \wp_kses(
+            sprintf(
+                '<div class="wps-media" data-field="%s" data-mime-types="%s" data-size="%s" data-frame-title="%s">',
+                \esc_attr($id),
+                \esc_attr(\wp_json_encode($this->media_mime_types())),
+                \esc_attr($this->args['size'] ?? 'medium'),
+                \esc_attr(sprintf('Choose %s', $this->title))
+            ),
+            self::$allowed_html
+        );
+        echo \wp_kses(
+            sprintf(
+                '<input type="hidden" class="wps-media-value" name="%s" id="%s" value="%s">',
+                \esc_attr($name),
+                \esc_attr($id),
+                \esc_attr((string) $attachment_id)
+            ),
+            self::$allowed_html
+        );
+        echo \wp_kses(
+            sprintf(
+                '<div class="wps-media-preview">%s</div>',
+                '' === $attachment_id ? '' : $this->media_preview($attachment_id)
+            ),
+            self::$allowed_html
+        );
+        // The visible word is the start of the accessible name, so speech input
+        // can still say "Choose" (WCAG 2.5.3), and the title tells two pickers
+        // on one page apart.
+        echo \wp_kses(
+            sprintf(
+                '<button type="button" class="button wps-media-choose hide-if-no-js">Choose' .
+                '<span class="screen-reader-text"> %1$s</span></button>' .
+                '<button type="button" class="button wps-media-remove hide-if-no-js"%2$s>Remove' .
+                '<span class="screen-reader-text"> %1$s</span></button>',
+                \esc_html($this->title),
+                '' === $attachment_id ? ' hidden' : ''
+            ),
+            self::$allowed_html
+        );
+        echo '</div>';
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
     }
 
 

@@ -60,7 +60,9 @@ global $wp_test_options,
     $wp_test_doing_it_wrong_calls,
     $wp_test_submenu_pages,
     $wp_test_upload_basedir,
-    $wp_test_upload_error;
+    $wp_test_upload_error,
+    $wp_test_attachments,
+    $wp_test_media_enqueued;
 
 function wp_settings_test_reset_stubs(): void
 {
@@ -78,7 +80,9 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_doing_it_wrong_calls,
         $wp_test_submenu_pages,
         $wp_test_upload_basedir,
-        $wp_test_upload_error;
+        $wp_test_upload_error,
+        $wp_test_attachments,
+        $wp_test_media_enqueued;
 
     $wp_test_options = [];
     $wp_test_actions = [];
@@ -95,6 +99,8 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_submenu_pages = [];
     $wp_test_upload_basedir = "";
     $wp_test_upload_error = false;
+    $wp_test_attachments = [];
+    $wp_test_media_enqueued = 0;
 
     // Declared further down, once the class it builds exists.
     if (function_exists("wp_settings_test_reset_wpdb")) {
@@ -592,6 +598,109 @@ if (!function_exists("wp_add_inline_script")) {
     }
 }
 
+if (!function_exists("wp_enqueue_media")) {
+    function wp_enqueue_media($args = [])
+    {
+        global $wp_test_media_enqueued;
+        $wp_test_media_enqueued++;
+    }
+}
+
+/**
+ * Register a stub attachment the media functions below resolve.
+ *
+ * @param int    $id   Attachment id.
+ * @param string $mime MIME type.
+ * @param array  $meta Optional 'alt', 'title', 'file' and 'url'.
+ */
+function wp_settings_test_add_attachment(int $id, string $mime, array $meta = []): void
+{
+    global $wp_test_attachments;
+    $wp_test_attachments[$id] = array_merge(
+        [
+            "mime"  => $mime,
+            "alt"   => "",
+            "title" => "Attachment " . $id,
+            "file"  => "/uploads/file-" . $id,
+            "url"   => "http://example.com/uploads/file-" . $id,
+        ],
+        $meta
+    );
+}
+
+if (!function_exists("get_post_type")) {
+    function get_post_type($post = null)
+    {
+        global $wp_test_attachments;
+        return isset($wp_test_attachments[(int) $post]) ? "attachment" : false;
+    }
+}
+
+if (!function_exists("get_post_mime_type")) {
+    function get_post_mime_type($post = null)
+    {
+        global $wp_test_attachments;
+        return $wp_test_attachments[(int) $post]["mime"] ?? false;
+    }
+}
+
+if (!function_exists("wp_attachment_is_image")) {
+    function wp_attachment_is_image($post = null)
+    {
+        return str_starts_with((string) get_post_mime_type($post), "image/");
+    }
+}
+
+if (!function_exists("get_post_meta")) {
+    function get_post_meta($post_id, $key = "", $single = false)
+    {
+        global $wp_test_attachments;
+        return $key === "_wp_attachment_image_alt" ? ($wp_test_attachments[(int) $post_id]["alt"] ?? "") : "";
+    }
+}
+
+if (!function_exists("get_the_title")) {
+    function get_the_title($post = 0)
+    {
+        global $wp_test_attachments;
+        return $wp_test_attachments[(int) $post]["title"] ?? "";
+    }
+}
+
+if (!function_exists("get_attached_file")) {
+    function get_attached_file($attachment_id, $unfiltered = false)
+    {
+        global $wp_test_attachments;
+        return $wp_test_attachments[(int) $attachment_id]["file"] ?? false;
+    }
+}
+
+if (!function_exists("wp_get_attachment_url")) {
+    function wp_get_attachment_url($attachment_id = 0)
+    {
+        global $wp_test_attachments;
+        return $wp_test_attachments[(int) $attachment_id]["url"] ?? false;
+    }
+}
+
+if (!function_exists("wp_get_attachment_image_url")) {
+    function wp_get_attachment_image_url($attachment_id, $size = "thumbnail", $icon = false)
+    {
+        if (!wp_attachment_is_image($attachment_id)) {
+            return false;
+        }
+        $suffix = is_array($size) ? implode("x", $size) : $size;
+        return wp_get_attachment_url($attachment_id) . "-" . $suffix;
+    }
+}
+
+if (!function_exists("wp_basename")) {
+    function wp_basename($path, $suffix = "")
+    {
+        return basename($path, $suffix);
+    }
+}
+
 if (!function_exists("plugin_dir_url")) {
     function plugin_dir_url($file)
     {
@@ -1069,6 +1178,12 @@ abstract class WP_Settings_TestCase extends \PHPUnit\Framework\TestCase
     {
         global $wp_test_enqueued_styles;
         return $wp_test_enqueued_styles ?? [];
+    }
+
+    protected function getMediaEnqueueCount(): int
+    {
+        global $wp_test_media_enqueued;
+        return $wp_test_media_enqueued ?? 0;
     }
 
     protected function getInlineScripts(): array

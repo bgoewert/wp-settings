@@ -652,6 +652,40 @@ class WPSettingsTest extends WP_Settings_TestCase
         $this->assertContains('wp-settings-admin-sortable', $this->getEnqueuedStyles());
     }
 
+    public function test_enqueue_admin_enqueues_media_assets_when_needed(): void
+    {
+        $page = new Test_WP_Settings_Exposer([make_setting('logo', 'media')]);
+        $page->set_submenu_hook('settings_page_test-plugin');
+        $page->enqueue_admin('settings_page_test-plugin');
+
+        $this->assertSame(1, $this->getMediaEnqueueCount());
+        $this->assertContains('wp-settings-admin-media', $this->getEnqueuedScripts());
+        $this->assertContains('wp-settings-admin-media', $this->getEnqueuedStyles());
+    }
+
+    public function test_enqueue_admin_finds_a_media_field_inside_a_container(): void
+    {
+        $group = new WP_Setting('group', 'Group', 'advanced', 'general', 'general', null, null, false, null, null, [
+            'children' => [make_setting('logo', 'media')],
+        ]);
+        $page = new Test_WP_Settings_Exposer([$group]);
+        $page->set_submenu_hook('settings_page_test-plugin');
+        $page->enqueue_admin('settings_page_test-plugin');
+
+        $this->assertSame(1, $this->getMediaEnqueueCount());
+    }
+
+    /** wp_enqueue_media() pulls in the whole modal, so a page without a picker skips it. */
+    public function test_enqueue_admin_skips_the_media_modal_without_a_media_field(): void
+    {
+        $page = new Test_WP_Settings_Exposer([make_setting('title')]);
+        $page->set_submenu_hook('settings_page_test-plugin');
+        $page->enqueue_admin('settings_page_test-plugin');
+
+        $this->assertSame(0, $this->getMediaEnqueueCount());
+        $this->assertNotContains('wp-settings-admin-media', $this->getEnqueuedScripts());
+    }
+
     public function test_enqueue_admin_enqueues_admin_assets_for_conditional_settings(): void
     {
         $s    = make_conditional_setting('value', 'toggle');

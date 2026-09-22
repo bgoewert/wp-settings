@@ -3924,6 +3924,187 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertFalse($this->makeDualList()->renders_labelable_control());
     }
 
+    // -------------------------------------------------------------------------
+    // Issue 31: media (attachment picker)
+    // -------------------------------------------------------------------------
+
+    private function makeMedia(array $args = []): WP_Setting
+    {
+        return new WP_Setting('logo', 'Logo', 'media', 'general', 'main', null, 'Shown in the header.', false, null, null, $args);
+    }
+
+    private function renderMedia($value, array $args = []): string
+    {
+        ob_start();
+        $this->makeMedia($args)->render_unbound($value, 'logo', 'logo');
+        return (string) ob_get_clean();
+    }
+
+    /** The id is the value, so it survives a domain or CDN move. */
+    public function test_media_stores_an_attachment_id(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png');
+
+        $this->assertSame(42, $this->makeMedia()->sanitize_value('42'));
+    }
+
+    /** A deleted attachment reads as no image rather than a broken one. */
+    public function test_media_drops_an_id_that_no_longer_resolves(): void
+    {
+        $this->assertSame('', $this->makeMedia()->sanitize_value('42'));
+    }
+
+    public function test_media_rejects_a_value_that_is_not_an_id(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png');
+        $setting = $this->makeMedia();
+
+        foreach (['', '0', '-42', '42abc', 'http://example.com/logo.png', ['42'], null] as $value) {
+            $this->assertSame('', $setting->sanitize_value($value));
+        }
+    }
+
+    /** The default accepts images only, the type a logo or og:image needs. */
+    public function test_media_accepts_images_by_default(): void
+    {
+        wp_settings_test_add_attachment(7, 'application/pdf');
+
+        $this->assertSame('', $this->makeMedia()->sanitize_value(7));
+    }
+
+    public function test_media_mime_types_name_a_family_or_an_exact_type(): void
+    {
+        wp_settings_test_add_attachment(7, 'application/pdf');
+        wp_settings_test_add_attachment(8, 'image/png');
+
+        $this->assertSame(7, $this->makeMedia(['mime_types' => 'application/pdf'])->sanitize_value(7));
+        $this->assertSame(8, $this->makeMedia(['mime_types' => ['video', 'image']])->sanitize_value(8));
+        $this->assertSame('', $this->makeMedia(['mime_types' => 'image/jpeg'])->sanitize_value(8));
+    }
+
+    public function test_media_with_no_mime_types_accepts_any_attachment(): void
+    {
+        wp_settings_test_add_attachment(7, 'application/pdf');
+
+        $this->assertSame(7, $this->makeMedia(['mime_types' => []])->sanitize_value(7));
+    }
+
+    /** The preview carries the attachment's alt text, not the field title. */
+    public function test_media_previews_the_image_with_its_own_alt_text(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png', ['alt' => 'Seiler wordmark', 'url' => 'http://example.com/logo.png']);
+
+        $output = $this->renderMedia(42);
+
+        $this->assertStringContainsString('<input type="hidden" class="wps-media-value" name="logo" id="logo" value="42">', $output);
+        $this->assertStringContainsString('<img class="wps-media-image" src="http://example.com/logo.png-medium" alt="Seiler wordmark">', $output);
+    }
+
+    public function test_media_preview_alt_falls_back_to_the_attachment_title(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png', ['title' => 'Wordmark']);
+
+        $this->assertStringContainsString('alt="Wordmark"', $this->renderMedia(42));
+    }
+
+    public function test_media_size_names_the_preview_size(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png', ['url' => 'http://example.com/logo.png']);
+
+        $this->assertStringContainsString('src="http://example.com/logo.png-thumbnail"', $this->renderMedia(42, ['size' => 'thumbnail']));
+        $this->assertStringContainsString('data-size="thumbnail"', $this->renderMedia(42, ['size' => 'thumbnail']));
+    }
+
+    public function test_media_previews_a_non_image_by_file_name(): void
+    {
+        wp_settings_test_add_attachment(7, 'application/pdf', ['file' => '/uploads/2026/09/spec-sheet.pdf']);
+
+        $output = $this->renderMedia(7, ['mime_types' => 'application/pdf']);
+
+        $this->assertStringContainsString('<span class="wps-media-filename">spec-sheet.pdf</span>', $output);
+        $this->assertStringNotContainsString('<img', $output);
+    }
+
+    /** A stored id whose attachment was deleted renders empty, so the next save clears it. */
+    public function test_media_renders_a_deleted_attachment_as_no_choice(): void
+    {
+        $output = $this->renderMedia(42);
+
+        $this->assertStringContainsString('value=""', $output);
+        $this->assertStringContainsString('<div class="wps-media-preview"></div>', $output);
+        $this->assertStringContainsString('class="button wps-media-remove hide-if-no-js" hidden>', $output);
+    }
+
+    /** The buttons carry the field title, so two pickers on one page are told apart. */
+    public function test_media_buttons_are_named_after_the_field(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png');
+
+        $output = $this->renderMedia(42);
+
+        $this->assertStringContainsString('>Choose<span class="screen-reader-text"> Logo</span></button>', $output);
+        $this->assertStringContainsString('<button type="button" class="button wps-media-remove hide-if-no-js">Remove<span class="screen-reader-text"> Logo</span></button>', $output);
+    }
+
+    public function test_media_hands_the_script_its_mime_types_and_frame_title(): void
+    {
+        $output = $this->renderMedia(null, ['mime_types' => ['image', 'application/pdf']]);
+
+        $this->assertSame(1, preg_match('/data-mime-types="([^"]*)"/', $output, $match));
+        $this->assertSame(['image', 'application/pdf'], json_decode(html_entity_decode($match[1]), true));
+        $this->assertStringContainsString('data-frame-title="Choose Logo"', $output);
+    }
+
+    public function test_media_renders_its_description(): void
+    {
+        $this->assertStringContainsString('<p class="description">Shown in the header.</p>', $this->renderMedia(null));
+    }
+
+    /** The value lives in a hidden input, which no label can name. */
+    public function test_media_is_not_labelable_as_one_control(): void
+    {
+        $this->assertFalse($this->makeMedia()->renders_labelable_control());
+    }
+
+    public function test_media_markup_survives_the_kses_allow_list(): void
+    {
+        $allowed = WP_Setting::$allowed_html;
+
+        $this->assertArrayHasKey('src', $allowed['img']);
+        $this->assertArrayHasKey('alt', $allowed['img']);
+        $this->assertArrayHasKey('hidden', $allowed['button']);
+        $this->assertArrayHasKey('data-mime-types', $allowed['div']);
+        $this->assertArrayHasKey('data-size', $allowed['div']);
+        $this->assertArrayHasKey('data-frame-title', $allowed['div']);
+    }
+
+    public function test_get_attachment_url_reads_the_stored_id(): void
+    {
+        wp_settings_test_add_attachment(42, 'image/png', ['url' => 'http://example.com/logo.png']);
+        WP_Setting::set('logo', 42);
+
+        $this->assertSame('http://example.com/logo.png-full', WP_Setting::get_attachment_url('logo'));
+        $this->assertSame('http://example.com/logo.png-medium', WP_Setting::get_attachment_url('logo', 'medium'));
+    }
+
+    public function test_get_attachment_url_returns_the_file_url_for_a_non_image(): void
+    {
+        wp_settings_test_add_attachment(7, 'application/pdf', ['url' => 'http://example.com/spec.pdf']);
+        WP_Setting::set('sheet', 7);
+
+        $this->assertSame('http://example.com/spec.pdf', WP_Setting::get_attachment_url('sheet'));
+    }
+
+    public function test_get_attachment_url_is_empty_when_nothing_resolves(): void
+    {
+        WP_Setting::set('logo', 42);
+        WP_Setting::set('empty_logo', '');
+
+        $this->assertSame('', WP_Setting::get_attachment_url('logo'));
+        $this->assertSame('', WP_Setting::get_attachment_url('empty_logo'));
+        $this->assertSame('', WP_Setting::get_attachment_url('never_set'));
+    }
+
     /**
      * A field declaring `encrypted` renders the plaintext, so the admin edits a
      * value rather than a wall of base64.
