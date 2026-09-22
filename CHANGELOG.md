@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.10.0] - 2026-09-22
+
+### Added
+
+- A `media` field type picks an attachment from the media library ([#31](https://github.com/bgoewert/wp-settings/issues/31)). It renders Choose and Remove buttons over the `wp.media` modal with a preview, and stores the attachment id, so the setting survives a domain change or a CDN move. `mime_types` (default `image`) filters the modal and is checked again on save, and `size` (default `medium`) names the preview's image size. An id that is not an attachment, is the wrong type, or whose attachment was deleted saves and renders as no image rather than a broken one. The preview's alt text is the attachment's own. `wp_enqueue_media()` loads only on a page with a media field.
+- `WP_Setting::get_attachment_url( $name, $size = 'full' )` reads a media setting back as a URL, returning `''` when nothing is chosen or the attachment is gone.
+
 ## [4.9.0] - 2026-09-18
 
 ### Added
