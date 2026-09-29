@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.12.0] - 2026-09-29
+
+### Added
+
+- A `status` field type shows a derived reading, such as a connection state or a last-sync time, as text in the settings table ([#33](https://github.com/bgoewert/wp-settings/issues/33)). `value` is a string or a callable called when the row renders, and `actions` sit beside it as on any field. The field stores nothing: no option is seeded or registered, and a save skips it.
+
 ## [4.11.0] - 2026-09-29
 
 ### Added
