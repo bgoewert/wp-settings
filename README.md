@@ -221,7 +221,7 @@ The directory is created with `wp_mkdir_p()`, so it honours `FS_CHMOD_DIR` (0755
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `media`, `table`, `field_map`
+Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `media`, `status`, `table`, `field_map`
 
 **Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
@@ -240,6 +240,10 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 **Dual List**: Two listboxes — Available on the left, chosen on the right — with buttons to move options across and to order the chosen side. Stores the chosen side as an ordered array of option keys.
 
 **Media**: A media library picker — Choose and Remove buttons over the `wp.media` modal, with a preview. Stores the attachment id.
+
+**Status**: A display-only row — the title and a derived reading, such as a connection state, as text. Stores nothing.
+
+**Status**: A display-only row — the label and a derived reading such as a connection state, as text. Stores nothing.
 
 ### Input Attributes
 
@@ -332,11 +336,32 @@ On a text-like input (`text`, `password`, `email`, `url`, `number` and other sin
 
 `action` becomes a hook name, so it takes letters, digits, `_` and `-` only; an entry without a `label` or with any other `action` is dropped.
 
+### Status Rows
+
+A connection state or a last-sync time is read, not set, but its Test connection button belongs beside it. A `status` field renders `value` as text in the row and takes `actions` like any other field:
+
+```php
+new WP_Setting(
+    'connection', 'Connection', 'status', 'settings', 'portal',
+    null, null, false, null, null,
+    array(
+        'value'   => fn() => my_plugin_connection_label(),
+        'actions' => array(
+            array('label' => 'Test connection', 'action' => 'my_plugin_test_connection'),
+        ),
+    )
+);
+```
+
+`value` is a string, or a callable called when the row renders — not on every `admin_init`, so a remote check only runs on the page that shows it. It passes through the same kses list as a description, so `<code>`, `<span>` and links survive. The buttons sit beside the value unless `actions_position` is `below`.
+
+Nothing is stored: the field seeds no option, registers nothing with `register_setting()`, and a save skips it. The row heading is plain text rather than a `<label>`, since there is no control to name.
+
 ### Row Labels
 
 WordPress renders each settings row as `<tr><th>title</th><td>field</td></tr>`, and `do_settings_fields()` wraps that `<th>` text in `<label for="…">` only when the field declares `label_for` in its `$args`. Fields set it for you, pointing at the control's own id (the field slug), so the visible title is the control's accessible name — without it every control on the screen has a heading assistive technology cannot associate with its input (WCAG 1.3.1, 4.1.2; axe `label`, and `select-name` for selects).
 
-This applies to every type rendered as one control carrying the slug: the text-like inputs, `textarea`, `select`, `checkbox`, and any custom input type. It is skipped for the types listed in `WP_Setting::UNLABELABLE_TYPES`, where no single control answers to the slug and a label would be an orphan — `radio` (one wrapped label per option), `sortable`, `table`, `field_map`, `repeater` (a control per row), `advanced`, `fieldset` (children label themselves), `hidden`, `richtext` (TinyMCE hides the textarea the id belongs to), and `media` (the value is a hidden input; its Choose and Remove buttons carry the field title instead).
+This applies to every type rendered as one control carrying the slug: the text-like inputs, `textarea`, `select`, `checkbox`, and any custom input type. It is skipped for the types listed in `WP_Setting::UNLABELABLE_TYPES`, where no single control answers to the slug and a label would be an orphan — `radio` (one wrapped label per option), `sortable`, `table`, `field_map`, `repeater` (a control per row), `advanced`, `fieldset` (children label themselves), `hidden`, `richtext` (TinyMCE hides the textarea the id belongs to), `media` (the value is a hidden input; its Choose and Remove buttons carry the field title instead), and `status` (text, not a control).
 
 To point the row label somewhere else, pass your own `label_for`; to suppress it, pass an empty string:
 

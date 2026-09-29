@@ -123,6 +123,8 @@ class WP_Setting
      *   rendered with the field, each posting to `admin_post_{action}` with a nonce.
      * - actions_position => _'inline'|'below'_ Where the action buttons go. Text-like
      *   inputs default to beside the input; every other type renders them below.
+     * - value => _string|callable_ On `status`, the reading to show. A callable is called
+     *   when the row renders.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
      *   - 'field' => string - Field name to check
      *   - 'operator' => string - 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
@@ -317,6 +319,7 @@ class WP_Setting
         'fieldset',
         'hidden',
         'media',
+        'status',
     );
 
     /**
@@ -808,6 +811,10 @@ class WP_Setting
                     $this->callback = array($this, 'init_repeater');
                     break;
 
+                case 'status':
+                    $this->callback = array($this, 'init_status');
+                    break;
+
                 default:
                     $this->callback = array($this, 'init_type');
                     break;
@@ -844,18 +851,11 @@ class WP_Setting
      */
     private function add_setting(bool $register_field = true): void
     {
-        \add_option($this->slug, $this->default_value, '', $this->autoload === null ? null : ($this->autoload ? 'yes' : 'no'));
-
-        $register_args = array('default' => $this->default_value);
-        if ($this->sanitize_callback !== null) {
-            $register_args['sanitize_callback'] = $this->sanitize_callback;
+        // A status row reports a value that lives elsewhere, so there is no option
+        // to seed, and registering one would let options.php write it.
+        if ('status' !== $this->type) {
+            $this->register_option();
         }
-
-        if ($this->encrypted) {
-            $register_args['sanitize_callback'] = $this->encrypting_sanitizer($this->sanitize_callback);
-        }
-
-        \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
 
         if (!$register_field) {
             return;
@@ -871,6 +871,27 @@ class WP_Setting
             $this->renders_as_settings_row = true;
             \add_settings_field($this->slug . '_field', '', $this->callback, self::$text_domain . '_' . $this->page, self::$text_domain . '_section_' . $this->section, $this->args);
         }
+    }
+
+    /**
+     * Seed the field's option and register it with the Settings API.
+     *
+     * @return void
+     */
+    private function register_option(): void
+    {
+        \add_option($this->slug, $this->default_value, '', $this->autoload === null ? null : ($this->autoload ? 'yes' : 'no'));
+
+        $register_args = array('default' => $this->default_value);
+        if ($this->sanitize_callback !== null) {
+            $register_args['sanitize_callback'] = $this->sanitize_callback;
+        }
+
+        if ($this->encrypted) {
+            $register_args['sanitize_callback'] = $this->encrypting_sanitizer($this->sanitize_callback);
+        }
+
+        \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
     }
 
     /**
@@ -1134,6 +1155,9 @@ class WP_Setting
                 self::set($this->slug, $value);
                 break;
 
+            case 'status':
+                break;
+
             case 'advanced':
             case 'fieldset':
                 // Save all child settings
@@ -1254,6 +1278,17 @@ class WP_Setting
     {
         $value = $this->current_value();
         $this->render_unbound($value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Create a status row showing the field's `value`.
+     *
+     * @return void
+     */
+    public function init_status(): void
+    {
+        $value = $this->args['value'] ?? '';
+        $this->render_unbound(is_callable($value) ? call_user_func($value) : $value, $this->slug, $this->slug);
     }
 
     /**
@@ -1408,6 +1443,9 @@ class WP_Setting
                 break;
             case 'media':
                 $this->render_media_value($name, $id, $value);
+                break;
+            case 'status':
+                $this->render_status_value($id, $value);
                 break;
             case 'table':
                 $this->render_table_value($name, $id, $value);
@@ -2459,6 +2497,27 @@ class WP_Setting
         );
         echo '</div>';
 
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
+    }
+
+    /**
+     * Render a status reading as text, with its actions beside it.
+     *
+     * @param string $id    Field id.
+     * @param mixed  $value The reading.
+     * @return void
+     */
+    protected function render_status_value($id, $value): void
+    {
+        echo \wp_kses(
+            sprintf('<span class="wps-status" id="%s">%s</span>', \esc_attr($id), is_scalar($value) ? (string) $value : ''),
+            self::$allowed_html
+        );
+        if ('below' !== ($this->args['actions_position'] ?? 'inline')) {
+            $this->render_actions($id, true);
+        }
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
         }

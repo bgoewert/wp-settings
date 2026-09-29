@@ -259,6 +259,24 @@ final class WP_Settings_Harness extends WP_Settings
                     array('label' => 'Generate', 'action' => 'wp_settings_harness_generate'),
                 ))
             ),
+            'key_status' => new WP_Setting(
+                'key_status',
+                'Key Status',
+                'status',
+                'general',
+                'lists',
+                null,
+                'Derived from the signing key.',
+                false,
+                null,
+                null,
+                array(
+                    'value'   => static fn(): string => '' === (string) get_option(self::TEXT_DOMAIN . '_signing_key', '') ? 'Not set' : 'Set',
+                    'actions' => array(
+                        array('label' => 'Clear', 'action' => 'wp_settings_harness_clear'),
+                    ),
+                )
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',
@@ -278,6 +296,10 @@ final class WP_Settings_Harness extends WP_Settings
 // nonce and capability, and redirects back once this returns.
 add_action('admin_post_wp_settings_harness_generate', static function (): void {
     update_option(WP_Settings_Harness::TEXT_DOMAIN . '_signing_key', wp_generate_password(32, false));
+});
+
+add_action('admin_post_wp_settings_harness_clear', static function (): void {
+    update_option(WP_Settings_Harness::TEXT_DOMAIN . '_signing_key', '');
 });
 
 // Exposed so the integration suite can render a field without re-declaring it.
