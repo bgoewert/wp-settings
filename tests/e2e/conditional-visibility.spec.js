@@ -25,7 +25,7 @@ test.beforeEach(async ({ page }) => {
 	await page.waitForURL(/wp-admin/);
 	await page.goto(SETTINGS_URL);
 	await page.selectOption(PROVIDER, 'none');
-	await page.click('input[type="submit"], button[type="submit"]');
+	await page.click('#submit');
 	await page.waitForLoadState('networkidle');
 });
 
@@ -50,7 +50,7 @@ test('choosing another provider hides the section again', async ({ page }) => {
 
 test('the saved value decides what is on screen at load', async ({ page }) => {
 	await page.selectOption(PROVIDER, 'vimeo');
-	await page.click('input[type="submit"], button[type="submit"]');
+	await page.click('#submit');
 	await page.waitForLoadState('networkidle');
 	await page.goto(SETTINGS_URL);
 

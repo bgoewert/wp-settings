@@ -119,6 +119,10 @@ class WP_Setting
      *   reads and renders decrypt.
      * - delimiter => _string_ On `text`/`textarea`, the separator that makes the single
      *   input hold a list: the value is stored and returned as `list<string>`.
+     * - actions => _list<array{label:string,action:string,capability?:string}>_ Buttons
+     *   rendered with the field, each posting to `admin_post_{action}` with a nonce.
+     * - actions_position => _'inline'|'below'_ Where the action buttons go. Text-like
+     *   inputs default to beside the input; every other type renders them below.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
      *   - 'field' => string - Field name to check
      *   - 'operator' => string - 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
@@ -198,6 +202,24 @@ class WP_Setting
     public static $text_domain;
 
     protected static $logger = null;
+
+    /**
+     * Forms for the field actions rendered this request, keyed by form id.
+     *
+     * A field renders inside the settings form and forms cannot nest, so each
+     * action's form is emitted in the admin footer and its button reaches it
+     * through the `form` attribute.
+     *
+     * @var array<string,array{action:string,setting:string}>
+     */
+    protected static $pending_action_forms = array();
+
+    /**
+     * Whether this render pass already placed the action buttons beside the input.
+     *
+     * @var bool
+     */
+    private $actions_rendered = false;
 
     /**
      * Exception code marking a decrypt failure as a changed key rather than a
@@ -427,6 +449,7 @@ class WP_Setting
             'data-toggle'   => array(),
             'data-move'     => array(),
             'hidden'        => array(),
+            'form'          => array(),
         ),
         'details'  => array(
             'class' => array(),
@@ -800,6 +823,7 @@ class WP_Setting
     public function init(bool $register_field = true): void
     {
         $this->add_setting($register_field);
+        $this->register_actions();
 
         if (($this->type === 'fieldset' || $this->type === 'advanced') && !empty($this->children)) {
             foreach ($this->children as $child) {
@@ -1254,7 +1278,11 @@ class WP_Setting
             echo '<div class="wps-field-wrapper" data-field="' . \esc_attr($field_name) . '" data-conditions="' . \esc_attr($this->get_conditions_json()) . '">';
         }
 
+        $this->actions_rendered = false;
         $this->render_with_value($field_name, $field_id, $value);
+        if (!$this->actions_rendered) {
+            $this->render_actions($field_id);
+        }
 
         if ($this->has_conditions()) {
             echo '</div>';
@@ -1529,6 +1557,9 @@ class WP_Setting
         echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $this->type, $name, $id, $value, $atts), self::$allowed_html);
         if ('password' === $this->type) {
             echo \wp_kses('<button type="button" class="button wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password"><span class="text">Show</span></button>', self::$allowed_html);
+        }
+        if ('below' !== ($this->args['actions_position'] ?? 'inline')) {
+            $this->render_actions($id, true);
         }
         if ($this->description) {
             echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
@@ -2433,6 +2464,135 @@ class WP_Setting
         }
     }
 
+    /**
+     * The field's declared actions, dropping any entry missing a label or a
+     * usable hook name.
+     *
+     * @return list<array{label:string,action:string,capability:string}>
+     */
+    public function field_actions(): array
+    {
+        $actions = array();
+        foreach ((array) ($this->args['actions'] ?? array()) as $action) {
+            if (!is_array($action) || empty($action['label']) || !is_string($action['action'] ?? null)) {
+                continue;
+            }
+            // The name becomes a hook, a form value and part of an id.
+            if (!preg_match('/^[A-Za-z0-9_-]+$/', $action['action'])) {
+                continue;
+            }
+            $actions[] = array(
+                'label'      => (string) $action['label'],
+                'action'     => $action['action'],
+                'capability' => (string) ($action['capability'] ?? 'manage_options'),
+            );
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Bracket each action's `admin_post_{action}` handlers with the checks and
+     * the redirect, so the consumer's handler only does the work.
+     *
+     * @return void
+     */
+    private function register_actions(): void
+    {
+        foreach ($this->field_actions() as $action) {
+            $hook = 'admin_post_' . $action['action'];
+            \add_action($hook, fn() => self::authorize_action($action), 0);
+            \add_action($hook, array(__CLASS__, 'return_from_action'), PHP_INT_MAX);
+        }
+    }
+
+    /**
+     * Stop an action request that lacks the action's nonce or capability.
+     *
+     * @param array{action:string,capability:string} $action The declared action.
+     * @return void
+     */
+    public static function authorize_action(array $action): void
+    {
+        \check_admin_referer($action['action']);
+
+        if (!\current_user_can($action['capability'])) {
+            \wp_die('Sorry, you are not allowed to do that.', '', array('response' => 403));
+        }
+    }
+
+    /**
+     * Send the admin back to the page the action was pressed on.
+     *
+     * Runs last, so a handler that redirects with its own notice wins.
+     *
+     * @return void
+     */
+    public static function return_from_action(): void
+    {
+        \wp_safe_redirect(\wp_get_referer() ?: \admin_url());
+        exit;
+    }
+
+    /**
+     * Render the buttons for the actions the current user may run.
+     *
+     * @param string $id     Field id, which keeps two fields' forms apart.
+     * @param bool   $inline Beside the input rather than in a paragraph below it.
+     * @return void
+     */
+    protected function render_actions($id, bool $inline = false): void
+    {
+        $this->actions_rendered = true;
+
+        $buttons = '';
+        foreach ($this->field_actions() as $action) {
+            if (!\current_user_can($action['capability'])) {
+                continue;
+            }
+
+            $form_id = 'wps-action-' . $id . '-' . $action['action'];
+            if (empty(self::$pending_action_forms)) {
+                \add_action('admin_footer', array(__CLASS__, 'render_action_forms'));
+            }
+            self::$pending_action_forms[$form_id] = array('action' => $action['action'], 'setting' => $this->slug);
+
+            // The visible word leads the accessible name (WCAG 2.5.3), and the
+            // title tells two fields' Generate buttons apart.
+            $buttons .= sprintf(
+                '<button type="submit" class="button wps-field-action" form="%s">%s<span class="screen-reader-text"> %s</span></button> ',
+                \esc_attr($form_id),
+                \esc_html($action['label']),
+                \esc_html($this->title)
+            );
+        }
+
+        if ('' !== $buttons) {
+            echo \wp_kses(sprintf($inline ? ' <span class="wps-field-actions">%s</span>' : '<p class="wps-field-actions">%s</p>', trim($buttons)), self::$allowed_html);
+        }
+    }
+
+    /**
+     * Emit the forms the rendered action buttons submit.
+     *
+     * @return void
+     */
+    public static function render_action_forms(): void
+    {
+        foreach (self::$pending_action_forms as $form_id => $form) {
+            printf(
+                '<form id="%s" method="post" action="%s" hidden><input type="hidden" name="action" value="%s"><input type="hidden" name="setting" value="%s">',
+                \esc_attr($form_id),
+                \esc_url(\admin_url('admin-post.php')),
+                \esc_attr($form['action']),
+                \esc_attr($form['setting'])
+            );
+            \wp_nonce_field($form['action']);
+            echo '</form>';
+        }
+
+        self::$pending_action_forms = array();
+    }
 
     /**
      * Create an advanced collapsible field with child settings.

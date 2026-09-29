@@ -244,6 +244,21 @@ final class WP_Settings_Harness extends WP_Settings
                 null,
                 array('size' => 'thumbnail')
             ),
+            'signing_key' => new WP_Setting(
+                'signing_key',
+                'Signing Key',
+                'text',
+                'general',
+                'lists',
+                '300px',
+                'Generated, not typed.',
+                false,
+                null,
+                null,
+                array('actions' => array(
+                    array('label' => 'Generate', 'action' => 'wp_settings_harness_generate'),
+                ))
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',
@@ -258,6 +273,12 @@ final class WP_Settings_Harness extends WP_Settings
         );
     }
 }
+
+// The consumer's half of a field action: the library has already checked the
+// nonce and capability, and redirects back once this returns.
+add_action('admin_post_wp_settings_harness_generate', static function (): void {
+    update_option(WP_Settings_Harness::TEXT_DOMAIN . '_signing_key', wp_generate_password(32, false));
+});
 
 // Exposed so the integration suite can render a field without re-declaring it.
 $GLOBALS['wp_settings_harness'] = new WP_Settings_Harness();

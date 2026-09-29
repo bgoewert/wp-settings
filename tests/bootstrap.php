@@ -62,7 +62,8 @@ global $wp_test_options,
     $wp_test_upload_basedir,
     $wp_test_upload_error,
     $wp_test_attachments,
-    $wp_test_media_enqueued;
+    $wp_test_media_enqueued,
+    $wp_test_denied_capabilities;
 
 function wp_settings_test_reset_stubs(): void
 {
@@ -82,7 +83,8 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_upload_basedir,
         $wp_test_upload_error,
         $wp_test_attachments,
-        $wp_test_media_enqueued;
+        $wp_test_media_enqueued,
+        $wp_test_denied_capabilities;
 
     $wp_test_options = [];
     $wp_test_actions = [];
@@ -101,6 +103,7 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_upload_error = false;
     $wp_test_attachments = [];
     $wp_test_media_enqueued = 0;
+    $wp_test_denied_capabilities = [];
 
     // Declared further down, once the class it builds exists.
     if (function_exists("wp_settings_test_reset_wpdb")) {
@@ -460,12 +463,13 @@ if (!function_exists("wp_unslash")) {
 if (!function_exists("current_user_can")) {
     function current_user_can($capability)
     {
-        return true;
+        global $wp_test_denied_capabilities;
+        return !in_array($capability, $wp_test_denied_capabilities, true);
     }
 }
 
 if (!function_exists("check_admin_referer")) {
-    function check_admin_referer($action, $name)
+    function check_admin_referer($action = -1, $name = "_wpnonce")
     {
         return true;
     }
@@ -486,7 +490,7 @@ if (!function_exists("wp_create_nonce")) {
 }
 
 if (!function_exists("wp_nonce_field")) {
-    function wp_nonce_field($action, $name)
+    function wp_nonce_field($action = -1, $name = "_wpnonce")
     {
         echo '<input type="hidden" name="' .
             $name .
@@ -544,6 +548,13 @@ if (!function_exists("wp_send_json_error")) {
     function wp_send_json_error($data = null)
     {
         return ["success" => false, "data" => $data];
+    }
+}
+
+if (!function_exists("wp_die")) {
+    function wp_die($message = "", $title = "", $args = [])
+    {
+        throw new \RuntimeException("wp_die: " . $message);
     }
 }
 

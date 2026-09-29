@@ -52,7 +52,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function save(page) {
-	await page.click('input[type="submit"], button[type="submit"]');
+	await page.click('#submit');
 	await page.waitForLoadState('networkidle');
 }
 

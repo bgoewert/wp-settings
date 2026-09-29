@@ -305,6 +305,33 @@ Only `text` and `textarea` honour it, and an explicit `sanitize_callback` still 
 
 Without it, storing an array in a string-typed setting is a silent data loss — the sanitizer registered with `register_setting()` runs on every writer, `sanitize_text_field()` turns the array into `''`, and the write reports success while the field re-renders empty. `sanitize_text()` and `sanitize_textarea()` now raise `_doing_it_wrong()` when handed an array, so the misuse surfaces at the first save.
 
+### Field Actions
+
+A credential that is generated rather than typed — a shared secret, a signing key — needs its Generate or Rotate button next to the field it fills. `'actions'` renders one button per entry with the field, each posting to `admin-post.php`:
+
+```php
+new WP_Setting(
+    'inbound_secret', 'Inbound Secret', 'password', 'settings', 'portal',
+    null, null, false, null, null,
+    array('actions' => array(
+        array('label' => 'Generate', 'action' => 'my_plugin_generate_secret'),
+        array('label' => 'Rotate', 'action' => 'my_plugin_rotate_secret', 'capability' => 'manage_network_options'),
+    ))
+);
+
+add_action('admin_post_my_plugin_generate_secret', function () {
+    WP_Setting::set('inbound_secret', wp_generate_password(64, false), true);
+});
+```
+
+The library renders the button, the form and its nonce, and owns both ends of the request: before your `admin_post_{action}` handler runs it verifies the nonce (`check_admin_referer( $action )`) and the capability (default `manage_options`, and a user without it sees no button), and after it returns the admin is redirected back to the page they pressed it on. The handler only does the work. To report an outcome, redirect yourself with a query arg and `exit` — the library's redirect runs last, so yours wins. The request also carries `setting`, the field's slug, for a handler shared between fields.
+
+Forms cannot nest, so each action's form is printed in the admin footer and its button reaches it through the `form` attribute. The button therefore never submits the settings form, and Enter in the field still saves the settings. Each button's accessible name is its label plus the field title — "Generate Inbound Secret" — so two fields' Generate buttons stay distinct.
+
+On a text-like input (`text`, `password`, `email`, `url`, `number` and other single-line types) the buttons sit beside the input, after a password field's Show button; pass `'actions_position' => 'below'` to put them in a paragraph under the description instead. Every other type renders them below, since a button beside a textarea or a list reads as unrelated to it.
+
+`action` becomes a hook name, so it takes letters, digits, `_` and `-` only; an entry without a `label` or with any other `action` is dropped.
+
 ### Row Labels
 
 WordPress renders each settings row as `<tr><th>title</th><td>field</td></tr>`, and `do_settings_fields()` wraps that `<th>` text in `<label for="…">` only when the field declares `label_for` in its `$args`. Fields set it for you, pointing at the control's own id (the field slug), so the visible title is the control's accessible name — without it every control on the screen has a heading assistive technology cannot associate with its input (WCAG 1.3.1, 4.1.2; axe `label`, and `select-name` for selects).
