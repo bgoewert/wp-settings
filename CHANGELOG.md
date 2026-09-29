@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.11.0] - 2026-09-29
+
+### Added
+
+- An `actions` arg attaches buttons such as Generate or Rotate to a field ([#32](https://github.com/bgoewert/wp-settings/issues/32)). Each entry names a `label`, an `action` and an optional `capability` (default `manage_options`), and posts to `admin_post_{action}`. The library renders the button and its form, checks the nonce and the capability before your handler runs, and redirects back to the page after it. On a text-like input the buttons sit beside it, after a password field's Show button; `'actions_position' => 'below'` puts them under the description. A user without the capability sees no button.
+
 ## [4.10.0] - 2026-09-22
 
 ### Added
