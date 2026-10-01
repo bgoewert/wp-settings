@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.13.0] - 2026-10-01
+
+### Added
+
+- A `disabled` arg shows a field as disabled without blanking its stored value ([#34](https://github.com/bgoewert/wp-settings/issues/34)). The controls render inside a `<fieldset disabled>`, which covers every option-backed type, checkboxes included, and the stored value survives every save: the registered sanitizer answers with it, so neither the `null` options.php writes for the missing control nor a forged POST changes it. `advanced` and `fieldset` containers ignore the arg.
+- An `actions` entry declaring `render` prints a control that answers in place, such as an Ajax preview, among a field's other action buttons ([#35](https://github.com/bgoewert/wp-settings/issues/35)). The callable is given the field and returns the markup; the library adds no form, nonce or hook, and `capability` still hides it. A `<button>` now keeps `data-*` attributes through the field's kses list.
+
 ## [4.12.0] - 2026-09-29
 
 ### Added
