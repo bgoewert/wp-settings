@@ -243,8 +243,6 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 
 **Status**: A display-only row — the title and a derived reading, such as a connection state, as text. Stores nothing.
 
-**Status**: A display-only row — the label and a derived reading such as a connection state, as text. Stores nothing.
-
 ### Input Attributes
 
 Text-like fields (`text`, `email`, `url`, `number`, `password`) render these `$args` keys directly onto the `<input>`: `min`, `max`, `step`, `pattern`, `minlength`, `maxlength`, `size`, `autocomplete`, `list`.
