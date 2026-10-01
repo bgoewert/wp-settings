@@ -52,6 +52,15 @@ test('pressing its action runs the handler and the row re-renders', async ({ pag
 	await expect(page.locator(`#${STATUS}`)).toHaveText('Not set');
 });
 
+test('a rendered action answers in place without leaving the page', async ({ page }) => {
+	const url = page.url();
+
+	await page.getByRole('button', { name: 'Check', exact: true }).click();
+
+	await expect(page.locator(`#${STATUS}`)).toHaveText('Checked');
+	expect(page.url()).toBe(url);
+});
+
 test('saving the settings stores nothing for the row', async ({ page }) => {
 	await page.click('#submit');
 	await page.waitForLoadState('networkidle');

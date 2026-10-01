@@ -49,4 +49,13 @@ final class FieldActionTest extends IntegrationTestCase
         self::assertNotFalse(wp_verify_nonce($nonce[1], 'wp_settings_harness_generate'));
         self::assertStringContainsString('action="' . esc_url(admin_url('admin-post.php')) . '"', $output);
     }
+
+    public function test_a_rendered_control_keeps_its_data_attributes_through_kses(): void
+    {
+        ob_start();
+        $GLOBALS['wp_settings_harness']->get_settings()['key_status']->init_status();
+        $output = (string) ob_get_clean();
+
+        self::assertStringContainsString('<button type="button" class="button" id="wp-settings-harness-check" data-target="wp_settings_harness_key_status">Check</button>', $output);
+    }
 }

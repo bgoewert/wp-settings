@@ -274,6 +274,10 @@ final class WP_Settings_Harness extends WP_Settings
                     'value'   => static fn(): string => '' === (string) get_option(self::TEXT_DOMAIN . '_signing_key', '') ? 'Not set' : 'Set',
                     'actions' => array(
                         array('label' => 'Clear', 'action' => 'wp_settings_harness_clear'),
+                        array('render' => static fn(WP_Setting $field): string => sprintf(
+                            '<button type="button" class="button" id="wp-settings-harness-check" data-target="%s">Check</button>',
+                            esc_attr($field->slug)
+                        )),
                     ),
                 )
             ),
@@ -300,6 +304,13 @@ add_action('admin_post_wp_settings_harness_generate', static function (): void {
 
 add_action('admin_post_wp_settings_harness_clear', static function (): void {
     update_option(WP_Settings_Harness::TEXT_DOMAIN . '_signing_key', '');
+});
+
+// The consumer's half of a rendered action: its own script answers in place.
+add_action('admin_footer', static function (): void {
+    echo "<script>document.getElementById('wp-settings-harness-check')?.addEventListener('click', (e) => {"
+        . "document.getElementById(e.currentTarget.dataset.target).textContent = 'Checked';"
+        . "});</script>";
 });
 
 // Exposed so the integration suite can render a field without re-declaring it.

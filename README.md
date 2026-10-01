@@ -336,6 +336,20 @@ On a text-like input (`text`, `password`, `email`, `url`, `number` and other sin
 
 `action` becomes a hook name, so it takes letters, digits, `_` and `-` only; an entry without a `label` or with any other `action` is dropped.
 
+A control that answers in place — a preview that renders a table, a run that reports a count — has no use for a form post and a redirect. Declare it with `render` instead of `action`: the callable is given the field and returns the control's markup, which is printed in declared order among the other buttons. The library adds no form, nonce or hook for it; your script binds the control and your Ajax handler checks its own nonce and capability. `capability` (default `manage_options`) still hides it from a user without it.
+
+```php
+'actions' => array(
+    array('label' => 'Test connection', 'action' => 'my_plugin_test_connection'),
+    array('render' => fn(WP_Setting $field) => sprintf(
+        '<button type="button" class="button" data-my-plugin-run="preview" data-target="%s">Preview</button>',
+        esc_attr($field->slug)
+    )),
+),
+```
+
+The markup passes through the same kses list as the rest of the field, where a `<button>` keeps `type`, `class`, `id`, `value`, `form`, `aria-label`, `aria-controls`, `aria-expanded` and any `data-*` attribute.
+
 ### Status Rows
 
 A connection state or a last-sync time is read, not set, but its Test connection button belongs beside it. A `status` field renders `value` as text in the row and takes `actions` like any other field:

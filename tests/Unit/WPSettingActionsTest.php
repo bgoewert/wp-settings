@@ -164,4 +164,40 @@ class WPSettingActionsTest extends WP_Settings_TestCase
         $this->expectExceptionMessage('wp_die');
         call_user_func($GLOBALS['wp_test_actions']['admin_post_my_generate'][0]['callback']);
     }
+
+    public function test_a_rendered_entry_prints_its_control_in_declared_order_with_no_form(): void
+    {
+        $seen   = null;
+        $output = $this->render($this->setting(array(
+            array('render' => function (WP_Setting $field) use (&$seen) {
+                $seen = $field;
+                return '<button type="button" class="button" data-run="preview">Preview</button>';
+            }),
+            array('label' => 'Generate', 'action' => 'my_generate'),
+        )));
+
+        $this->assertMatchesRegularExpression('#<span class="wps-field-actions"><button type="button" class="button" data-run="preview">Preview</button> <button type="submit"[^>]+>Generate#', $output);
+        $this->assertSame('my_plugin_inbound_secret', $seen->slug);
+        $this->assertStringNotContainsString('preview', $this->footer());
+    }
+
+    public function test_a_rendered_entry_is_hidden_from_a_user_without_the_capability(): void
+    {
+        $GLOBALS['wp_test_denied_capabilities'] = array('manage_portal');
+
+        $output = $this->render($this->setting(array(
+            array('render' => fn() => '<button type="button">Preview</button>', 'capability' => 'manage_portal'),
+        )));
+
+        $this->assertStringNotContainsString('Preview', $output);
+    }
+
+    public function test_a_rendered_entry_registers_no_hook_and_is_not_an_admin_post_action(): void
+    {
+        $setting = $this->setting(array(array('render' => fn() => '<button type="button">Preview</button>')));
+        $setting->init();
+
+        $this->assertSame(array(), $setting->field_actions());
+        $this->assertSame(array(), array_filter(array_keys($GLOBALS['wp_test_actions'] ?? array()), fn($hook) => str_starts_with($hook, 'admin_post_')));
+    }
 }

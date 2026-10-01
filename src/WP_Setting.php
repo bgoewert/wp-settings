@@ -121,6 +121,8 @@ class WP_Setting
      *   input hold a list: the value is stored and returned as `list<string>`.
      * - actions => _list<array{label:string,action:string,capability?:string}>_ Buttons
      *   rendered with the field, each posting to `admin_post_{action}` with a nonce.
+     *   An entry of `array{render:callable,capability?:string}` instead prints the
+     *   control the callable returns, given the field, for the consumer's script to bind.
      * - actions_position => _'inline'|'below'_ Where the action buttons go. Text-like
      *   inputs default to beside the input; every other type renders them below.
      * - value => _string|callable_ On `status`, the reading to show. A callable is called
@@ -453,6 +455,7 @@ class WP_Setting
             'data-move'     => array(),
             'hidden'        => array(),
             'form'          => array(),
+            'data-*'        => true,
         ),
         'details'  => array(
             'class' => array(),
@@ -2524,30 +2527,37 @@ class WP_Setting
     }
 
     /**
-     * The field's declared actions, dropping any entry missing a label or a
-     * usable hook name.
+     * The field's declared admin-post actions, dropping any entry missing a
+     * label or a usable hook name.
      *
      * @return list<array{label:string,action:string,capability:string}>
      */
     public function field_actions(): array
     {
-        $actions = array();
-        foreach ((array) ($this->args['actions'] ?? array()) as $action) {
-            if (!is_array($action) || empty($action['label']) || !is_string($action['action'] ?? null)) {
-                continue;
-            }
-            // The name becomes a hook, a form value and part of an id.
-            if (!preg_match('/^[A-Za-z0-9_-]+$/', $action['action'])) {
-                continue;
-            }
-            $actions[] = array(
-                'label'      => (string) $action['label'],
-                'action'     => $action['action'],
-                'capability' => (string) ($action['capability'] ?? 'manage_options'),
-            );
+        return array_values(array_filter(array_map(array($this, 'normalize_action'), (array) ($this->args['actions'] ?? array()))));
+    }
+
+    /**
+     * One `actions` entry as an admin-post action, or null if it is not one.
+     *
+     * @param mixed $action The declared entry.
+     * @return array{label:string,action:string,capability:string}|null
+     */
+    private function normalize_action($action): ?array
+    {
+        if (!is_array($action) || empty($action['label']) || !is_string($action['action'] ?? null)) {
+            return null;
+        }
+        // The name becomes a hook, a form value and part of an id.
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $action['action'])) {
+            return null;
         }
 
-        return $actions;
+        return array(
+            'label'      => (string) $action['label'],
+            'action'     => $action['action'],
+            'capability' => (string) ($action['capability'] ?? 'manage_options'),
+        );
     }
 
     /**
@@ -2605,8 +2615,18 @@ class WP_Setting
         $this->actions_rendered = true;
 
         $buttons = '';
-        foreach ($this->field_actions() as $action) {
-            if (!\current_user_can($action['capability'])) {
+        foreach ((array) ($this->args['actions'] ?? array()) as $entry) {
+            // A rendered entry prints a control the consumer's own script binds,
+            // so it gets no form, nonce or hook.
+            if (is_array($entry) && is_callable($entry['render'] ?? null)) {
+                if (\current_user_can((string) ($entry['capability'] ?? 'manage_options'))) {
+                    $buttons .= (string) call_user_func($entry['render'], $this) . ' ';
+                }
+                continue;
+            }
+
+            $action = $this->normalize_action($entry);
+            if (null === $action || !\current_user_can($action['capability'])) {
                 continue;
             }
 
