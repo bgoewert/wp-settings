@@ -281,6 +281,19 @@ final class WP_Settings_Harness extends WP_Settings
                     ),
                 )
             ),
+            'hide_quotes' => new WP_Setting(
+                'hide_quotes',
+                'Hide Quote Screens',
+                'checkbox',
+                'general',
+                'lists',
+                null,
+                'Requires the quote plugin to be active.',
+                false,
+                null,
+                null,
+                array('disabled' => true)
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',

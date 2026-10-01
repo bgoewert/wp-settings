@@ -287,7 +287,23 @@ new WP_Setting(
 
 Both text-like fields and `textarea` accept `readonly`.
 
-`disabled` is **not** supported. Browsers omit disabled inputs from form submission and `wp-admin/options.php` writes every registered option from `$_POST`, so a disabled field would blank its own stored option on the next save. Use `readonly`: the input stays uneditable but still submits its current value.
+`disabled` is not passed through as an attribute: browsers omit disabled inputs from form submission and `wp-admin/options.php` writes every registered option from `$_POST`, so it would blank the stored option on the next save. Use the `disabled` arg below, or `readonly` where an input should stay focusable.
+
+#### Disabled Fields
+
+A setting that does nothing while a dependency is missing should look inert, not just say so in its description. `'disabled' => true` renders the field's controls inside a `<fieldset disabled>`, which disables every control a type renders — a checkbox, a select, a repeater's buttons — and keeps the stored value on every save:
+
+```php
+new WP_Setting(
+    'hide_quote_screens', 'Hide Customer Quote Screens', 'checkbox', 'settings', 'section',
+    null, 'Requires YITH Request a Quote to be active.', false, null, null,
+    array('disabled' => !defined('YITH_YWRAQ_VERSION'))
+);
+```
+
+The field's registered sanitizer answers with the stored value, so the `null` options.php writes for the missing control leaves the option alone, a forged POST cannot change it, and the field's own `sanitize_callback` does not run. A save through the library skips the field. Nothing round-trips through a hidden input, so the stored value is never printed twice.
+
+`disabled` applies to option-backed fields: a table column or an `advanced`/`fieldset` container ignores it, so declare it on each child instead. A type driven by script — `richtext`, `sortable`, `dual_list` — can still react to input a disabled fieldset does not block, but its value is kept all the same.
 
 A read-only field is uneditable in the browser only. A crafted POST can still change the value, so keep validating in `sanitize_callback` if the value must not change.
 

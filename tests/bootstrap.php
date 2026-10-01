@@ -84,12 +84,14 @@ function wp_settings_test_reset_stubs(): void
         $wp_test_upload_error,
         $wp_test_attachments,
         $wp_test_media_enqueued,
-        $wp_test_denied_capabilities;
+        $wp_test_denied_capabilities,
+        $wp_test_registered_settings;
 
     $wp_test_options = [];
     $wp_test_actions = [];
     $wp_test_filters = [];
     $wp_test_settings_fields = [];
+    $wp_test_registered_settings = [];
     $wp_test_settings_sections = [];
     $wp_test_enqueued_scripts = [];
     $wp_test_registered_scripts = [];
@@ -184,7 +186,8 @@ if (!function_exists("add_filter")) {
 if (!function_exists("register_setting")) {
     function register_setting($option_group, $option_name, $args = [])
     {
-        global $wp_test_options;
+        global $wp_test_options, $wp_test_registered_settings;
+        $wp_test_registered_settings[$option_name] = $args;
         if (isset($args["default"]) && !isset($wp_test_options[$option_name])) {
             $wp_test_options[$option_name] = $args["default"];
         }

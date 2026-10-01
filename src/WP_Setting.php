@@ -125,6 +125,8 @@ class WP_Setting
      *   control the callable returns, given the field, for the consumer's script to bind.
      * - actions_position => _'inline'|'below'_ Where the action buttons go. Text-like
      *   inputs default to beside the input; every other type renders them below.
+     * - disabled => _bool_ Render the control disabled and keep the stored value on
+     *   every save, for a setting that is inert while a dependency is missing.
      * - value => _string|callable_ On `status`, the reading to show. A callable is called
      *   when the row renders.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
@@ -261,11 +263,9 @@ class WP_Setting
      * omit the attribute outright instead of emitting it with a falsy value.
      * Truthy arg => bare attribute; anything falsy => nothing.
      *
-     * `disabled` is deliberately excluded. Browsers omit disabled inputs from
-     * form submission and wp-admin/options.php writes every registered option
-     * from $_POST, so a disabled field would blank its own stored option on the
-     * next save. `readonly` is the safe way to show a value without letting it
-     * be edited — the input still submits its current value.
+     * `disabled` is not passed through: browsers omit disabled inputs from the
+     * POST and options.php would blank the option. The `disabled` arg handles
+     * it on the save side too; see is_disabled().
      *
      * @var string[]
      */
@@ -894,6 +894,13 @@ class WP_Setting
             $register_args['sanitize_callback'] = $this->encrypting_sanitizer($this->sanitize_callback);
         }
 
+        // A disabled control is missing from the POST, so options.php would write
+        // null; answering with the stored value makes update_option() a no-op,
+        // and a forged POST cannot change it either.
+        if ($this->is_disabled()) {
+            $register_args['sanitize_callback'] = fn() => \get_option($this->slug, $this->default_value);
+        }
+
         \register_setting(self::$text_domain . '_' . $this->page, $this->slug, $register_args);
     }
 
@@ -1129,6 +1136,10 @@ class WP_Setting
      */
     public function save(): void
     {
+        if ($this->is_disabled()) {
+            return;
+        }
+
         $value = isset($_POST[$this->slug]) ? \wp_unslash($_POST[$this->slug]) : null;
 
         switch ($this->type) {
@@ -1215,7 +1226,7 @@ class WP_Setting
     public function init_type(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
     /**
      * Create a textarea.
@@ -1225,7 +1236,7 @@ class WP_Setting
     public function init_textarea(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1236,7 +1247,7 @@ class WP_Setting
     public function init_richtext(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1247,7 +1258,7 @@ class WP_Setting
     public function init_checkbox(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1258,7 +1269,7 @@ class WP_Setting
     public function init_select(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1269,7 +1280,7 @@ class WP_Setting
     public function init_radio(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1280,7 +1291,7 @@ class WP_Setting
     public function init_hidden(): void
     {
         $value = $this->current_value();
-        $this->render_unbound($value, $this->slug, $this->slug);
+        $this->render_bound($value);
     }
 
     /**
@@ -1292,6 +1303,40 @@ class WP_Setting
     {
         $value = $this->args['value'] ?? '';
         $this->render_unbound(is_callable($value) ? call_user_func($value) : $value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Render the field's own option-backed control, inside a disabled fieldset
+     * when the field is disabled.
+     *
+     * @param mixed         $value  The stored value.
+     * @param callable|null $render Renders the control; defaults to render_unbound().
+     * @return void
+     */
+    private function render_bound($value, ?callable $render = null): void
+    {
+        $render ??= fn() => $this->render_unbound($value, $this->slug, $this->slug);
+
+        if (!$this->is_disabled()) {
+            $render();
+            return;
+        }
+
+        // One disabled fieldset disables every control a type renders, buttons included.
+        echo '<fieldset class="wps-disabled" disabled style="border:0;margin:0;padding:0;min-width:0">';
+        $render();
+        echo '</fieldset>';
+    }
+
+    /**
+     * Whether the field is shown disabled and its stored value kept on save.
+     *
+     * @return bool
+     */
+    public function is_disabled(): bool
+    {
+        // A container stores nothing itself; skipping its save would skip its children's.
+        return !empty($this->args['disabled']) && !in_array($this->type, array('advanced', 'fieldset'), true);
     }
 
     /**
@@ -2886,7 +2931,7 @@ class WP_Setting
     public function init_field_map(): void
     {
         $value = $this->current_value();
-        $this->render_field_map($value, $this->slug, $this->slug);
+        $this->render_bound($value, fn() => $this->render_field_map($value, $this->slug, $this->slug));
     }
 
     /**
@@ -2906,7 +2951,7 @@ class WP_Setting
         if (!is_array($value)) {
             $value = array();
         }
-        $this->render_repeater($value, $this->slug, $this->slug);
+        $this->render_bound($value, fn() => $this->render_repeater($value, $this->slug, $this->slug));
     }
 
     /**
