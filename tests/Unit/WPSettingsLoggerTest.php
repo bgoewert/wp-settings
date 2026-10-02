@@ -275,6 +275,8 @@ class WPSettingsLoggerTest extends WP_Settings_TestCase
         $this->assertStringContainsString('Log Viewer', $output);
         $this->assertStringContainsString('Viewer entry', $output);
         $this->assertStringContainsString('wps-log-refresh', $output);
+        $this->assertStringContainsString('<label class="screen-reader-text" for="wps-log-file">Log file</label>', $output);
+        $this->assertStringContainsString('<select name="log_file" id="wps-log-file">', $output);
     }
 
     public function test_ajax_clear_log_removes_plugin_logs(): void

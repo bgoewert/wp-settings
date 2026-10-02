@@ -1134,7 +1134,8 @@ class WP_Settings
             <form method="get" style="display: inline-flex; gap: 8px; align-items: center;">
                 <input type="hidden" name="page" value="<?php echo \esc_attr($this->text_domain); ?>">
                 <input type="hidden" name="tab" value="<?php echo \esc_attr($tab_slug); ?>">
-                <select name="log_file">
+                <label class="screen-reader-text" for="wps-log-file"><?php echo \esc_html__('Log file', 'wp-settings'); ?></label>
+                <select name="log_file" id="wps-log-file">
                     <option value=""><?php echo \esc_html__('Current Log', 'wp-settings'); ?></option>
                     <?php foreach ($files as $file): ?>
                         <option value="<?php echo \esc_attr($file); ?>"<?php echo \selected($selected_file, $file, false); ?>><?php echo \esc_html($file); ?></option>
