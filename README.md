@@ -673,6 +673,8 @@ The `field_map` type provides dynamic add/remove rows where users can:
 
 Stored as array: `[['key' => 'first_name', 'value' => 'FirstName'], ['key' => 'email', 'value' => 'Email'], ...]`
 
+The destination input takes the [input attributes](#input-attributes), so `'list' => 'my-field-names'` attaches a `<datalist>` to every row, including rows added in the browser. `autocomplete` also reaches the custom-value textarea, so `'autocomplete' => 'off'` stops browsers offering saved names and addresses in either.
+
 ### Repeater Field Example
 
 ```php

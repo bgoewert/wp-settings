@@ -3514,7 +3514,7 @@ class WP_Setting
 
         // Destination field text input.
         echo '<td style="padding: 8px;">';
-        echo '<input type="text" class="wps-field-map-key" value="' . \esc_attr($dest) . '" placeholder="' . \esc_attr__('Destination field name', 'wp-settings') . '" style="width: 100%;">';
+        echo '<input type="text" class="wps-field-map-key" value="' . \esc_attr($dest) . '" placeholder="' . \esc_attr__('Destination field name', 'wp-settings') . '"' . $this->get_passthrough_input_attributes() . ' style="width: 100%;">';
         echo '</td>';
 
         // Source field dropdown or custom input.
@@ -3541,7 +3541,7 @@ class WP_Setting
         // Custom input (shown when <custom> is selected).
         $custom_display = $is_custom ? 'block' : 'none';
         echo '<div class="wps-field-map-custom-wrapper" style="display: ' . $custom_display . '; margin-top: 5px; position: relative;">';
-        echo '<textarea class="wps-field-map-custom-input" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;">' . \esc_textarea($is_custom ? $source : '') . '</textarea>';
+        echo '<textarea class="wps-field-map-custom-input" placeholder="' . \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings') . '"' . $this->get_field_map_custom_input_attributes() . ' style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;">' . \esc_textarea($is_custom ? $source : '') . '</textarea>';
 
         // Merge tag button.
         echo '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="' . \esc_attr__('Insert merge tag', 'wp-settings') . '">';
@@ -3574,6 +3574,18 @@ class WP_Setting
     }
 
     /**
+     * Input attributes for a field map's custom-value textarea.
+     *
+     * Only autocomplete applies: the rest (list, pattern, min…) describe the destination name, not a merge-tag template.
+     *
+     * @return string Leading-space-prefixed attributes, or '' if none apply.
+     */
+    private function get_field_map_custom_input_attributes(): string
+    {
+        return $this->get_passthrough_input_attributes(array_intersect_key($this->args, array('autocomplete' => true)));
+    }
+
+    /**
      * Render JavaScript for field map functionality.
      *
      * @param string $unique_id Unique ID for this field map instance.
@@ -3601,6 +3613,10 @@ class WP_Setting
             $merge_tags_html .= '<code style="font-size: 11px; color: #666;">{' . \esc_html($option_key) . '}</code>';
             $merge_tags_html .= '</div>';
         }
+
+        // Slashed because they land inside single-quoted JS strings; a pattern's backslashes would otherwise be eaten.
+        $key_atts = addslashes($this->get_passthrough_input_attributes());
+        $custom_atts = addslashes($this->get_field_map_custom_input_attributes());
 
         // Build style for source field column.
         $source_td_style = 'padding: 8px;';
@@ -3659,11 +3675,11 @@ class WP_Setting
                 container.on('click', '.wps-field-map-add', function(e) {
                     e.preventDefault();
                     var newRow = $('<tr class="wps-field-map-row">' +
-                        '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                        '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>"<?php echo $key_atts; ?> style="width: 100%;"></td>' +
                         '<td style="<?php echo \esc_js($source_td_style); ?>">' +
                         '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
                         '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
-                        '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
+                        '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>"<?php echo $custom_atts; ?> style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
                         '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
                         '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>' +
                         '</button>' +
@@ -3768,11 +3784,11 @@ class WP_Setting
                             var selectedOption = isCustom ? '__custom__' : mapping.value;
 
                             var newRow = $('<tr class="wps-field-map-row">' +
-                                '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" value="' + mapping.key + '" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>" style="width: 100%;"></td>' +
+                                '<td style="padding: 8px;"><input type="text" class="wps-field-map-key" value="' + mapping.key + '" placeholder="<?php echo \esc_attr__('Destination field name', 'wp-settings'); ?>"<?php echo $key_atts; ?> style="width: 100%;"></td>' +
                                 '<td style="<?php echo \esc_js($source_td_style); ?>">' +
                                 '<select class="wps-field-map-source-select" style="width: 100%;"><?php echo $options_html; ?><option value="__custom__"><?php echo \esc_html__('Custom...', 'wp-settings'); ?></option></select>' +
                                 '<div class="wps-field-map-custom-wrapper" style="display: none; margin-top: 5px; position: relative;">' +
-                                '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>" style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
+                                '<textarea class="wps-field-map-custom-input" placeholder="<?php echo \esc_attr__('e.g., {first_name} {last_name}', 'wp-settings'); ?>"<?php echo $custom_atts; ?> style="width: calc(100% - 40px); padding-right: 35px; min-height: 60px; resize: vertical;"></textarea>' +
                                 '<button type="button" class="button wps-field-map-merge-tag-btn" style="position: absolute; right: 5px; top: 5px; padding: 3px 8px; height: 28px;" title="<?php echo \esc_attr__('Insert merge tag', 'wp-settings'); ?>">' +
                                 '<span class="dashicons dashicons-editor-code" style="font-size: 16px; width: 16px; height: 16px; line-height: 1; vertical-align: baseline;"></span>' +
                                 '</button>' +

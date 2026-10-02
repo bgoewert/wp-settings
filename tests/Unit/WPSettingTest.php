@@ -1818,6 +1818,34 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('Map Child', $output);
     }
 
+    public function test_field_map_key_renders_input_attributes(): void
+    {
+        $setting = new WP_Setting(
+            'map_atts',
+            'Map',
+            'field_map',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            ['options' => ['src' => 'Source'], 'list' => 'dest-fields', 'autocomplete' => 'off', 'pattern' => '\\w+']
+        );
+
+        ob_start();
+        $setting->init_field_map();
+        $output = ob_get_clean();
+
+        // Server-rendered row, then the add-row and restore-row templates.
+        $this->assertSame(3, preg_match_all('/class="wps-field-map-key"[^>]*autocomplete=\\\\?"off\\\\?" list=\\\\?"dest-fields\\\\?"/', $output));
+        $this->assertSame(1, substr_count($output, 'pattern="\\w+"'));
+        $this->assertSame(2, substr_count($output, 'pattern=\\"\\\\w+\\"'));
+        $this->assertSame(3, preg_match_all('/class="wps-field-map-custom-input"[^>]*autocomplete=\\\\?"off\\\\?"/', $output));
+        $this->assertDoesNotMatchRegularExpression('/class="wps-field-map-custom-input"[^>]*list=/', $output);
+    }
+
     public function test_advanced_renders_radio_child(): void
     {
         $child = new WP_Setting(
