@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.13.1] - 2026-10-02
+
+### Fixed
+
+- A repeater child now renders its [input attributes](README.md#input-attributes) onto its `<input>`, so `'list'` attaches a `<datalist>` to every row, including rows added in the browser ([#36](https://github.com/bgoewert/wp-settings/issues/36)).
+
 ## [4.13.0] - 2026-10-01
 
 ### Added
