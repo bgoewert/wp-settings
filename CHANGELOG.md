@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.13.2] - 2026-10-02
+
+### Fixed
+
+- A field map's destination input now renders the field's [input attributes](README.md#input-attributes), so `'list'` attaches a `<datalist>` to every row, including rows added in the browser, and `'autocomplete'` also reaches the custom-value textarea ([#37](https://github.com/bgoewert/wp-settings/issues/37)).
+
 ## [4.13.1] - 2026-10-02
 
 ### Fixed
