@@ -2805,18 +2805,20 @@ class WP_Setting
      * so the wp_kses() pass at render time lets them through unchanged. Anything
      * non-scalar or empty-string is skipped; `0` is a legitimate value (min="0").
      *
+     * @param array|null $args A repeater child's definition, or null for this field's own $args.
      * @return string Leading-space-prefixed attributes, or '' if none apply.
      */
-    protected function get_passthrough_input_attributes(): string
+    protected function get_passthrough_input_attributes(?array $args = null): string
     {
+        $args ??= $this->args;
         $atts = '';
 
         foreach (self::PASSTHROUGH_INPUT_ATTRIBUTES as $attr) {
-            if (!isset($this->args[$attr]) || !is_scalar($this->args[$attr])) {
+            if (!isset($args[$attr]) || !is_scalar($args[$attr])) {
                 continue;
             }
 
-            $value = (string) $this->args[$attr];
+            $value = (string) $args[$attr];
             if ('' === $value) {
                 continue;
             }
@@ -2824,7 +2826,7 @@ class WP_Setting
             $atts .= sprintf(' %s="%s"', $attr, \esc_attr($value));
         }
 
-        return $atts . $this->get_passthrough_boolean_attributes();
+        return $atts . $this->get_passthrough_boolean_attributes($args);
     }
 
     /**
@@ -2834,14 +2836,16 @@ class WP_Setting
      * it is falsy, because presence is what the browser acts on. See
      * self::PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES.
      *
+     * @param array|null $args A repeater child's definition, or null for this field's own $args.
      * @return string Leading-space-prefixed attributes, or '' if none apply.
      */
-    protected function get_passthrough_boolean_attributes(): string
+    protected function get_passthrough_boolean_attributes(?array $args = null): string
     {
+        $args ??= $this->args;
         $atts = '';
 
         foreach (self::PASSTHROUGH_BOOLEAN_INPUT_ATTRIBUTES as $attr) {
-            if (empty($this->args[$attr])) {
+            if (empty($args[$attr])) {
                 continue;
             }
 
@@ -3205,7 +3209,7 @@ class WP_Setting
 
                 default:
                     $placeholder = $child['placeholder'] ?? '';
-                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '"' . $naming . ' value="' . \esc_attr($field_value) . '"' . ($placeholder ? ' placeholder="' . \esc_attr($placeholder) . '"' : '') . ' style="width: 100%;">';
+                    echo '<input type="' . \esc_attr($field_type) . '" class="wps-repeater-field" data-field="' . \esc_attr($field_name) . '"' . $naming . ' value="' . \esc_attr($field_value) . '"' . ($placeholder ? ' placeholder="' . \esc_attr($placeholder) . '"' : '') . $this->get_passthrough_input_attributes($child) . ' style="width: 100%;">';
                     break;
             }
 

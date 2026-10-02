@@ -2422,6 +2422,35 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringNotContainsString('wps-repeater-number-header', $output);
     }
 
+    public function test_repeater_child_renders_list(): void
+    {
+        $setting = new WP_Setting(
+            'rep_list',
+            'Repeater',
+            'repeater',
+            'general',
+            'main',
+            null,
+            null,
+            false,
+            null,
+            null,
+            [
+                'children' => [
+                    ['name' => 'field', 'label' => 'Field', 'type' => 'text', 'list' => 'my-field-names'],
+                    ['name' => 'note', 'label' => 'Note', 'type' => 'text'],
+                ],
+            ]
+        );
+
+        ob_start();
+        $setting->init_repeater();
+        $output = ob_get_clean();
+
+        $this->assertMatchesRegularExpression('/<input[^>]*data-field="field"[^>]*list="my-field-names"/', $output);
+        $this->assertDoesNotMatchRegularExpression('/data-field="note"[^>]*list=/', $output);
+    }
+
     /* =========================================================
      * preserve_percent_encoded — opt-in to keep %XX sequences
      *   Default (sanitize_text_field / sanitize_textarea_field) strips %XX,

@@ -701,7 +701,7 @@ new WP_Setting(
 );
 ```
 
-Rows are stored in the order they appear: `[['label' => 'Name', 'type' => 'text'], ...]`. Each child takes `name`, `label`, `type` (`text`-like, `textarea` or `select`), plus `options` for a `select`, `placeholder`, `width`, and `preserve_percent_encoded`.
+Rows are stored in the order they appear: `[['label' => 'Name', 'type' => 'text'], ...]`. Each child takes `name`, `label`, `type` (`text`-like, `textarea` or `select`), plus `options` for a `select`, `placeholder`, `width`, and `preserve_percent_encoded`. A text-like child also takes the [input attributes](#input-attributes), so `'list' => 'my-field-names'` attaches a `<datalist>` to every row, including rows added in the browser.
 
 `'reorder' => true` adds an up/down button pair to every row, which is the affordance a keyboard reaches without a pointer. The move that would take a row nowhere is disabled, each button is named `Move row {n} up`/`down` from the row's position, and the position, the cell names and the visible counter are all rebuilt after a move the same way they are after an add or remove. `'numbered_rows' => true` shows the counter; both default off, and a repeater that asks for neither renders exactly as before.
 
