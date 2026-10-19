@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.14.0] - 2026-10-19
+
+### Added
+
+- The Log Viewer has a Copy button that puts the displayed log on the clipboard, and Ctrl+A (Cmd+A on macOS) inside the log selects only the log instead of the whole settings page.
+
+### Fixed
+
+- The Log Viewer's Open button loads the selected file in place instead of reloading the page, which showed "Sorry, you are not allowed to access this page" when the settings page's menu slug differs from its text domain.
+- The Log Viewer's file select has an accessible name ([#38](https://github.com/bgoewert/wp-settings/issues/38)).
+
 ## [4.13.2] - 2026-10-02
 
 ### Fixed
