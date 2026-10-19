@@ -279,6 +279,8 @@ class WPSettingsLoggerTest extends WP_Settings_TestCase
         $this->assertStringContainsString('<select id="wps-log-file">', $output);
         $this->assertStringContainsString('<button type="button" class="button" id="wps-log-open">', $output);
         $this->assertStringNotContainsString('<form method="get"', $output);
+        $this->assertStringContainsString('id="wps-log-copy"', $output);
+        $this->assertStringContainsString('<pre id="wps-log-viewer" tabindex="0" role="region" aria-label="Log contents"', $output);
     }
 
     public function test_ajax_clear_log_removes_plugin_logs(): void

@@ -1139,10 +1139,11 @@ class WP_Settings
             </select>
             <button type="button" class="button" id="wps-log-open"><?php echo \esc_html__('Open', 'wp-settings'); ?></button>
             <button type="button" class="button" id="wps-log-refresh"><?php echo \esc_html__('Refresh', 'wp-settings'); ?></button>
+            <button type="button" class="button" id="wps-log-copy"><?php echo \esc_html__('Copy', 'wp-settings'); ?></button>
             <button type="button" class="button" id="wps-log-clear"><?php echo \esc_html__('Clear Logs', 'wp-settings'); ?></button>
             <span id="wps-log-status"></span>
         </div>
-        <pre id="wps-log-viewer" data-file="<?php echo \esc_attr($selected_file); ?>" style="background:#1e1e1e;color:#d4d4d4;padding:16px;max-height:480px;overflow:auto;white-space:pre-wrap;"><?php echo \esc_html($contents); ?></pre>
+        <pre id="wps-log-viewer" tabindex="0" role="region" aria-label="<?php echo \esc_attr__('Log contents', 'wp-settings'); ?>" data-file="<?php echo \esc_attr($selected_file); ?>" style="background:#1e1e1e;color:#d4d4d4;padding:16px;max-height:480px;overflow:auto;white-space:pre-wrap;"><?php echo \esc_html($contents); ?></pre>
         <script>
             (function() {
                 var viewer = document.getElementById('wps-log-viewer');
@@ -1150,8 +1151,9 @@ class WP_Settings
                 var openButton = document.getElementById('wps-log-open');
                 var refreshButton = document.getElementById('wps-log-refresh');
                 var clearButton = document.getElementById('wps-log-clear');
+                var copyButton = document.getElementById('wps-log-copy');
                 var status = document.getElementById('wps-log-status');
-                if (!viewer || !fileSelect || !openButton || !refreshButton || !clearButton) {
+                if (!viewer || !fileSelect || !openButton || !refreshButton || !clearButton || !copyButton) {
                     return;
                 }
 
@@ -1190,6 +1192,38 @@ class WP_Settings
                             status.textContent = 'Refresh failed';
                         }
                     });
+                });
+
+                function selectViewer() {
+                    var range = document.createRange();
+                    range.selectNodeContents(viewer);
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+
+                // Ctrl/Cmd+A inside the viewer selects the log only, not the whole settings page.
+                viewer.addEventListener('keydown', function(event) {
+                    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'a') {
+                        event.preventDefault();
+                        selectViewer();
+                    }
+                });
+
+                copyButton.addEventListener('click', function() {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(viewer.textContent).then(function() {
+                            status.textContent = 'Copied';
+                        }, function() {
+                            status.textContent = 'Copy failed';
+                        });
+                        return;
+                    }
+
+                    // The Clipboard API needs HTTPS; fall back to selecting the log for a manual copy.
+                    selectViewer();
+                    viewer.focus();
+                    status.textContent = document.execCommand('copy') ? 'Copied' : 'Press Ctrl+C to copy';
                 });
 
                 clearButton.addEventListener('click', function() {
