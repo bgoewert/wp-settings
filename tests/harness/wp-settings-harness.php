@@ -50,6 +50,13 @@ final class WP_Settings_Harness extends WP_Settings
 
     public function __construct()
     {
+        // A fixed log_dir instead of the hashed uploads default, so the e2e suite
+        // can seed log files at a path it knows.
+        $this->logging(array(
+            'plugin_dir_path' => __DIR__,
+            'log_dir'         => WP_CONTENT_DIR . '/wp-settings-harness-logs',
+        ));
+
         // Parent first: it is what sets WP_Setting::$text_domain, and each
         // WP_Setting fixes its option slug from that static at construction —
         // build the fields before this call and they register unprefixed keys.
