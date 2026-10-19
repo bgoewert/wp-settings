@@ -1124,25 +1124,20 @@ class WP_Settings
         $ajax_url = \admin_url('admin-ajax.php');
         $view_nonce = \wp_create_nonce($this->get_logging_nonce_action('view'));
         $clear_nonce = \wp_create_nonce($this->get_logging_nonce_action('clear'));
-        $tab_slug = $this->get_logging_tab_slug();
-        $refresh = $this->logger->get_auto_refresh_interval();
+        $refresh =$this->logger->get_auto_refresh_interval();
         ?>
         <hr>
         <h2><?php echo \esc_html__('Log Viewer', 'wp-settings'); ?></h2>
         <p><?php echo \esc_html($this->logger->get_log_dir()); ?></p>
         <div style="margin: 0 0 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <form method="get" style="display: inline-flex; gap: 8px; align-items: center;">
-                <input type="hidden" name="page" value="<?php echo \esc_attr($this->text_domain); ?>">
-                <input type="hidden" name="tab" value="<?php echo \esc_attr($tab_slug); ?>">
-                <label class="screen-reader-text" for="wps-log-file"><?php echo \esc_html__('Log file', 'wp-settings'); ?></label>
-                <select name="log_file" id="wps-log-file">
-                    <option value=""><?php echo \esc_html__('Current Log', 'wp-settings'); ?></option>
-                    <?php foreach ($files as $file): ?>
-                        <option value="<?php echo \esc_attr($file); ?>"<?php echo \selected($selected_file, $file, false); ?>><?php echo \esc_html($file); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="button"><?php echo \esc_html__('Open', 'wp-settings'); ?></button>
-            </form>
+            <label class="screen-reader-text" for="wps-log-file"><?php echo \esc_html__('Log file', 'wp-settings'); ?></label>
+            <select id="wps-log-file">
+                <option value=""><?php echo \esc_html__('Current Log', 'wp-settings'); ?></option>
+                <?php foreach ($files as $file): ?>
+                    <option value="<?php echo \esc_attr($file); ?>"<?php echo \selected($selected_file, $file, false); ?>><?php echo \esc_html($file); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="button" class="button" id="wps-log-open"><?php echo \esc_html__('Open', 'wp-settings'); ?></button>
             <button type="button" class="button" id="wps-log-refresh"><?php echo \esc_html__('Refresh', 'wp-settings'); ?></button>
             <button type="button" class="button" id="wps-log-clear"><?php echo \esc_html__('Clear Logs', 'wp-settings'); ?></button>
             <span id="wps-log-status"></span>
@@ -1151,10 +1146,12 @@ class WP_Settings
         <script>
             (function() {
                 var viewer = document.getElementById('wps-log-viewer');
+                var fileSelect = document.getElementById('wps-log-file');
+                var openButton = document.getElementById('wps-log-open');
                 var refreshButton = document.getElementById('wps-log-refresh');
                 var clearButton = document.getElementById('wps-log-clear');
                 var status = document.getElementById('wps-log-status');
-                if (!viewer || !refreshButton || !clearButton) {
+                if (!viewer || !fileSelect || !openButton || !refreshButton || !clearButton) {
                     return;
                 }
 
@@ -1177,6 +1174,11 @@ class WP_Settings
                         return response.json();
                     }).then(done);
                 }
+
+                openButton.addEventListener('click', function() {
+                    viewer.setAttribute('data-file', fileSelect.value);
+                    refreshButton.click();
+                });
 
                 refreshButton.addEventListener('click', function() {
                     status.textContent = 'Refreshing...';
