@@ -4,6 +4,14 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.16.0] - 2026-10-20
+
+### Changed
+
+- Encryption keys are resolved from an environment variable before a constant of the same name ([#40](https://github.com/bgoewert/wp-settings/issues/40)). A stale `define()` in `wp-config.php` used to shadow a deploy-managed value in `.env`, so new values were encrypted under the wrong key. When the two differ, the conflict is logged once and administrators see a notice naming it.
+
+  **Consumer note:** a site whose constant holds the real key and whose environment variable is stale will report "the encryption key changed" until the stale variable is removed.
+
 ## [4.15.0] - 2026-10-19
 
 ### Added
