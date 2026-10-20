@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.15.0] - 2026-10-19
+
+### Added
+
+- Settings pages still using the `{TEXT_DOMAIN}_KEY` and `{TEXT_DOMAIN}_NONCE` constants that versions before 4.0.0 wrote into `wp-config.php` show administrators a **Migrate to WordPress salts** notice, which re-encrypts every password and encrypted field under the salts and deletes the two `define()` lines, or shows them to delete when the file cannot be edited ([#39](https://github.com/bgoewert/wp-settings/issues/39)).
+
 ## [4.14.0] - 2026-10-19
 
 ### Added
