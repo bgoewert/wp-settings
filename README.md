@@ -856,6 +856,8 @@ $this->tables = array(
 
 Tables render in the specified tab, support AJAX CRUD, bulk actions, inline status toggles, and a non-JS fallback form.
 
+A table renders above its tab's settings form. Pass `'position' => 'after'` to render it below the form instead, so a long table does not push the tab's fields out of reach. A table cannot sit inside a section callback, because its row actions are forms of their own and would nest in the settings form.
+
 ### Row Storage
 
 Rows live in one option by default, which is the right shape for a table an admin edits one row at a time. It is the wrong shape for a table something else writes: the option API has no per-key write, so two requests arriving together each read the same array and the second write drops the first row.

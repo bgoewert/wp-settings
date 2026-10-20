@@ -512,7 +512,8 @@ class WP_Settings
 
         <div class="tab-content">
 
-            <?php if ($table): ?>
+            <?php // A table cannot go inside the form: its row actions are forms of their own. ?>
+            <?php if ($table && $table->get_position() === "before"): ?>
                 <?php $table->render($this->text_domain, $tab); ?>
             <?php endif; ?>
 
@@ -540,6 +541,10 @@ class WP_Settings
                         $this->text_domain . "_" . $tab,
                     ); ?>
                 <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if ($table && $table->get_position() === "after"): ?>
+                <?php $table->render($this->text_domain, $tab); ?>
             <?php endif; ?>
 
             <?php if ($this->should_render_logging_viewer($tab)): ?>

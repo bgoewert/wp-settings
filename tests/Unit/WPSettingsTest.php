@@ -993,6 +993,79 @@ class WPSettingsTest extends WP_Settings_TestCase
     }
 
     // -------------------------------------------------------------------------
+    // Table position relative to the settings form (#42)
+    // -------------------------------------------------------------------------
+
+    /** A General tab holding one setting, one section, and a table titled "Blocked Mail". */
+    private function make_page_with_table(array $table_args = [], bool $with_settings = true): Test_WP_Settings_Exposer
+    {
+        $table = new \BGoewert\WP_Settings\WP_Settings_Table(array_merge([
+            'id'      => 'log',
+            'tab'     => 'general',
+            'title'   => 'Blocked Mail',
+            'columns' => [['key' => 'to', 'label' => 'To']],
+        ], $table_args));
+
+        return new Test_WP_Settings_Exposer(
+            $with_settings ? [make_setting('retention')] : [],
+            ['general' => ['name' => 'General', 'tab' => 'general', 'callback' => '__return_false']],
+            [$table]
+        );
+    }
+
+    public function test_menu_page_renders_a_table_above_the_form_by_default(): void
+    {
+        $html = $this->render_menu_page($this->make_page_with_table());
+
+        $table_at = strpos($html, 'Blocked Mail');
+        $form_at  = strpos($html, '<form method="post" class="test_plugin-general"');
+
+        $this->assertNotFalse($table_at);
+        $this->assertNotFalse($form_at);
+        $this->assertLessThan($form_at, $table_at,
+            'Existing consumers expect the table above the settings form.');
+    }
+
+    public function test_menu_page_renders_a_table_after_the_form_when_position_is_after(): void
+    {
+        $html = $this->render_menu_page($this->make_page_with_table(['position' => 'after']));
+
+        $table_at    = strpos($html, 'Blocked Mail');
+        $form_end_at = strpos($html, '</form>', strpos($html, 'class="test_plugin-general"'));
+
+        $this->assertNotFalse($table_at);
+        $this->assertNotFalse($form_end_at);
+        $this->assertGreaterThan($form_end_at, $table_at,
+            'A long log above the form buries the fields the consumer wants reachable.');
+        $this->assertSame(1, substr_count($html, 'Blocked Mail'),
+            'The table must render once, not on both sides of the form.');
+    }
+
+    public function test_menu_page_renders_a_table_after_sections_without_settings(): void
+    {
+        $html = $this->render_menu_page(
+            $this->make_page_with_table(['position' => 'after'], false)
+        );
+
+        $table_at    = strpos($html, 'Blocked Mail');
+        $sections_at = strpos($html, 'data-settings-sections="test_plugin_general"');
+
+        $this->assertNotFalse($sections_at);
+        $this->assertGreaterThan($sections_at, $table_at);
+    }
+
+    public function test_menu_page_treats_an_unknown_table_position_as_before(): void
+    {
+        $html = $this->render_menu_page($this->make_page_with_table(['position' => 'below']));
+
+        $table_at = strpos($html, 'Blocked Mail');
+        $form_at  = strpos($html, '<form method="post" class="test_plugin-general"');
+
+        $this->assertNotFalse($table_at);
+        $this->assertLessThan($form_at, $table_at);
+    }
+
+    // -------------------------------------------------------------------------
     // Integration: a reorderable repeater from registration to save (#19)
     // -------------------------------------------------------------------------
 

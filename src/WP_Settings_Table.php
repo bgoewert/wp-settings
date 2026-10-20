@@ -32,6 +32,13 @@ class WP_Settings_Table
     protected $tab;
 
     /**
+     * Where the table renders relative to its tab's settings form: 'before' or 'after'.
+     *
+     * @var string
+     */
+    protected $position;
+
+    /**
      * Option name (without text domain prefix).
      *
      * @var string
@@ -142,6 +149,7 @@ class WP_Settings_Table
     {
         $this->id          = $args['id'] ?? '';
         $this->tab         = $args['tab'] ?? '';
+        $this->position    = ($args['position'] ?? '') === 'after' ? 'after' : 'before';
         $this->option      = $args['option'] ?? $this->id;
         $this->title       = $args['title'] ?? '';
         $this->description = $args['description'] ?? null;
@@ -239,6 +247,16 @@ class WP_Settings_Table
     public function handles_tab($tab)
     {
         return $this->tab === $tab;
+    }
+
+    /**
+     * Where the table renders relative to its tab's settings form.
+     *
+     * @return string 'before' or 'after'.
+     */
+    public function get_position()
+    {
+        return $this->position;
     }
 
     /**
