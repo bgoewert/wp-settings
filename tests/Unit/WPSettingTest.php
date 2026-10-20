@@ -2682,6 +2682,90 @@ class WPSettingTest extends WP_Settings_TestCase
         $this->assertStringContainsString('list="sf_field_names"', $output);
     }
 
+    /**
+     * A palette is offered as the color input's suggestions: the picker shows
+     * them as swatches, and Firefox on Windows fills its Custom colors slots.
+     */
+    public function test_color_palette_renders_a_datalist_the_input_points_at(): void
+    {
+        $output = $this->renderTextInput('color', ['palette' => ['#E27728', '#123456']]);
+
+        $this->assertMatchesRegularExpression('/<input type="color"[^>]*list="attr_field-palette"/', $output);
+        $this->assertStringContainsString('<datalist id="attr_field-palette">', $output);
+        $this->assertSame(
+            ['#e27728', '#123456'],
+            $this->datalistValues($output)
+        );
+    }
+
+    /** A datalist only accepts #rrggbb, so shorthand is expanded and invalid colors dropped. */
+    public function test_color_palette_expands_shorthand_and_drops_invalid_colors(): void
+    {
+        $output = $this->renderTextInput('color', [
+            'palette' => ['#FFF', 'red', 'var(--wp--preset--color--primary)', '#fff', '#00ff00"><script>'],
+        ]);
+
+        $this->assertSame(['#ffffff'], $this->datalistValues($output));
+        $this->assertStringNotContainsString('<script>', $output);
+    }
+
+    /** 'theme' reads the theme.json palette, plus colors added in the Site Editor. */
+    public function test_color_palette_theme_reads_theme_json_colors(): void
+    {
+        $GLOBALS['wp_test_global_settings'] = [
+            'color' => [
+                'palette' => [
+                    'default' => [['slug' => 'black', 'name' => 'Black', 'color' => '#000000']],
+                    'theme'   => [
+                        ['slug' => 'primary', 'name' => 'Primary', 'color' => '#c8102e'],
+                        ['slug' => 'accent', 'name' => 'Accent', 'color' => '#FDBA4D'],
+                    ],
+                    'custom'  => [['slug' => 'mine', 'name' => 'Mine', 'color' => '#abcdef']],
+                ],
+            ],
+        ];
+
+        $output = $this->renderTextInput('color', ['palette' => 'theme']);
+
+        $this->assertSame(['#c8102e', '#fdba4d', '#abcdef'], $this->datalistValues($output));
+        $this->assertStringContainsString('label="Primary"', $output);
+    }
+
+    /** No usable colors means no datalist, and no list attribute pointing at nothing. */
+    public function test_color_palette_without_colors_renders_no_datalist(): void
+    {
+        $output = $this->renderTextInput('color', ['palette' => 'theme']);
+
+        $this->assertStringNotContainsString('<datalist', $output);
+        $this->assertStringNotContainsString('list=', $output);
+    }
+
+    /** A consumer's own `list` still wins: it names a datalist they render. */
+    public function test_color_explicit_list_overrides_palette(): void
+    {
+        $output = $this->renderTextInput('color', ['list' => 'my-colors', 'palette' => ['#e27728']]);
+
+        $this->assertStringContainsString('list="my-colors"', $output);
+        $this->assertStringNotContainsString('<datalist', $output);
+    }
+
+    /** A custom render callback can offer the same palette through the public helpers. */
+    public function test_color_palette_datalist_helper_for_custom_renderers(): void
+    {
+        $html = WP_Setting::color_palette_datalist('brand-colors', ['#e27728']);
+
+        $this->assertStringContainsString('<datalist id="brand-colors">', $html);
+        $this->assertSame(['#e27728'], $this->datalistValues($html));
+        $this->assertSame('', WP_Setting::color_palette_datalist('brand-colors', []));
+    }
+
+    /** @return list<string> */
+    private function datalistValues(string $html): array
+    {
+        preg_match_all('/<option value="([^"]*)"/', $html, $matches);
+        return $matches[1];
+    }
+
     public function test_passthrough_attributes_are_escaped(): void
     {
         $output = $this->renderTextInput('text', ['pattern' => '"><script>alert(1)</script>']);

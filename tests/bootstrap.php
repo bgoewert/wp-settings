@@ -108,6 +108,7 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_denied_capabilities = [];
     $GLOBALS["wp_test_multisite"] = false;
     $GLOBALS["wp_test_file_mods_allowed"] = true;
+    $GLOBALS["wp_test_global_settings"] = [];
 
     // Declared further down, once the class it builds exists.
     if (function_exists("wp_settings_test_reset_wpdb")) {
@@ -462,6 +463,20 @@ if (!function_exists("wp_unslash")) {
             return array_map("stripslashes", $value);
         }
         return is_string($value) ? stripslashes($value) : $value;
+    }
+}
+
+if (!function_exists("wp_get_global_settings")) {
+    function wp_get_global_settings($path = [], $context = [])
+    {
+        $settings = $GLOBALS["wp_test_global_settings"] ?? [];
+        foreach ($path as $key) {
+            if (!is_array($settings) || !array_key_exists($key, $settings)) {
+                return null;
+            }
+            $settings = $settings[$key];
+        }
+        return $settings;
     }
 }
 

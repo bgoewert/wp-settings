@@ -225,6 +225,8 @@ Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `se
 
 **Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
+Pass `'palette' => 'theme'` to suggest the theme.json palette (plus colors added in the Site Editor), or `'palette' => array('#c8102e', '#fdba4d')` for your own. The colors render as a `<datalist>` the input's `list` points at, which Chrome, Edge and Safari show as swatches and Firefox on Windows uses to fill the system dialog's Custom colors; Firefox on macOS and Android ignores it. Colors that are not hex, such as `var()` references, are skipped. An explicit `list` arg wins over `palette`. A custom render callback can call `WP_Setting::color_palette_datalist($id, $palette)` and point its own input's `list` at `$id`.
+
 **Advanced**: Collapsible `<details>` section containing child settings.
 
 **Fieldset**: Visual grouping of child settings with `<fieldset>` element.

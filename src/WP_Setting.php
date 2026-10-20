@@ -425,6 +425,9 @@ class WP_Setting
             'label'    => array(),
             'disabled' => array(),
         ),
+        'datalist' => array(
+            'id'       => array(),
+        ),
         'fieldset' => array(
             'class'    => array(),
             'style'    => array(),
@@ -1644,7 +1647,17 @@ class WP_Setting
         // Pressing Enter in a single-line input submits the containing form.
         $atts .= $this->get_enter_submit_attribute();
 
+        // An explicit `list` names a datalist the consumer renders, so it wins.
+        $datalist = '';
+        if ('color' === $this->type && isset($this->args['palette']) && empty($this->args['list'])) {
+            $datalist = self::color_palette_datalist($id . '-palette', $this->args['palette']);
+            if ('' !== $datalist) {
+                $atts .= sprintf(' list="%s"', \esc_attr($id . '-palette'));
+            }
+        }
+
         echo \wp_kses(sprintf('<input type="%s" name="%s" id="%s" value="%s"%s>', $this->type, $name, $id, $value, $atts), self::$allowed_html);
+        echo \wp_kses($datalist, self::$allowed_html);
         if ('password' === $this->type) {
             echo \wp_kses('<button type="button" class="button wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password"><span class="text">Show</span></button>', self::$allowed_html);
         }
@@ -4107,6 +4120,81 @@ class WP_Setting
             return false;
         }
         return (bool) preg_match('/^#([A-Fa-f0-9]{3}){1,2}$/', (string) $value);
+    }
+
+    /**
+     * Build a <datalist> of suggested colors for an `<input type="color" list="...">`.
+     *
+     * @param string       $id      The datalist id the input's `list` names.
+     * @param string|array $palette 'theme' for the theme.json palette, or a list of hex colors.
+     * @return string The datalist HTML, or '' when no color in the palette is usable.
+     */
+    public static function color_palette_datalist(string $id, $palette): string
+    {
+        $colors = 'theme' === $palette ? self::theme_palette_colors() : array();
+        if (is_array($palette)) {
+            foreach ($palette as $color) {
+                $colors[] = array('color' => $color, 'name' => '');
+            }
+        }
+
+        $options = '';
+        $seen    = array();
+        foreach ($colors as $color) {
+            $hex = self::simple_color($color['color']);
+            if (null === $hex || isset($seen[$hex])) {
+                continue;
+            }
+            $seen[$hex] = true;
+            $label      = '' === $color['name'] ? '' : sprintf(' label="%s"', \esc_attr($color['name']));
+            $options   .= sprintf('<option value="%s"%s></option>', $hex, $label);
+        }
+
+        return '' === $options ? '' : sprintf('<datalist id="%s">%s</datalist>', \esc_attr($id), $options);
+    }
+
+    /**
+     * The theme.json palette and the Site Editor's custom colors, skipping core's default palette.
+     *
+     * @return list<array{color: mixed, name: string}>
+     */
+    public static function theme_palette_colors(): array
+    {
+        if (!function_exists('wp_get_global_settings')) {
+            return array();
+        }
+
+        $palette = \wp_get_global_settings(array('color', 'palette'));
+        $colors  = array();
+        foreach (array('theme', 'custom') as $origin) {
+            foreach ((array) ($palette[$origin] ?? array()) as $preset) {
+                if (is_array($preset) && isset($preset['color'])) {
+                    $colors[] = array('color' => $preset['color'], 'name' => (string) ($preset['name'] ?? ''));
+                }
+            }
+        }
+
+        return $colors;
+    }
+
+    /**
+     * Normalize a hex color to the lowercase #rrggbb a datalist suggestion requires.
+     *
+     * @param mixed $value A candidate color.
+     * @return string|null The normalized color, or null if it is not a hex color.
+     */
+    private static function simple_color($value): ?string
+    {
+        if (!self::is_valid_hex_color($value)) {
+            return null;
+        }
+
+        $hex = strtolower(substr((string) $value, 1));
+        if (3 === strlen($hex)) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+
+        return '#' . $hex;
     }
 
     /**
