@@ -301,6 +301,19 @@ final class WP_Settings_Harness extends WP_Settings
                 null,
                 array('disabled' => true)
             ),
+            'brand_color' => new WP_Setting(
+                'brand_color',
+                'Brand Color',
+                'color',
+                'general',
+                'lists',
+                null,
+                'Suggests the active theme\'s palette.',
+                false,
+                null,
+                null,
+                array('palette' => 'theme')
+            ),
             'plain_note' => new WP_Setting(
                 'plain_note',
                 'Plain Note',
