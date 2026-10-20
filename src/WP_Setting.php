@@ -1006,6 +1006,10 @@ class WP_Setting
         ) {
             $setting = $normalized_domain . '_' . $setting;
         }
+        if ($decrypt && self::$text_domain) {
+            // A front-end read can be the first request after the legacy constants are removed.
+            WP_Settings_Key_Migration::apply_staged_for((string) self::$text_domain);
+        }
         $value = \get_option($setting, $default_value);
         if ($decrypt) {
             return self::decrypt($value);

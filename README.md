@@ -754,7 +754,7 @@ define( 'MY_PLUGIN_KEY', 'base64-value-here' );
 MY_PLUGIN_KEY=base64-value-here
 ```
 
-The library never reads or writes `wp-config.php`. A `define()` there works because the file is executed, not because it is parsed.
+The library never reads key material from `wp-config.php`. A `define()` there works because the file is executed, not because it is parsed. The one write is the [migration below](#retiring-the-pre-40-constants), on an admin's request.
 
 Two backends are supported, chosen automatically:
 
@@ -799,6 +799,14 @@ WP_Setting::rewrap_encrypted( [ 'api_token', 'webhook_secret' ], MY_PLUGIN_LEGAC
 ```
 
 The names are yours to supply — the library has no registry of which settings are encrypted. Each comes back as `rewrapped`, `current`, `empty` or `failed`; a value that will not decrypt under the legacy key is left untouched, so the pass is safe to repeat. Downgrading the library after a rewrap is not supported: versions before 4.8.0 do not read the fingerprinted format.
+
+### Retiring the pre-4.0 constants
+
+Versions before 4.0.0 generated `MY_PLUGIN_KEY` and `MY_PLUGIN_NONCE` and wrote them into `wp-config.php`, and a defined constant still wins over the salts. While either is defined, the settings page shows administrators a **Migrate to WordPress salts** notice; there is nothing to call.
+
+The button re-encrypts every `password` field and every field declared `encrypted` under the salts, stages the result, and deletes the two `define()` lines. When `wp-config.php` is not writable, `DISALLOW_FILE_MODS` is set, or a line is not in the form the old versions wrote, the notice shows the lines to delete instead. Stored values stay as they are until a request loads without the constants and the staged values decrypt under its key, so the site keeps working in between. Afterward, rotating `LOGGED_IN_KEY` or `NONCE_KEY` means re-entering those fields.
+
+Not offered on multisite, where `wp-config.php` is shared by every site but only the current site's values would move. Fields inside settings tables are not covered; re-enter them after removing the lines.
 
 ## Settings Tables
 

@@ -106,6 +106,8 @@ function wp_settings_test_reset_stubs(): void
     $wp_test_attachments = [];
     $wp_test_media_enqueued = 0;
     $wp_test_denied_capabilities = [];
+    $GLOBALS["wp_test_multisite"] = false;
+    $GLOBALS["wp_test_file_mods_allowed"] = true;
 
     // Declared further down, once the class it builds exists.
     if (function_exists("wp_settings_test_reset_wpdb")) {
@@ -460,6 +462,27 @@ if (!function_exists("wp_unslash")) {
             return array_map("stripslashes", $value);
         }
         return is_string($value) ? stripslashes($value) : $value;
+    }
+}
+
+if (!function_exists("is_multisite")) {
+    function is_multisite()
+    {
+        return !empty($GLOBALS["wp_test_multisite"]);
+    }
+}
+
+if (!function_exists("wp_is_file_mod_allowed")) {
+    function wp_is_file_mod_allowed($context)
+    {
+        return !empty($GLOBALS["wp_test_file_mods_allowed"]);
+    }
+}
+
+if (!function_exists("wp_is_writable")) {
+    function wp_is_writable($path)
+    {
+        return is_writable($path);
     }
 }
 

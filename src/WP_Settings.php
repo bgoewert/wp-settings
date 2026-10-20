@@ -180,6 +180,11 @@ class WP_Settings
             strtoupper($this->text_domain . "_key"),
             strtoupper($this->text_domain . "_nonce"),
         );
+        (new WP_Settings_Key_Migration(
+            $this->text_domain,
+            (string) ($this->plugin_data["Name"] ?? ""),
+            fn() => $this->encrypted_option_names(),
+        ))->register();
         $this->initialize_logging_support();
 
         \add_action("admin_init", [__CLASS__, "warn_duplicate_copies"], 0);
@@ -582,6 +587,24 @@ class WP_Settings
     public function get_settings(): array
     {
         return $this->settings;
+    }
+
+    /**
+     * Option names of the fields stored encrypted: declared `encrypted`, or a `password` field.
+     *
+     * @return string[]
+     */
+    protected function encrypted_option_names(): array
+    {
+        $names = [];
+
+        foreach ((array) $this->settings as $setting) {
+            if ($setting instanceof WP_Setting && ($setting->encrypted || "password" === $setting->type)) {
+                $names[] = $setting->slug;
+            }
+        }
+
+        return $names;
     }
 
     /**

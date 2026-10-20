@@ -210,7 +210,8 @@ class WP_Setting_Encryption
      * needs no provisioning; a dedicated constant is the opt-out for sites that
      * rotate salts. Nothing is read from, or written to, wp-config.php — the
      * file is unwritable on most hardened and containerized deploys, and a
-     * plugin rewriting it by regex does not survive an atomic release.
+     * plugin rewriting it by regex does not survive an atomic release. Only
+     * WP_Settings_Key_Migration edits it, to delete the lines 3.x wrote.
      *
      * @param string|null $constant    Constant/env var name, or null when the caller named none.
      * @param string      $salt        WordPress salt constant to fall back to.
