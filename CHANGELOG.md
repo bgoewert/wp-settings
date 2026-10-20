@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.17.0] - 2026-10-20
+
+### Added
+
+- Color fields take a `palette` arg that suggests colors in the picker: `'theme'` offers the theme.json palette plus colors added in the Site Editor, or pass your own hex colors. Chrome, Edge and Safari show them as swatches, and Firefox on Windows fills the dialog's Custom colors. A custom render callback can offer the same palette with `WP_Setting::color_palette_datalist()`.
+
 ## [4.16.0] - 2026-10-20
 
 ### Changed
