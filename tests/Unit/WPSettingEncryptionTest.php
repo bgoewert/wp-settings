@@ -78,6 +78,42 @@ class WPSettingEncryptionTest extends WP_Settings_TestCase
     }
 
     /**
+     * A deploy writes the environment; a define() left over from 3.x must not shadow it.
+     */
+    public function test_an_environment_variable_outranks_a_constant_and_the_mismatch_is_reported(): void
+    {
+        $env_key = base64_encode(str_repeat('e', 32));
+        define('WPS_BOTH_KEY', base64_encode(str_repeat('c', 32)));
+        putenv('WPS_BOTH_KEY=' . $env_key);
+
+        try {
+            $crypt = new WP_Setting_Encryption('WPS_BOTH_KEY', 'WPS_BOTH_NONCE');
+
+            $this->assertSame(base64_decode($env_key), $this->resolved($crypt, 'key'));
+            $this->assertSame('env', $crypt->key_source());
+            $this->assertSame(['WPS_BOTH_KEY'], $crypt->source_conflicts());
+        } finally {
+            putenv('WPS_BOTH_KEY');
+        }
+    }
+
+    /**
+     * Bedrock copies .env into constants, so an identical pair is not a conflict.
+     */
+    public function test_a_constant_matching_the_environment_is_not_a_conflict(): void
+    {
+        $key = base64_encode(str_repeat('b', 32));
+        define('WPS_BEDROCK_KEY', $key);
+        putenv('WPS_BEDROCK_KEY=' . $key);
+
+        try {
+            $this->assertSame([], (new WP_Setting_Encryption('WPS_BEDROCK_KEY', 'WPS_BEDROCK_NONCE'))->source_conflicts());
+        } finally {
+            putenv('WPS_BEDROCK_KEY');
+        }
+    }
+
+    /**
      * The salts are the documented default: they need no provisioning and exist
      * on every install.
      */

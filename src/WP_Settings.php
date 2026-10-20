@@ -117,6 +117,13 @@ class WP_Settings
     private $logging_initialized = false;
 
     /**
+     * Key and nonce names set as both an environment variable and a constant, to different values.
+     *
+     * @var string[]
+     */
+    private $key_source_conflicts = array();
+
+    /**
      * Initialize plugin settings.
      *
      * @param array|string $plugin_data Either plugin data array with 'Name' and 'TextDomain' keys,
@@ -176,10 +183,10 @@ class WP_Settings
 
         // Set static text_domain for all WP_Setting instances
         WP_Setting::$text_domain = $this->text_domain;
-        new WP_Setting_Encryption(
-            strtoupper($this->text_domain . "_key"),
-            strtoupper($this->text_domain . "_nonce"),
-        );
+        $this->key_source_conflicts = (new WP_Setting_Encryption(
+            strtoupper(WP_Setting::normalize_text_domain($this->text_domain . "_key")),
+            strtoupper(WP_Setting::normalize_text_domain($this->text_domain . "_nonce")),
+        ))->source_conflicts();
         (new WP_Settings_Key_Migration(
             $this->text_domain,
             (string) ($this->plugin_data["Name"] ?? ""),
@@ -187,6 +194,7 @@ class WP_Settings
         ))->register();
         $this->initialize_logging_support();
 
+        \add_action("admin_notices", [$this, "report_key_source_conflicts"]);
         \add_action("admin_init", [__CLASS__, "warn_duplicate_copies"], 0);
         \add_action("admin_init", [$this, "init"]);
         \add_action("admin_menu", [$this, "admin_menu"]);
@@ -605,6 +613,59 @@ class WP_Settings
         }
 
         return $names;
+    }
+
+    /**
+     * Report a key or nonce set as both an environment variable and a constant, to different values.
+     *
+     * Logged once per change in the conflicting names, since the notice repeats
+     * on every admin page. The option holds names only, never values.
+     *
+     * @internal Called via admin_notices; not part of the public API.
+     * @return void
+     */
+    public function report_key_source_conflicts(): void
+    {
+        $option = WP_Setting::normalize_text_domain($this->text_domain) . "_key_source_conflicts";
+        $conflicts = $this->key_source_conflicts;
+
+        if (empty($conflicts)) {
+            if (false !== \get_option($option, false)) {
+                \delete_option($option);
+            }
+            return;
+        }
+
+        if (\get_option($option, false) !== $conflicts) {
+            \update_option($option, $conflicts, true);
+
+            $message = sprintf(
+                "%s is set as both an environment variable and a constant, with different values; the environment variable is used.",
+                implode(", ", $conflicts)
+            );
+
+            if (null !== $this->logger) {
+                $this->logger->warning($message);
+            } else {
+                error_log("wp-settings: " . $message);
+            }
+        }
+
+        if (!\current_user_can("manage_options")) {
+            return;
+        }
+
+        foreach ($conflicts as $name) {
+            $message = sprintf(
+                /* translators: 1: plugin name, 2: constant/environment variable name, 3: wp-config.php */
+                \esc_html__('%1$s: %2$s is set as both an environment variable and a constant, with different values. The environment variable is used. Delete the constant from %3$s, or give the two the same value.', $this->text_domain),
+                \esc_html((string) ($this->plugin_data["Name"] ?? $this->text_domain)),
+                "<code>" . \esc_html($name) . "</code>",
+                "<code>wp-config.php</code>"
+            );
+
+            echo '<div class="notice notice-warning"><p>' . $message . "</p></div>";
+        }
     }
 
     /**

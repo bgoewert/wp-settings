@@ -279,4 +279,34 @@ class WPSettingsKeyMigrationTest extends WP_Settings_TestCase
         $this->assertSame(array($prefix . '_secret', $prefix . '_token'), $page->names());
         $this->assertNotEmpty($this->getRecordedActions('admin_post_' . $this->migration()->action()));
     }
+
+    public function test_a_constant_shadowed_by_the_environment_is_logged_once_and_named_in_a_notice(): void
+    {
+        putenv($this->key_constant . '=' . base64_encode(random_bytes(32)));
+        $log = tempnam(sys_get_temp_dir(), 'wps-log');
+        $previous_log = ini_set('error_log', $log);
+
+        try {
+            $page = new Test_WP_Settings_Key_Migration_Page($this->domain, array());
+
+            ob_start();
+            $page->report_key_source_conflicts();
+            $page->report_key_source_conflicts();
+            $html = (string) ob_get_clean();
+
+            $this->assertSame(2, substr_count($html, '<code>' . $this->key_constant . '</code>'), 'notice repeats per page');
+            $this->assertStringNotContainsString($this->nonce_constant, $html);
+            $this->assertSame(1, substr_count((string) file_get_contents($log), $this->key_constant), 'logged once');
+            $this->assertStringNotContainsString(constant($this->key_constant), (string) file_get_contents($log));
+
+            $GLOBALS['wp_test_denied_capabilities'] = array('manage_options');
+            ob_start();
+            $page->report_key_source_conflicts();
+            $this->assertSame('', ob_get_clean());
+        } finally {
+            putenv($this->key_constant);
+            ini_set('error_log', (string) $previous_log);
+            unlink($log);
+        }
+    }
 }

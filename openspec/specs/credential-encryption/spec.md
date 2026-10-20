@@ -6,15 +6,15 @@ Defines how the library resolves the secret material used to encrypt stored cred
 ## Requirements
 
 ### Requirement: Key material is resolved from the environment, never from a config file
-The library SHALL resolve its encryption key and nonce in this order: a defined PHP constant, then an environment variable of the same name, then the WordPress authentication salts. It SHALL NOT read key material by parsing the text of a configuration file. It SHALL NOT write to any configuration file, except to delete, when an administrator requests the key-constant migration, the `define()` lines for its own key and nonce constants.
+The library SHALL resolve its encryption key and nonce in this order: an environment variable, then a defined PHP constant of the same name, then the WordPress authentication salts. It SHALL NOT read key material by parsing the text of a configuration file. It SHALL NOT write to any configuration file, except to delete, when an administrator requests the key-constant migration, the `define()` lines for its own key and nonce constants.
 
 #### Scenario: A dedicated constant is defined
-- **WHEN** the key constant is defined and non-empty
+- **WHEN** the key constant is defined and non-empty, and no environment variable of the same name is set
 - **THEN** its value is used as the key, and no configuration file is read or written
 
 #### Scenario: The value is supplied as an environment variable
-- **WHEN** the key constant is not defined but an environment variable of the same name is set and non-empty
-- **THEN** that value is used as the key
+- **WHEN** an environment variable named for the key is set and non-empty
+- **THEN** that value is used as the key, whether or not a constant of the same name is defined
 
 #### Scenario: Neither a constant nor an environment variable is present
 - **WHEN** no constant and no environment variable supply the key
@@ -22,7 +22,18 @@ The library SHALL resolve its encryption key and nonce in this order: a defined 
 
 #### Scenario: A constant appears only as unexecuted text in a configuration file
 - **WHEN** a configuration file contains a matching `define()` that was never executed, so the constant is not defined at runtime
-- **THEN** that text is ignored and resolution continues to the environment variable and then the salts
+- **THEN** that text is ignored and resolution continues to the salts
+
+### Requirement: A constant that disagrees with the environment is reported
+When the environment variable and the constant for the key or nonce are both set and resolve to different values, the library SHALL log the conflict once, without either value, and SHALL show users who can manage options an admin notice naming the variable and stating that the environment variable is used.
+
+#### Scenario: A stale define() shadows a deploy-managed key
+- **WHEN** the key's environment variable and constant are both set to different values
+- **THEN** the environment variable is used, one log entry names the key, and the notice names it on every admin page until the two agree or one is removed
+
+#### Scenario: The constant was copied from the environment
+- **WHEN** the environment variable and the constant hold the same value
+- **THEN** nothing is logged and no notice is shown
 
 ### Requirement: A resolved key always yields a string
 The library SHALL resolve a string value for both key and nonce under every branch of the resolution order, including when every source is absent or empty.

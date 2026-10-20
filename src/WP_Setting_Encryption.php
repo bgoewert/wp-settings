@@ -14,7 +14,7 @@ if (class_exists('BGoewert\\WP_Settings\\WP_Setting_Encryption')) {
 /**
  * Handle encryption and decryption of data in WordPress using `libsodium`,
  * falling back to `openssl` (AES-256-GCM) where sodium is unavailable.
- * Key material comes from a constant, an environment variable of the same name,
+ * Key material comes from an environment variable, a constant of the same name,
  * or the WordPress salts — never from parsing or writing a config file.
  * Note that this is not the safest but is the most reasonable method to support most installations of WordPress as far as I can tell.
  * @link https://felix-arntz.me/blog/storing-confidential-data-in-wordpress/
@@ -69,9 +69,12 @@ class WP_Setting_Encryption
     private $key_constant;
     private $nonce_constant;
 
-    /** Where the key and nonce were resolved from: 'constant', 'env', 'salt' or 'fallback'. */
+    /** Where the key and nonce were resolved from: 'env', 'constant', 'salt' or 'fallback'. */
     private $key_source;
     private $nonce_source;
+
+    /** @var string[] Names set as both an environment variable and a constant, to different values. */
+    private $source_conflicts = array();
     // Resolved in the constructor, not here: property initialisers are evaluated
     // at instantiation, so referencing SODIUM_* constants at this point makes the
     // class unconstructable — and the extension_loaded() guards unreachable — on
@@ -205,10 +208,12 @@ class WP_Setting_Encryption
     /**
      * Resolve secret material from the environment.
      *
-     * A defined constant first, then an environment variable of the same name,
-     * then the WordPress salt. The salt is the documented default because it
-     * needs no provisioning; a dedicated constant is the opt-out for sites that
-     * rotate salts. Nothing is read from, or written to, wp-config.php — the
+     * An environment variable first, then a defined constant of the same name,
+     * then the WordPress salt. The environment wins because that is where a
+     * deploy puts the value; a constant is usually hand-placed and may be a
+     * leftover from 3.x. The salt is the documented default because it needs no
+     * provisioning; a dedicated key is the opt-out for sites that rotate salts.
+     * Nothing is read from, or written to, wp-config.php — the
      * file is unwritable on most hardened and containerized deploys, and a
      * plugin rewriting it by regex does not survive an atomic release. Only
      * WP_Settings_Key_Migration edits it, to delete the lines 3.x wrote.
@@ -222,13 +227,26 @@ class WP_Setting_Encryption
     private function resolve_secret($constant, string $salt, int $length, string $last_resort): array
     {
         if (\is_string($constant) && '' !== $constant) {
-            if (defined($constant) && '' !== (string) constant($constant)) {
-                return [$this->truncate(self::safe_base64_decode((string) constant($constant)), $length), 'constant'];
+            $from_env = getenv($constant);
+            $from_env = \is_string($from_env) && '' !== $from_env
+                ? $this->truncate(self::safe_base64_decode($from_env), $length)
+                : null;
+
+            $from_constant = defined($constant) && '' !== (string) constant($constant)
+                ? $this->truncate(self::safe_base64_decode((string) constant($constant)), $length)
+                : null;
+
+            // Bedrock copies .env into constants, so only a mismatch means a stale define().
+            if (null !== $from_env && null !== $from_constant && !hash_equals($from_constant, $from_env)) {
+                $this->source_conflicts[] = $constant;
             }
 
-            $from_env = getenv($constant);
-            if (\is_string($from_env) && '' !== $from_env) {
-                return [$this->truncate(self::safe_base64_decode($from_env), $length), 'env'];
+            if (null !== $from_env) {
+                return [$from_env, 'env'];
+            }
+
+            if (null !== $from_constant) {
+                return [$from_constant, 'constant'];
             }
         }
 
@@ -260,7 +278,7 @@ class WP_Setting_Encryption
     }
 
     /**
-     * Where the key was resolved from: 'constant', 'env', 'salt', 'explicit' or 'fallback'.
+     * Where the key was resolved from: 'env', 'constant', 'salt', 'explicit' or 'fallback'.
      *
      * A "the key changed" message is only actionable if it can name the source.
      *
@@ -269,6 +287,20 @@ class WP_Setting_Encryption
     public function key_source(): string
     {
         return (string) $this->key_source;
+    }
+
+    /**
+     * Key and nonce names set as both an environment variable and a constant, to different values.
+     *
+     * The environment variable won for each. Nothing else reports it, and every
+     * value written meanwhile is encrypted under whichever source the site did
+     * not mean to use.
+     *
+     * @return string[]
+     */
+    public function source_conflicts(): array
+    {
+        return $this->source_conflicts;
     }
 
     /**

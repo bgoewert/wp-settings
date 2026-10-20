@@ -734,15 +734,17 @@ WP_Setting::make( 'api_token', 'API Token', 'password', 'general', 'keys', [ 'en
 
 Sanitization still runs first, then the value is encrypted on save and decrypted on render. Say it once at registration and a read and a write cannot disagree about a setting — the per-call `WP_Setting::set( $name, $value, true )` / `get( $name, false, true )` flags remain for values that aren't fields, but a forgotten flag there writes a secret in plaintext and nothing fails.
 
-The key and nonce are resolved from a constant, then an environment variable of the same name, then the WordPress salts.
+The key and nonce are resolved from an environment variable, then a constant of the same name, then the WordPress salts.
 
 ### Key material
 
-The constant names are derived from your text domain — `MY_PLUGIN_KEY` and `MY_PLUGIN_NONCE` for the text domain `my-plugin`. Resolution stops at the first source that has a value:
+The names are derived from your text domain — `MY_PLUGIN_KEY` and `MY_PLUGIN_NONCE` for the text domain `my-plugin`. Resolution stops at the first source that has a value:
 
-1. A defined PHP constant.
-2. An environment variable of the same name, which covers `.env`, Docker and hosting panels.
+1. An environment variable, which covers `.env`, Docker and hosting panels.
+2. A defined PHP constant of the same name.
 3. `LOGGED_IN_KEY` / `NONCE_KEY`.
+
+The environment comes first because that is where a deploy puts the value; a `define()` is usually hand-placed and can go stale. When both are set to different values, the environment variable is used, the conflict is logged once, and administrators see a notice naming it until one is removed or the two match. On Bedrock, `config/application.php` typically copies `.env` into constants, so the two hold the same value and the order makes no difference.
 
 The salts are the default and need no setup. Define your own only if you rotate salts — a rotation makes every value encrypted under them unreadable. Generate one with `openssl rand -base64 32`, then either:
 
