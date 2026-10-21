@@ -598,7 +598,8 @@ class WP_Settings_Table
 
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead><tr>';
-        echo '<td class="check-column"><input type="checkbox" class="wps-select-all"></td>';
+        $select_all_id = $this->control_id('wps-select-all-' . $this->id);
+        echo '<td class="check-column"><label class="screen-reader-text" for="' . \esc_attr($select_all_id) . '">' . \esc_html__('Select all', 'wp-settings') . '</label><input type="checkbox" class="wps-select-all" id="' . \esc_attr($select_all_id) . '"></td>';
         foreach ($this->columns as $column) {
             $label = $column['label'] ?? '';
             $key = $column['key'] ?? '';
@@ -616,7 +617,10 @@ class WP_Settings_Table
         } else {
             foreach ($rows as $row_id => $row) {
                 echo '<tr data-row-id="' . \esc_attr($row_id) . '">';
-                echo '<th scope="row" class="check-column"><input type="checkbox" name="selected[]" value="' . \esc_attr($row_id) . '"></th>';
+                $select_id = $this->control_id('wps-select-' . $this->id . '-' . $row_id);
+                /* translators: %s: row name */
+                $select_label = sprintf(__('Select %s', 'wp-settings'), $this->get_row_label($row, $row_id));
+                echo '<th scope="row" class="check-column"><label class="screen-reader-text" for="' . \esc_attr($select_id) . '">' . \esc_html($select_label) . '</label><input type="checkbox" name="selected[]" id="' . \esc_attr($select_id) . '" value="' . \esc_attr($row_id) . '"></th>';
                 foreach ($this->columns as $column) {
                     $cell = $this->render_cell($column, $row, $row_id);
                     echo '<td>' . $cell . '</td>';
@@ -688,6 +692,45 @@ class WP_Settings_Table
         }
 
         return \esc_html($value);
+    }
+
+    /**
+     * Name a row for its select checkbox: the first non-status column's value, else the row id.
+     *
+     * Status columns are skipped because every row shares their few values.
+     *
+     * @param array      $row    Row data.
+     * @param string|int $row_id Row id.
+     * @return string
+     */
+    protected function get_row_label(array $row, $row_id)
+    {
+        foreach ($this->columns as $column) {
+            if (($column['type'] ?? '') === 'status') {
+                continue;
+            }
+
+            $key = $column['field'] ?? ($column['key'] ?? '');
+            $value = $row[$key] ?? '';
+            $value = is_array($value) ? implode(', ', $value) : (string) $value;
+
+            if (trim($value) !== '') {
+                return $value;
+            }
+        }
+
+        return (string) $row_id;
+    }
+
+    /**
+     * Make an element id from parts a consumer chose, which may hold whitespace.
+     *
+     * @param string $id Raw id.
+     * @return string
+     */
+    protected function control_id($id)
+    {
+        return preg_replace('/\s+/', '-', $id);
     }
 
     /**
