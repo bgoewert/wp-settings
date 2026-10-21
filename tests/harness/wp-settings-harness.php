@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use BGoewert\WP_Settings\WP_Setting;
 use BGoewert\WP_Settings\WP_Settings;
+use BGoewert\WP_Settings\WP_Settings_Table;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -80,6 +81,29 @@ final class WP_Settings_Harness extends WP_Settings
                     array('field' => 'provider', 'operator' => 'equals', 'value' => 'vimeo'),
                 ),
             ),
+            // The tab a settings table renders in; a tab only exists through a section.
+            'rows' => array(
+                'name'     => 'Rows',
+                'tab'      => 'rows',
+                'tab_name' => 'Rows',
+                'callback' => '__return_false',
+            ),
+        );
+
+        $this->tables = array(
+            new WP_Settings_Table(array(
+                'id'      => 'fees',
+                'tab'     => 'rows',
+                'title'   => 'Fees',
+                'columns' => array(
+                    array('key' => 'status', 'label' => 'Status', 'type' => 'status'),
+                    array('key' => 'name', 'label' => 'Name', 'field' => 'name'),
+                ),
+                'fields'  => array(
+                    new WP_Setting('name', 'Fee Name', 'text', 'rows', 'rows'),
+                    new WP_Setting('enabled', 'Enabled', 'checkbox', 'rows', 'rows'),
+                ),
+            )),
         );
 
         $this->settings = array(
