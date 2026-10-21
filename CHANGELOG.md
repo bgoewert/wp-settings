@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.18.0] - 2026-10-21
+
+### Added
+
+- Settings tables take a `'position' => 'after'` arg that renders the table below its tab's settings form instead of above it ([#42](https://github.com/bgoewert/wp-settings/issues/42)).
+
+### Fixed
+
+- A settings table's select-all and row checkboxes have accessible names: "Select all", and "Select" plus the row's first non-status column, falling back to the row id ([#41](https://github.com/bgoewert/wp-settings/issues/41)).
+
 ## [4.17.0] - 2026-10-20
 
 ### Added
