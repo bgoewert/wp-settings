@@ -8,9 +8,7 @@ How a field or a whole section is shown or hidden from another field's value: wh
 
 ### Requirement: A condition resolves to the input its controlling field renders under
 
-A condition's `field` SHALL resolve to the `name` the controlling field renders under in the form being evaluated, whether the condition was written with the field's declared shorthand name or with its prefixed option slug. Resolution SHALL be idempotent: a reference that already names an input SHALL come back unchanged rather than carrying the prefix twice. The same resolved name SHALL be used both for the emitted `data-conditions` and for the list of controlling fields the browser binds change listeners to, so that a condition which decides the initial state also decides every later one.
-
-Fields rendered by a `WP_Settings_Table` modal render under their bare declared name and are held outside the page's settings, so conditions between them SHALL continue to match on that name.
+A condition's `field` SHALL resolve to the `name` the controlling field renders under, whether written as the field's declared name or its prefixed option slug. A reference that already names an input SHALL come back unchanged rather than prefixed twice. The same resolved name SHALL be used for the emitted `data-conditions` and for the controlling fields the browser binds change listeners to, so the condition that decides the initial state also decides every later one.
 
 #### Scenario: Condition written with the declared field name
 
@@ -22,6 +20,10 @@ Fields rendered by a `WP_Settings_Table` modal render under their bare declared 
 
 - **WHEN** the same condition is written as `'field' => 'myplugin_provider'`
 - **THEN** the reference is left alone rather than prefixed a second time
+
+### Requirement: A condition between table modal fields matches the bare name
+
+Fields rendered by a `WP_Settings_Table` modal render under their bare declared name and are held outside the page's settings, so conditions between them SHALL continue to match on that name.
 
 #### Scenario: Condition inside a table modal
 
@@ -45,7 +47,7 @@ A field declaring `conditions` SHALL be visible only while every condition holds
 
 ### Requirement: A section is hidden with its heading when its conditions are not met
 
-A section definition SHALL accept a `conditions` key with the same shape, operators and AND logic a field's takes. A conditional section SHALL render its heading and its `form-table` inside one wrapper element carrying the section's slug and its resolved conditions, so that hiding the section takes the heading with it rather than leaving it above an empty table. The wrapper SHALL come from `add_settings_section()`'s `before_section`/`after_section` args, and no `section_class` SHALL be set with them, because core runs `before_section` through `sprintf()` when a class is present and a `%` inside a condition value would be read as a placeholder.
+A section definition SHALL accept a `conditions` key with the same shape, operators and AND logic a field's takes. A conditional section SHALL render its heading and its `form-table` inside one wrapper element carrying the section's slug and its resolved conditions, so that hiding the section takes the heading with it rather than leaving it above an empty table.
 
 #### Scenario: Section whose conditions fail
 
@@ -56,6 +58,15 @@ A section definition SHALL accept a `conditions` key with the same shape, operat
 
 - **WHEN** the admin chooses a value that satisfies the section's conditions
 - **THEN** the heading and the section's fields appear together
+
+### Requirement: A section's wrapper survives a `%` in its conditions
+
+A conditional section's wrapper SHALL come from `add_settings_section()`'s `before_section`/`after_section` args, and no `section_class` SHALL be set with them, because core runs `before_section` through `sprintf()` when a class is present and a `%` inside a condition value would be read as a placeholder.
+
+#### Scenario: Condition value containing a percent sign
+
+- **WHEN** a section declares a condition whose value contains `%`
+- **THEN** the wrapper renders with that value intact in its conditions
 
 ### Requirement: The controlling fields reach the browser before the script that reads them
 

@@ -107,7 +107,14 @@ A field declaring `encrypted` SHALL render the message from the key-change repor
 - **THEN** the key-change message is shown and the control is empty
 
 ### Requirement: An administrator can retire the legacy key constants from a notice
-While a settings page's key or nonce constant is defined, the library SHALL show users who can manage options a notice offering to migrate its encrypted fields to the WordPress salts, stating that rotating the salts afterward makes those fields unreadable. On request it SHALL decrypt every encrypted field with the constants and stage it re-encrypted under the salts, then delete the constants' `define()` lines from `wp-config.php` when the file is writable and file modifications are allowed, or otherwise show the lines to delete with their values elided. Stored values SHALL stay untouched until a request resolves the key without the constants; that request SHALL swap each staged value in only after it decrypts under the key the request resolves. The migration SHALL NOT be offered on multisite.
+While a settings page's key or nonce constant is defined, the library SHALL show users who can manage options a notice offering to migrate its encrypted fields to the WordPress salts, stating that rotating the salts afterward makes those fields unreadable. The migration SHALL NOT be offered on multisite.
+
+#### Scenario: The site is a multisite network
+- **WHEN** the constants are defined on a multisite install
+- **THEN** no notice is shown and the migration request is refused
+
+### Requirement: A migration request stages the fields and removes the constants
+On request the library SHALL decrypt every encrypted field with the constants and stage it re-encrypted under the salts, then delete the constants' `define()` lines from `wp-config.php` when the file is writable and file modifications are allowed, or otherwise show the lines to delete with their values elided.
 
 #### Scenario: wp-config.php is writable
 - **WHEN** an administrator presses the button and every encrypted field decrypts with the constants
@@ -121,6 +128,9 @@ While a settings page's key or nonce constant is defined, the library SHALL show
 - **WHEN** any encrypted field fails to decrypt
 - **THEN** nothing is staged and nothing is deleted, and the notice names the field
 
+### Requirement: Staged values replace stored ones only once the constants are gone
+Stored values SHALL stay untouched until a request resolves the key without the constants. That request SHALL swap each staged value in only after it decrypts under the key the request resolves.
+
 #### Scenario: A field is re-entered while the migration waits
 - **WHEN** an encrypted field is saved after staging and before the constants are removed
 - **THEN** the staged copy is replaced with the new value, so the swap does not roll it back
@@ -128,7 +138,3 @@ While a settings page's key or nonce constant is defined, the library SHALL show
 #### Scenario: A front-end request runs first after the lines are removed
 - **WHEN** an encrypted field is read with decryption before any admin page has loaded without the constants
 - **THEN** the staged values are swapped in before the read, and it returns the plaintext
-
-#### Scenario: The site is a multisite network
-- **WHEN** the constants are defined on a multisite install
-- **THEN** no notice is shown and the migration request is refused

@@ -1,8 +1,11 @@
 # settings-text-domain-safety Specification
 
 ## Purpose
-TBD - created by archiving change safeguard-text-domain-outside-admin. Update Purpose after archive.
+
+How `WP_Setting::get()` and `::set()` find their option prefix outside wp-admin: a public setter that establishes the text domain without constructing a settings page, and a debug notice when a call arrives before it is set, so a misconfigured consumer reads its stored values instead of silently falling back to defaults.
+
 ## Requirements
+
 ### Requirement: Misuse Detection for Unset Text Domain
 `WP_Setting::get()` and `WP_Setting::set()` SHALL trigger `_doing_it_wrong()` when called while `WP_Setting::$text_domain` is empty, while still returning the same fallback value they return today (the provided default for `get()`, or performing the unprefixed write for `set()`).
 

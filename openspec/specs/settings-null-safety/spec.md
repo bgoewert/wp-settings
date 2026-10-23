@@ -1,8 +1,11 @@
 # settings-null-safety Specification
 
 ## Purpose
-TBD - created by archiving change fix-null-value-warnings. Update Purpose after archive.
+
+Keeps an unset constant, option or array key from reaching a PHP string function as `null`, so a consuming plugin's logs stay free of the PHP 8.1 deprecation notices and undefined-key warnings the library would otherwise emit.
+
 ## Requirements
+
 ### Requirement: Encryption defaults never pass null to string-length functions
 `WP_Setting_Encryption` SHALL resolve a string (never `null`) for the default key and default
 nonce, even when the underlying key/nonce constant or stored option is unset, so that
