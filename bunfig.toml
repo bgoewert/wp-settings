@@ -1,0 +1,3 @@
+# wp-build-tools is published to GitHub Packages; the token comes from ~/.npmrc.
+[install.scopes]
+"@seilerinstrument" = "https://npm.pkg.github.com"

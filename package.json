@@ -4,17 +4,28 @@
   "description": "Browser tests for the WordPress Settings Library.",
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "@seilerinstrument/wp-build-tools": "^3.7.0"
   },
   "scripts": {
-    "pkg:update": "bun update && composer update",
-    "env:start": "ddev start",
+    "pkg:install": "bunx --package @seilerinstrument/wp-build-tools wpbt-package-install",
+    "pkg:update": "wpbt-package-update",
+    "pkg:outdated": "wpbt-package-outdated",
+    "pkg:list": "wpbt-package-list",
+    "pkg:overrides": "wpbt-check-overrides",
+    "env:start": "wpbt-ddev-worktree && ddev start",
     "env:stop": "ddev stop",
-    "env:url": "ddev describe -j | jq -r '.raw.primary_url'",
+    "env:restart": "ddev restart",
+    "env:destroy": "ddev delete --omit-snapshot",
+    "env:url": "ddev describe -j | jq -r .raw.primary_url",
+    "env:log": "ddev exec tail -f .local/wp/wp-content/debug.log",
+    "env:log:tail": "ddev exec tail -100 .local/wp/wp-content/debug.log",
+    "env:update": "ddev wp core update && ddev wp core update-db",
+    "env:php:update": "wpbt-ddev-update && ddev restart",
     "test": "bun run test:unit && bun run test:integration && bun run test:e2e",
     "test:unit": "composer test:unit",
     "test:integration": "composer test:integration",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e": "wpbt-playwright test",
+    "test:e2e:ui": "wpbt-playwright test --ui"
   }
 }

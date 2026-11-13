@@ -716,11 +716,14 @@ Three suites, three things they can prove.
 | Suite | Command | Needs |
 | --- | --- | --- |
 | Unit | `composer test` | Nothing — the library runs against the WordPress function stubs in `tests/bootstrap.php` |
-| Integration | `composer test:integration` | A booted WordPress (`ddev start`) |
+| Integration | `composer test:integration` | A booted WordPress (`bun run env:start`) |
 | E2E | `bun run test:e2e` | The same ddev site, plus `bunx playwright install chromium` |
 | Mutation | `composer test:mutation` | A coverage driver on the host (pcov or Xdebug) |
 
-`ddev start` downloads WordPress into `.local/wp` (gitignored, so core never lands in the repo), installs it as `admin`/`admin`, and links `tests/harness/wp-settings-harness.php` in as an mu-plugin. That harness registers the settings page both the integration and e2e suites drive, at **Settings → Wp Settings Harness**.
+`bun run env:start` downloads WordPress into `.local/wp` (gitignored, so core never lands in the repo), installs it as `admin`/`admin`, and links `tests/harness/wp-settings-harness.php` in as an mu-plugin. That harness registers the settings page both the integration and e2e suites drive, at **Settings → Wp Settings Harness**.
+
+In a `git worktree`, `env:start` first runs `wpbt-ddev-worktree`, which writes a project name unique to the worktree into the gitignored `.ddev/config.local.yaml`, so its site runs beside the main checkout's instead of refusing to start. The e2e suite reads the site's URL from `ddev describe`. Run `bun run env:destroy` before `git worktree remove`, or the worktree's containers and database stay registered.
+
 
 `composer test:mutation` runs [Infection](https://infection.github.io/) over `src/` against the unit suite, mutating operators and return values to see which changes the tests fail to notice. Infection finds a PHPUnit config by fixed name, so it picks up `phpunit.xml.dist` and never touches the integration config, whose bootstrap needs a live `wp-load.php`. `minMsi` sits below the observed score deliberately — PHPUnit randomises test order, so which test covers a given mutant shifts between runs. Raise the gate as coverage improves; do not lower it to make a run pass.
 

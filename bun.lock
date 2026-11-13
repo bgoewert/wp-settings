@@ -7,20 +7,73 @@
       "devDependencies": {
         "@axe-core/playwright": "^4.13.0",
         "@playwright/test": "^1.63.0",
+        "@seilerinstrument/wp-build-tools": "^3.7.0",
       },
     },
   },
   "packages": {
     "@axe-core/playwright": ["@axe-core/playwright@4.13.0", "", { "dependencies": { "axe-core": "~4.13.0" }, "peerDependencies": { "playwright-core": ">= 1.0.0" } }, "sha512-6YLx+kxXu5GJceG4ozFg+33a2EMTdjYwWGloJ3sb9Kta5pp+ZNS53uxGVog5JetIY8s++P5UrtX+cri+u0VAVg=="],
 
+    "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
+
+    "@jridgewell/resolve-uri": ["@jridgewell/resolve-uri@3.1.2", "", {}, "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw=="],
+
+    "@jridgewell/source-map": ["@jridgewell/source-map@0.3.11", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.25" } }, "sha512-ZMp1V8ZFcPG5dIWnQLr3NSI1MiCU7UETdS/A0G8V/XWHvJv3ZsFqutJn1Y5RPmAPX6F3BiE397OqveU/9NCuIA=="],
+
+    "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
+
+    "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
+
+    "@seilerinstrument/wp-build-tools": ["@seilerinstrument/wp-build-tools@3.7.0", "https://npm.pkg.github.com/download/@seilerinstrument/wp-build-tools/3.7.0/22057ac8d715f79daf7baf0fa87ab6d1d2978f87", { "dependencies": { "lightningcss-cli": "^1.32.0", "terser": "^5.46.1", "yauzl": "^3.4.0" }, "hasInstallScript": true, "bin": { "wpbt": "bin/wpbt.js", "wpbt-add-workspace-scripts": "bin/add-workspace-scripts.js", "wpbt-bootstrap-autoload": "bin/bootstrap-autoload.js", "wpbt-build": "bin/build.js", "wpbt-build-blocks": "bin/build-blocks.js", "wpbt-build-zip": "bin/build-zip.js", "wpbt-changelog-setup": "bin/changelog-setup.js", "wpbt-check-overrides": "bin/check-overrides.js", "wpbt-check-requirements": "bin/check-requirements.js", "wpbt-composer-audit": "bin/composer-audit.js", "wpbt-composer-validate": "bin/composer-validate.js", "wpbt-coverage": "bin/coverage.js", "wpbt-ddev-login": "bin/ddev-login.js", "wpbt-ddev-setup": "bin/ddev-setup.js", "wpbt-ddev-update": "bin/ddev-update.js", "wpbt-ddev-worktree": "bin/ddev-worktree.js", "wpbt-e2e-needed": "bin/e2e-needed.js", "wpbt-env-login": "bin/env-login.js", "wpbt-generate-phpscoper-excludes": "bin/generate-phpscoper-excludes.js", "wpbt-infection": "bin/infection.js", "wpbt-infection-setup": "bin/infection-setup.js", "wpbt-install-hooks": "bin/install-hooks.js", "wpbt-lighthouse": "bin/lighthouse.js", "wpbt-lighthouse-setup": "bin/lighthouse-setup.js", "wpbt-markdownlint-setup": "bin/markdownlint-setup.js", "wpbt-mcp-setup": "bin/mcp-setup.js", "wpbt-minify": "bin/minify.js", "wpbt-package-audit": "bin/audit.js", "wpbt-package-install": "bin/install.js", "wpbt-package-list": "bin/list.js", "wpbt-package-outdated": "bin/outdated.js", "wpbt-package-update": "bin/update.js", "wpbt-php-matrix": "bin/php-matrix.js", "wpbt-phpcbf": "bin/phpcbf.js", "wpbt-phpcs": "bin/phpcs.js", "wpbt-phpcs-setup": "bin/phpcs-setup.js", "wpbt-phpstan-setup": "bin/phpstan-setup.js", "wpbt-phpunit": "bin/phpunit.js", "wpbt-phpunit-coverage": "bin/phpunit-coverage.js", "wpbt-phpunit-coverage-ddev": "bin/phpunit-coverage-ddev.js", "wpbt-phpunit-coverage-wp": "bin/phpunit-coverage-wp-env.js", "wpbt-phpunit-ddev": "bin/phpunit-ddev.js", "wpbt-phpunit-setup": "bin/phpunit-setup.js", "wpbt-phpunit-wp": "bin/phpunit-wp-env.js", "wpbt-playground-php": "bin/playground-php.js", "wpbt-playwright": "bin/playwright.js", "wpbt-playwright-coverage-ddev": "bin/playwright-coverage-ddev.js", "wpbt-playwright-setup": "bin/playwright-setup.js", "wpbt-scope-vendor": "bin/scope-vendor-packages.js", "wpbt-scoper-setup": "bin/scoper-setup.js", "wpbt-setup": "bin/setup.js", "wpbt-update-autoload": "bin/update-scoped-autoload.js", "wpbt-update-imports": "bin/update-namespace-imports.js", "wpbt-validate-build": "bin/validate-build.js", "wpbt-version": "bin/version.js", "wpbt-workflow-setup": "bin/workflow-setup.js", "wpbt-workflow-setup-local": "bin/workflow-setup-local.js", "wpbt-wp-env-setup": "bin/wp-env-setup.js", "wpbt-wppg-destroy": "bin/wppg-destroy.js", "wpbt-wppg-logs": "bin/wppg-logs.js", "wpbt-wppg-run": "bin/wppg-run.js", "wpbt-wppg-setup": "bin/wppg-setup.js", "wpbt-wppg-stop": "bin/wppg-stop.js" } }, "sha512-xw1+ychMYOAPp0V8hMPVO6N0XN/h3fW9hfldl6Xf3a1vV3QWZpUeS+8wl8JoIyOwkggwiWrZLXjo6ScmbQjL9Q=="],
+
+    "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
     "axe-core": ["axe-core@4.13.0", "", {}, "sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A=="],
 
+    "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
+
+    "commander": ["commander@2.20.3", "", {}, "sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ=="],
+
+    "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
+
+    "lightningcss-cli": ["lightningcss-cli@1.33.0", "", { "dependencies": { "detect-libc": "^2.0.3" }, "optionalDependencies": { "lightningcss-cli-android-arm64": "1.33.0", "lightningcss-cli-darwin-arm64": "1.33.0", "lightningcss-cli-darwin-x64": "1.33.0", "lightningcss-cli-freebsd-x64": "1.33.0", "lightningcss-cli-linux-arm-gnueabihf": "1.33.0", "lightningcss-cli-linux-arm64-gnu": "1.33.0", "lightningcss-cli-linux-arm64-musl": "1.33.0", "lightningcss-cli-linux-x64-gnu": "1.33.0", "lightningcss-cli-linux-x64-musl": "1.33.0", "lightningcss-cli-win32-arm64-msvc": "1.33.0", "lightningcss-cli-win32-x64-msvc": "1.33.0" }, "hasInstallScript": true, "bin": { "lightningcss": "lightningcss" } }, "sha512-/tBcBZlBFFxy1iYKDC/HSH/NEjv7Frq6dmDVKRbhGJQI/gFJIJ1/4ZXclxJkd0eEjBjDc5MY0YugHcvJVVGJVg=="],
+
+    "lightningcss-cli-android-arm64": ["lightningcss-cli-android-arm64@1.33.0", "", { "os": "android", "cpu": "arm64" }, "sha512-c0Xd7Gxaw3mNOyrb9ET1JH3JjuB69GY/6pHO4vgwEbIoHCXAt6DBg6kxr5t/oZL9LRxdnZCXF+o0Evz6kuR/xA=="],
+
+    "lightningcss-cli-darwin-arm64": ["lightningcss-cli-darwin-arm64@1.33.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-sso5hSFPis7ldw2FcBopsZviSVAXWRGX8ybUwMhQHssTlERenQJ88WihZs08tCdSnQULo2kunnrGhh4VjRw8Fg=="],
+
+    "lightningcss-cli-darwin-x64": ["lightningcss-cli-darwin-x64@1.33.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-/aDYpMv2QKpJoSIwvwpIs4tIX9SCU894eospSm55FR5MxDZkJDy4fEX6elsXkHCBDqbAknb4qd2h/oDMLTC4Ew=="],
+
+    "lightningcss-cli-freebsd-x64": ["lightningcss-cli-freebsd-x64@1.33.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-kK9u4IEAvt3+1m7lkloyfZNfXykXq2vCH7lgZ5aEqa8VuBZYqvcAIQ4Qt1593QJxbko9HEKUP0erdSxw7k7eFw=="],
+
+    "lightningcss-cli-linux-arm-gnueabihf": ["lightningcss-cli-linux-arm-gnueabihf@1.33.0", "", { "os": "linux", "cpu": "arm" }, "sha512-4bHmUlYCb8WKdPKx2yhk8y/kD034JVuUatDMWav0uU/hEIYJrxPimWBJJ4w2lgpcWchVnk/Kuihs4vaLjO/ozw=="],
+
+    "lightningcss-cli-linux-arm64-gnu": ["lightningcss-cli-linux-arm64-gnu@1.33.0", "", { "os": "linux", "cpu": "arm64", "libc": "glibc" }, "sha512-DkYmkBix3icAZKZsxGsjBAj59CIV0zflZtsT66lCPd2z3OqBLJlhKRrw4TlAW7mIkYeOEYWKVz/G00ZGXNse4A=="],
+
+    "lightningcss-cli-linux-arm64-musl": ["lightningcss-cli-linux-arm64-musl@1.33.0", "", { "os": "linux", "cpu": "arm64", "libc": "musl" }, "sha512-euNOhzo1ysRl719HfFzRe9r9usWO2Z/Nb8RnmqXxb/kvzOgAv2BcflpoTu6tWhSrbHX6YS/WP6mMFrmII6T7Hw=="],
+
+    "lightningcss-cli-linux-x64-gnu": ["lightningcss-cli-linux-x64-gnu@1.33.0", "", { "os": "linux", "cpu": "x64", "libc": "glibc" }, "sha512-9Q4DAglm17bLhA+HZPB+vxjrHXdhR/8U44zyc8MQNA5Rw+tisvcoR/lv4iuBUFn2qreYVRWQq0wP0rgdhTSxyQ=="],
+
+    "lightningcss-cli-linux-x64-musl": ["lightningcss-cli-linux-x64-musl@1.33.0", "", { "os": "linux", "cpu": "x64", "libc": "musl" }, "sha512-+EobHdqxQ21SUMF8OU0qcizNIrLpPDaPTKQCaGbra9gL3NrW3ELG+exZl5y+WzJsEjLZ0hhjbCFjHUL/03H2JA=="],
+
+    "lightningcss-cli-win32-arm64-msvc": ["lightningcss-cli-win32-arm64-msvc@1.33.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-iwQ+8rHQy3ewC4c43Ik3UZ8TCC/rjShP3r/8TOPw4fT8wQmW7dS3BNNHPK+LWz9qNrObATJ4MZEEZVRneckOBw=="],
+
+    "lightningcss-cli-win32-x64-msvc": ["lightningcss-cli-win32-x64-msvc@1.33.0", "", { "os": "win32", "cpu": "x64" }, "sha512-sgtNPw2gxnY8OzCCMTKCkHSIiBYb/wfXLpLMmDIJFzcX2OETY+VOnQd7OBHx+hVSlrMU7iWL6oJ5rc+nQwteVA=="],
+
+    "pend": ["pend@1.2.0", "", {}, "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg=="],
+
     "playwright": ["playwright@1.63.0", "", { "dependencies": { "playwright-core": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg=="],
 
-    "playwright-core": ["playwright-core@1.62.1", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw=="],
+    "playwright-core": ["playwright-core@1.63.0", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg=="],
 
-    "playwright/playwright-core": ["playwright-core@1.63.0", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg=="],
+    "source-map": ["source-map@0.6.1", "", {}, "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="],
+
+    "source-map-support": ["source-map-support@0.5.21", "", { "dependencies": { "buffer-from": "^1.0.0", "source-map": "^0.6.0" } }, "sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w=="],
+
+    "terser": ["terser@5.51.2", "", { "dependencies": { "@jridgewell/source-map": "^0.3.3", "acorn": "^8.15.0", "commander": "^2.20.0", "source-map-support": "~0.5.20" }, "bin": { "terser": "bin/terser" } }, "sha512-bWnjSNscmuI+GJze6ZupnHP8G/cTcsJF+bXCeQknk2SHQsgbNJnLrqiH9jZ2W4STPVXH2mDKKRX3iwPhc9Cn/Q=="],
+
+    "yauzl": ["yauzl@3.4.0", "", { "dependencies": { "pend": "~1.2.0" } }, "sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw=="],
   }
 }

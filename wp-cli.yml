@@ -1,0 +1,2 @@
+# WordPress lives in the gitignored docroot, so `ddev exec wp` from the repo root finds it.
+path: .local/wp
