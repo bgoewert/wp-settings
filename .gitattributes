@@ -23,3 +23,6 @@
 /playwright.config.js         export-ignore
 /infection.json5              export-ignore
 /phpunit-integration.xml.dist export-ignore
+/.jira.toml                   export-ignore
+/bunfig.toml                  export-ignore
+/wp-cli.yml                   export-ignore
