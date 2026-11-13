@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.19.1] - 2026-11-13
+
+### Fixed
+
+- Composer dist archives no longer ship `.jira.toml`, `bunfig.toml` or `wp-cli.yml`, the local Jira, Bun and WP-CLI config that 4.19.0 included.
+
 ## [4.19.0] - 2026-11-12
 
 ### Added
