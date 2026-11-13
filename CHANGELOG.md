@@ -4,6 +4,13 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.19.0] - 2026-11-12
+
+### Added
+
+- `WP_Settings_Email` defines one email your plugin sends: a subject and plain-text body with `{placeholder}` tokens, sent with `send()` or rendered with `render()`. Both pass through a `wp_settings_email` filter shaped like core's `wp_new_user_notification_email`, so a site that wraps core's system mail can wrap these the same way ([#44](https://github.com/bgoewert/wp-settings/issues/44)).
+- An `email_preview` field type shows an email as it will be sent, in a sandboxed frame or as plain text, and repaints it in the site's template as its `watch`ed subject and body fields are typed. `preview_markup()` renders the same preview in a metabox ([#44](https://github.com/bgoewert/wp-settings/issues/44)).
+
 ## [4.18.0] - 2026-10-21
 
 ### Added
