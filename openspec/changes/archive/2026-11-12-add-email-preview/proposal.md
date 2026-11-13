@@ -24,5 +24,5 @@ A plugin built on wp-settings that sends its own mail cannot show an admin what 
 
 - `src/WP_Settings_Email.php` — new.
 - `src/WP_Setting.php` — the `email_preview` renderer, and skipping its option as `status` does.
-- `src/assets/admin-email-preview.js` and `.css` — new.
+- `src/assets/admin-email-preview.js` — new.
 - wp-mu-email would add `wp_settings_email` to the core filters it already wraps. That is its own change, outside this repo.

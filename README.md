@@ -221,7 +221,7 @@ The directory is created with `wp_mkdir_p()`, so it honours `FS_CHMOD_DIR` (0755
 
 ## Field Types
 
-Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `media`, `status`, `table`, `field_map`
+Standard: `text`, `email`, `url`, `number`, `color`, `textarea`, `checkbox`, `select`, `radio`, `password`, `hidden`, `sortable`, `dual_list`, `media`, `status`, `email_preview`, `table`, `field_map`
 
 **Color**: Renders `<input type="color">`. The default sanitize callback accepts only what that control submits — `#rgb` or `#rrggbb` — and rejects anything else (including `rgb()`, `hsl()` and named colors) by storing `false`, the same way `url` and `email` reject invalid input. Pass your own `sanitize_callback` if you need to accept other CSS color syntaxes; `WP_Setting::sanitize_color()` and `WP_Setting::is_valid_hex_color()` are public if you want to build on them.
 
@@ -244,6 +244,8 @@ Both container types (`advanced` and `fieldset`) render each child through that 
 **Media**: A media library picker — Choose and Remove buttons over the `wp.media` modal, with a preview. Stores the attachment id.
 
 **Status**: A display-only row — the title and a derived reading, such as a connection state, as text. Stores nothing.
+
+**Email Preview**: A `WP_Settings_Email` shown as it will be sent, repainting as its subject and body fields are typed in. Stores nothing.
 
 ### Input Attributes
 
@@ -386,6 +388,67 @@ new WP_Setting(
 `value` is a string, or a callable called when the row renders — not on every `admin_init`, so a remote check only runs on the page that shows it. It passes through the same kses list as a description, so `<code>`, `<span>` and links survive. The buttons sit beside the value unless `actions_position` is `below`.
 
 Nothing is stored: the field seeds no option, registers nothing with `register_setting()`, and a save skips it. The row heading is plain text rather than a `<label>`, since there is no control to name.
+
+### Emails
+
+A `WP_Settings_Email` is one email your plugin sends: a subject and a plain-text body with `{placeholder}` tokens, and sample values to preview it with.
+
+```php
+use BGoewert\WP_Settings\WP_Settings_Email;
+
+$email = new WP_Settings_Email(array(
+    'id'      => 'attendee_message',
+    'subject' => WP_Setting::get('attendee_message_subject'),
+    'body'    => WP_Setting::get('attendee_message_body'),
+    'sample'  => array('event_title' => 'Sample Event', 'attendee_name' => 'Jane Doe'),
+    'headers' => array('Reply-To: events@example.com'), // optional
+));
+
+$email->send($attendee_email, array('event_title' => $title, 'attendee_name' => $name)); // wp_mail()'s result
+$email->render($context); // array( 'to', 'subject', 'message', 'headers' ), sending nothing
+```
+
+Each `{name}` takes the context's value as plain text; a token the context lacks stays as written. `id` is required.
+
+wp-settings brands nothing. Before it is sent or previewed, the email passes through the `wp_settings_email` filter as the array core's `wp_new_user_notification_email` takes, with the email object and the context as further arguments. A site that wraps core's system mail can add the same callback here, and every wp-settings email picks up the site's template:
+
+```php
+add_filter('wp_settings_email', 'my_site_wrap_system_mail', 20); // ($email, WP_Settings_Email $object, array $context)
+```
+
+A filter that returns anything but an array with a string `message` is ignored. A wrapper that produces HTML says so with a `Content-Type: text/html` header, which is how the preview knows to show a frame.
+
+### Email Previews
+
+An `email_preview` field shows its `email` rendered with the sample: the subject, then the message in an iframe sandboxed with no permissions, or as preformatted text when no wrapper made it HTML. `watch` names the subject and body fields, unprefixed, and typing in them repaints the preview with no request to the server:
+
+```php
+new WP_Setting('attendee_message_subject', 'Subject', 'text', 'mail', 'attendee', null, null, false, '{event_title}: an update'),
+new WP_Setting('attendee_message_body', 'Body', 'textarea', 'mail', 'attendee', null, null, false, "Hi {attendee_name},\n\n{message}"),
+new WP_Setting(
+    'attendee_message_preview', 'Preview', 'email_preview', 'mail', 'attendee',
+    null, null, false, null, null,
+    array(
+        'email' => fn() => my_plugin_attendee_email(),
+        'watch' => array('subject' => 'attendee_message_subject', 'body' => 'attendee_message_body'),
+    )
+),
+```
+
+Pass `email` as a callable: the page saves and renders in one request, so an email built from the options when the field is constructed shows the values from before the save.
+
+The page renders the email once more with sentinel text and reads, from what the site's wrapper made of it, the markup around a paragraph, a line break and a link. The script rebuilds typed text from those pieces: escape, link bare URLs, split on blank lines. The repaint matches `render()` for a wrapper that wraps every paragraph and link the same way. One that changes its markup by content drifts until the page reloads, and `render()` is still what is sent. When the wrapper's output does not show where the text went, the preview says it updates when the settings are saved.
+
+Outside a settings page, such as in a post metabox, print the same preview with element ids:
+
+```php
+echo $email->preview_markup(array(
+    'watch' => array('subject' => 'my-subject-input', 'body' => 'my-body-textarea'),
+    'title' => 'Preview: message to attendees', // the frame's accessible name
+));
+```
+
+`preview_markup()` enqueues its own script, so call it before the footer prints.
 
 ### Row Labels
 

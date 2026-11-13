@@ -16,16 +16,16 @@ An email preview SHALL show the email rendered with its sample values: the subje
 
 ### Requirement: An email_preview field stores nothing
 
-An `email_preview` field SHALL render a preview of its `email` in the settings row, SHALL NOT seed, register or write an option, and its row heading SHALL NOT be a `<label>`.
+An `email_preview` field SHALL render a preview of its `email` in the settings row, SHALL NOT seed, register or write an option, and its row heading SHALL NOT be a `<label>`. When `email` is callable it SHALL be called when the row renders. A field's `watch` SHALL name the subject and body fields by their unprefixed names.
 
 #### Scenario: The settings are saved
 
 - **WHEN** the tab holding an email_preview field is saved
-- **THEN** no option exists under the field's slug
+- **THEN** no option exists under the field's slug, and the page shown after the save previews the saved subject and body
 
 ### Requirement: A preview follows its template as it is edited
 
-A preview's `watch` argument MAY name the element ids of a subject input and a body input. Typing in either SHALL repaint the preview in the browser without a request to the server, with the sample values substituted into the typed text. For a site wrapper that wraps each paragraph and each link the same way regardless of their content, the repainted message SHALL equal what rendering the typed subject and body would produce.
+A preview's `watch` argument MAY name a subject input and a body input. Typing in either SHALL repaint the preview in the browser without a request to the server, with the sample values substituted into the typed text. For a site wrapper that wraps each paragraph and each link the same way regardless of their content, the repainted message SHALL equal what rendering the typed subject and body would produce.
 
 #### Scenario: A body is edited under a site wrapper
 
@@ -44,7 +44,7 @@ A preview's `watch` argument MAY name the element ids of a subject input and a b
 
 ### Requirement: A preview renders outside a settings page
 
-The same preview, `watch` included, SHALL be available as markup for a screen that is not a settings page, such as a post metabox, and SHALL load its script there.
+The same preview SHALL be available as markup for a screen that is not a settings page, such as a post metabox, with `watch` naming element ids, and SHALL load its script there.
 
 #### Scenario: A metabox preview
 

@@ -109,6 +109,8 @@ function wp_settings_test_reset_stubs(): void
     $GLOBALS["wp_test_multisite"] = false;
     $GLOBALS["wp_test_file_mods_allowed"] = true;
     $GLOBALS["wp_test_global_settings"] = [];
+    $GLOBALS["wp_test_mail"] = [];
+    $GLOBALS["wp_test_mail_result"] = true;
 
     // Declared further down, once the class it builds exists.
     if (function_exists("wp_settings_test_reset_wpdb")) {
@@ -183,6 +185,30 @@ if (!function_exists("add_filter")) {
             "accepted_args",
         );
         return true;
+    }
+}
+
+if (!function_exists("apply_filters")) {
+    function apply_filters($hook, $value, ...$args)
+    {
+        global $wp_test_filters;
+        $callbacks = $wp_test_filters[$hook] ?? [];
+        usort($callbacks, fn($a, $b) => $a["priority"] <=> $b["priority"]);
+        foreach ($callbacks as $filter) {
+            $value = call_user_func_array(
+                $filter["callback"],
+                array_slice(array_merge([$value], $args), 0, max(1, (int) $filter["accepted_args"])),
+            );
+        }
+        return $value;
+    }
+}
+
+if (!function_exists("wp_mail")) {
+    function wp_mail($to, $subject, $message, $headers = "", $attachments = [])
+    {
+        $GLOBALS["wp_test_mail"][] = compact("to", "subject", "message", "headers");
+        return $GLOBALS["wp_test_mail_result"];
     }
 }
 
@@ -607,9 +633,9 @@ if (!function_exists("admin_url")) {
 }
 
 if (!function_exists("wp_json_encode")) {
-    function wp_json_encode($value)
+    function wp_json_encode($value, $flags = 0, $depth = 512)
     {
-        return json_encode($value);
+        return json_encode($value, $flags, $depth);
     }
 }
 

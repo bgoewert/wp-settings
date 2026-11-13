@@ -2,7 +2,7 @@
 
 See proposal.md — Why. wp-mu-email wraps core's system mail at priority 20 on `wp_new_user_notification_email` and its siblings: `Seiler_Mail_Brand::filter_email()` replaces `message` with branded HTML and adds a `Content-Type: text/html` header. Its `body_html()` escapes the plain text, splits it on blank lines into `<p style="…">`, turns single newlines into `<br />`, and links bare URLs with a themed `<a style="…">`. Its Colors tab repaints a preview by swapping placeholder colors client-side, which works only because colors change token values, not markup.
 
-A field's input id is its slug (`label_for` defaults to it), so a slug is also an element id.
+A field renders its input with its slug, the text-domain prefix plus the name it was constructed with, as the element id.
 
 ## Goals / Non-Goals
 
@@ -26,7 +26,11 @@ A field's input id is its slug (`label_for` defaults to it), so a slug is also a
 
 **HTML is detected from the filtered headers, not the message.** A `Content-Type: text/html` header (string or array headers) means the wrapper produced HTML. Sniffing for `<` would misread a plain-text body that mentions a tag.
 
-**`watch` is keyed: `['subject' => id, 'body' => id]`.** The issue sketched a list; a list cannot say which input is the subject. Values are element ids, which for settings fields are their slugs, so the same argument works in a metabox.
+**`watch` is keyed: `['subject' => …, 'body' => …]`.** The issue sketched a list; a list cannot say which input is the subject. On a field the values are field names, unprefixed, as `conditions` names fields, and are resolved to slugs with the preview field's own prefix. `preview_markup()` takes element ids, since a metabox's inputs are not fields.
+
+**`email` may be a callable, called at render.** `WP_Settings` saves and renders the page in one request, so an email built from the options when the field is constructed previews the values from before the save. `status` takes a callable `value` for the same reason.
+
+**The preview is a `<figure>` named by its title.** The iframe carries the title too; a `<pre>` cannot take `aria-label`, so the plain-text case is named by the figure.
 
 **Live repaint from a sentinel render, parsed in PHP.** The page renders the email a second time with a sentinel subject and the body `A1\nA2\n\nB https://wps-sentinel.invalid/u`, sentinels alphanumeric so escaping leaves them intact. PHP finds them in the filtered result and derives the template parts:
 

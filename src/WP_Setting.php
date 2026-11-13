@@ -129,6 +129,10 @@ class WP_Setting
      *   every save, for a setting that is inert while a dependency is missing.
      * - value => _string|callable_ On `status`, the reading to show. A callable is called
      *   when the row renders.
+     * - email => _WP_Settings_Email|callable_ On `email_preview`, the email to show. A
+     *   callable is called when the row renders, after a save on the same request.
+     * - watch => _array{subject?:string,body?:string}_ On `email_preview`, the fields
+     *   (by name, unprefixed) whose input repaints the preview.
      * - conditions => _array_ Conditional visibility rules. Each condition has:
      *   - 'field' => string - Field name to check
      *   - 'operator' => string - 'equals', 'not_equals', 'in', 'not_in', 'empty', 'not_empty'
@@ -322,6 +326,7 @@ class WP_Setting
         'hidden',
         'media',
         'status',
+        'email_preview',
     );
 
     /**
@@ -821,6 +826,10 @@ class WP_Setting
                     $this->callback = array($this, 'init_status');
                     break;
 
+                case 'email_preview':
+                    $this->callback = array($this, 'init_email_preview');
+                    break;
+
                 default:
                     $this->callback = array($this, 'init_type');
                     break;
@@ -857,9 +866,10 @@ class WP_Setting
      */
     private function add_setting(bool $register_field = true): void
     {
-        // A status row reports a value that lives elsewhere, so there is no option
-        // to seed, and registering one would let options.php write it.
-        if ('status' !== $this->type) {
+        // A status row reports a value that lives elsewhere, and an email preview
+        // shows one, so there is no option to seed, and registering one would let
+        // options.php write it.
+        if (!in_array($this->type, array('status', 'email_preview'), \true)) {
             $this->register_option();
         }
 
@@ -1177,6 +1187,7 @@ class WP_Setting
                 break;
 
             case 'status':
+            case 'email_preview':
                 break;
 
             case 'advanced':
@@ -1310,6 +1321,40 @@ class WP_Setting
     {
         $value = $this->args['value'] ?? '';
         $this->render_unbound(is_callable($value) ? call_user_func($value) : $value, $this->slug, $this->slug);
+    }
+
+    /**
+     * Show the field's `email` as it will be sent, repainting as the fields `watch` names change.
+     *
+     * `watch` names fields as their constructors do, without the prefix, so it is
+     * resolved here to the ids those fields render. A callable `email` is called
+     * here, because the page saves and renders in one request: an email built
+     * from the options at construction would show the values from before the save.
+     *
+     * @return void
+     */
+    public function init_email_preview(): void
+    {
+        $email = $this->args['email'] ?? null;
+        if (is_callable($email)) {
+            $email = call_user_func($email);
+        }
+        if (!$email instanceof WP_Settings_Email) {
+            return;
+        }
+
+        $prefix = substr($this->slug, 0, strlen($this->slug) - strlen((string) $this->name));
+        $watch  = array_map(
+            static fn($name): string => $prefix . $name,
+            array_filter(array_map('strval', (array) ($this->args['watch'] ?? array())))
+        );
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- preview_markup() escapes each part; kses would strip the frame and its data.
+        echo $email->preview_markup(array('watch' => $watch, 'title' => sprintf('Preview: %s', $this->title)));
+
+        if ($this->description) {
+            echo \wp_kses(sprintf('<p class="description">%s</p>', $this->description), self::$allowed_html);
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ declare(strict_types=1);
 use BGoewert\WP_Settings\WP_Setting;
 use BGoewert\WP_Settings\WP_Settings;
 use BGoewert\WP_Settings\WP_Settings_Table;
+use BGoewert\WP_Settings\WP_Settings_Email;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -86,6 +87,12 @@ final class WP_Settings_Harness extends WP_Settings
                 'name'     => 'Rows',
                 'tab'      => 'rows',
                 'tab_name' => 'Rows',
+                'callback' => '__return_false',
+            ),
+            'mail' => array(
+                'name'     => 'Notice',
+                'tab'      => 'mail',
+                'tab_name' => 'Mail',
                 'callback' => '__return_false',
             ),
         );
@@ -349,9 +356,91 @@ final class WP_Settings_Harness extends WP_Settings
                 false,
                 null
             ),
+            'notice_subject' => new WP_Setting('notice_subject', 'Notice Subject', 'text', 'mail', 'mail', '400px', null, false, self::NOTICE_SUBJECT),
+            'notice_body' => new WP_Setting('notice_body', 'Notice Body', 'textarea', 'mail', 'mail', '400px', null, false, self::NOTICE_BODY, null, array('rows' => 6)),
+            'notice_preview' => new WP_Setting(
+                'notice_preview',
+                'Notice Preview',
+                'email_preview',
+                'mail',
+                'mail',
+                null,
+                'Follows the subject and body as you type.',
+                false,
+                null,
+                null,
+                array(
+                    'email' => static fn(): WP_Settings_Email => self::notice_email(
+                        (string) get_option(self::TEXT_DOMAIN . '_notice_subject', self::NOTICE_SUBJECT),
+                        (string) get_option(self::TEXT_DOMAIN . '_notice_body', self::NOTICE_BODY)
+                    ),
+                    'watch' => array('subject' => 'notice_subject', 'body' => 'notice_body'),
+                )
+            ),
         );
     }
+
+    public const NOTICE_SUBJECT = '{event_title}: an update';
+
+    public const NOTICE_BODY = "Hi {attendee_name},\n\n{message}";
+
+    /**
+     * The notice the Mail tab previews; the e2e suite renders one server-side to compare the repaint with.
+     */
+    public static function notice_email(string $subject, string $body): WP_Settings_Email
+    {
+        return new WP_Settings_Email(array(
+            'id'      => 'notice',
+            'subject' => $subject,
+            'body'    => $body,
+            'sample'  => array('event_title' => 'Sample Event', 'attendee_name' => 'Jane Doe', 'message' => 'Doors open at 9.'),
+        ));
+    }
 }
+
+/*
+ * A site's mail wrapper, chosen by the wp_settings_harness_mail_wrapper option:
+ * `brand` is shaped like wp-mu-email's body_html() (escape, link, paragraphs),
+ * `drop` replaces the body with fixed markup, anything else leaves mail alone.
+ */
+add_filter('wp_settings_email', static function ($email) {
+    $mode = (string) get_option('wp_settings_harness_mail_wrapper', '');
+
+    if ('drop' === $mode) {
+        $email['message'] = '<p>Your event has an update.</p>';
+        $email['headers'] = array('Content-Type: text/html; charset=UTF-8');
+        return $email;
+    }
+
+    if ('brand' !== $mode) {
+        return $email;
+    }
+
+    $text = htmlspecialchars(str_replace(array("\r\n", "\r"), "\n", $email['message']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $text = (string) preg_replace_callback('~\bhttps?://[^\s<]+~', static function (array $m): string {
+        $url   = $m[0];
+        $trail = '';
+        while ('' !== $url && false !== strpos('.,!?)', substr($url, -1))) {
+            $trail = substr($url, -1) . $trail;
+            $url   = substr($url, 0, -1);
+        }
+        return '<a href="' . $url . '" style="color:#0b4f8a;">' . $url . '</a>' . $trail;
+    }, $text);
+
+    $html = '';
+    foreach ((array) preg_split('/\n{2,}/', trim($text)) as $paragraph) {
+        $paragraph = trim((string) $paragraph);
+        if ('' !== $paragraph) {
+            $html .= '<p style="margin:0 0 16px;">' . str_replace("\n", '<br />', $paragraph) . '</p>';
+        }
+    }
+
+    $email['message'] = '<!DOCTYPE html><html><body style="font-family:&quot;Inter&quot;,sans-serif;"><table role="presentation"><tr><td>' . $html . '</td></tr></table></body></html>';
+    $email['subject'] = '[Harness] ' . $email['subject'];
+    $email['headers'] = array('Content-Type: text/html; charset=UTF-8');
+
+    return $email;
+}, 20);
 
 // The consumer's half of a field action: the library has already checked the
 // nonce and capability, and redirects back once this returns.
