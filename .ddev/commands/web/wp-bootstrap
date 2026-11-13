@@ -7,6 +7,14 @@ set -euo pipefail
 DOCROOT=/var/www/html/.local/wp
 HARNESS=/var/www/html/tests/harness/wp-settings-harness.php
 
+# On a fresh clone or worktree, Docker creates these as root to hold the src/ and
+# vendor/ bind mounts in docker-compose.override.yaml, and wp core download fails.
+for dir in /var/www/html/.local "$DOCROOT" "$DOCROOT/wp-content" "$DOCROOT/wp-content/plugins" "$DOCROOT/wp-content/plugins/wp-settings-lib"; do
+    if [ -d "$dir" ] && [ ! -w "$dir" ]; then
+        sudo chown "$(id -u):$(id -g)" "$dir"
+    fi
+done
+
 mkdir -p "$DOCROOT"
 cd "$DOCROOT"
 
